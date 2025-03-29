@@ -1,0 +1,93 @@
+version: '3.8'
+
+services:
+  postgres:
+    container_name: postgres
+    image: postgres:13
+    environment:
+      - POSTGRES_DB=${DB_NAME}
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+    networks:
+      - main
+    ports:
+      - "5432:5432"
+    restart: always
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/
+      
+  redis:
+    container_name: redis
+    image: redis:6.2
+    networks:
+      - main
+    ports:
+      - "6379:6379"
+    restart: always
+      
+  rabbitmq:
+    container_name: rabbitmq
+    image: rabbitmq:3.8-management
+    networks:
+      - main
+    ports:
+      - "5672:5672"
+    restart: always
+      
+  celery_worker:
+    container_name: celery_worker
+    command: "celery -A core.celery_config worker --pool=solo --loglevel=info"
+    depends_on:
+      - app
+      - postgres
+      - rabbitmq
+      - redis
+    build: .
+    environment:
+      - C_FORCE_ROOT=true
+    networks:
+      - main
+    restart: on-failure
+  
+  app:
+    build: .
+    command: sh -c "python manage.py migrate && gunicorn --bind 0.0.0.0:8000 config.wsgi:application"
+    container_name: app
+    volumes: 
+      - .:/code/
+    environment:
+      - SECRET_KEY=${SECRET_KEY}
+      - DEBUG=${DEBUG}
+      - DB_NAME=${DB_NAME}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_HOST=${DB_HOST}
+      - DB_PORT=${DB_PORT}
+      - EMAIL_HOST=${EMAIL_HOST}
+      - EMAIL_HOST_USER=${EMAIL_HOST_USER}
+      - EMAIL_HOST_PASSWORD=${EMAIL_HOST_PASSWORD}
+      - ACCESS_TOKEN=${ACCESS_TOKEN}
+      - REFRESH_TOKEN=${REFRESH_TOKEN}
+      - URL_BROKER=${URL_BROKER}
+    depends_on:
+      - postgres
+      - rabbitmq
+      - redis
+    expose:
+      - 8000
+    ports:
+      - "8000:8000"
+    networks:
+      - main
+    restart: always
+
+networks:
+  main:
+  
+volumes:
+  postgres_data:
+    driver: local
+    driver_opts:
+      type: "none"
+      o: "bind"
+      device: "//c/Users/Administrator/Downloads/IT/Projects/Django_Projects/yummy_yard/postgres_data"
