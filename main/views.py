@@ -8,12 +8,16 @@ from rest_framework.filters import SearchFilter
 from rest_framework.decorators import action
 from drf_spectacular.utils import extend_schema
 from django.http import JsonResponse
+from logging import getLogger
 from .models import *
 from .serializers import *
 from custom_permission import * 
 
 
-#==================================== admin View ======================================================
+#====================================== admin View ===================================================
+
+logger = getLogger(__name__)
+
 
 def get_product_price(request, product_id):
     try:
@@ -21,8 +25,8 @@ def get_product_price(request, product_id):
         return JsonResponse({"price": product.price})
     except Product.DoesNotExist:
         return JsonResponse({"error": "Product not found"}, status=404)
-    except Exception as e:
-        return JsonResponse({"error": str(e)}, status=500)
+    except Exception as error:
+        return JsonResponse({"error": str(error)}, status=500)
     
     
 def get_cart_price(request, cart_id):
@@ -31,8 +35,15 @@ def get_cart_price(request, cart_id):
         return JsonResponse({"total_amount": cart.total_price}) 
     except ShoppingCart.DoesNotExist:
         return JsonResponse({"error": "Shopping cart not found"}, status=404)
-    except Exception as e:
-        return JsonResponse({"error": str(e)}, status=500)
+    except Exception as error:
+        return JsonResponse({"error": str(error)}, status=500)
 
 
-# ==========================================================================================================
+#====================================== Wishlist View ================================================
+#====================================== ShoppingCart View ============================================
+#====================================== Delivery Schedule View =======================================
+#====================================== Order Serializer =============================================
+#====================================== Transaction View =============================================
+#====================================== UserView View ================================================
+#====================================== Rating View ==================================================
+# ====================================================================================================
