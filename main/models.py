@@ -233,7 +233,7 @@ class Coupon(models.Model):
     
     def save(self, *args, **kwargs):
         if not self.code:
-            self.code = code_generator(10)
+            self.code = code_generator(5)
         super().save(*args, **kwargs)
     
     class Meta:
@@ -296,7 +296,6 @@ class ShoppingCart(models.Model):
 
     def clean(self):
         self.validate_customer()
-        # self.place_order()
         
     def validate_customer(self):
         if not self.online_customer and not self.in_person_customer:
@@ -451,8 +450,8 @@ class DeliverySchedule(models.Model):
         if self.date == crr_date:
             start_hour = int(self.time.split("_")[0])
             if start_hour <= crr_hour + 4:
-                raise ValidationError(f"The selected timeframe ({self.time}) is not available. Please select a timeframe starting after {crr_hour + 4}:00.")
-
+                raise ValidationError(f"The selected timeframe ({self.time}) is unavailable. Please select a timeframe starting after {crr_hour + 4}:00. If no later timeframes are available today, please choose a delivery slot for tomorrow.")
+                
     def validate_delivery_slot(self):
         total_booked_normal = DeliverySchedule.objects.filter(date=self.date, time=self.time, delivery_method="normal").count()
         total_booked_fast = DeliverySchedule.objects.filter(date=self.date, time=self.time, delivery_method="fast").count()
@@ -547,9 +546,9 @@ class Order(models.Model):
         try:
             if not self.shopping_cart:
                 raise ValidationError("No ShoppingCart is linked to this Order.")
-            cart = self.shopping_cart
-            delivery = self.delivery_schedule
-            self.total_amount = cart.total_price + delivery.delivery_cost
+            cart_price = self.shopping_cart.total_price
+            delivery_cost = self.delivery_schedule.delivery_cost
+            self.total_amount = cart_price + delivery_cost
             self.amount_payable = self.total_amount - self.discount_applied
             if self.amount_payable <= 0:
                 raise ValidationError("amount_payable cannot be zero or negative.")
@@ -565,8 +564,6 @@ class Order(models.Model):
                     raise ValidationError("discount_applied does not match the coupon's discount_percentage.")
                 if not self.coupon.is_valid():
                     raise ValidationError("This coupon is no longer valid.")
-                # if self.coupon.usage_count >= self.coupon.max_usage:
-                #     raise ValidationError("This coupon has reached its maximum usage limit.")
                 with transaction.atomic():
                     self.coupon.usage_count = models.F("usage_count") + 1
                     self.coupon.save(update_fields=["usage_count"])

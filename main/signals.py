@@ -46,7 +46,7 @@ def update_cart_total_price(sender, instance, **kwargs):
 
 @receiver(post_save, sender=Order)
 def handle_place_order(sender, instance, created, **kwargs):
-    if created:  # Ensure this runs only when a new Order is created
+    if created:  
         shopping_cart = instance.shopping_cart 
         shopping_cart.place_order()
         logger.debug(f"Order ID {instance.id} triggered place_order for ShoppingCart ID {shopping_cart.id}")  
