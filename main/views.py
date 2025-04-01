@@ -11,7 +11,7 @@ from django.http import JsonResponse
 from logging import getLogger
 from .models import *
 from .serializers import *
-from custom_permission import * 
+from custom_permission import CheckOwnershipPermission
 
 
 #====================================== admin View ===================================================
@@ -42,7 +42,7 @@ def get_cart_price(request, cart_id):
 #====================================== Wishlist View ================================================
 
 class WishlistModelViewSet(viewsets.ModelViewSet):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [CheckOwnershipPermission]
     queryset = Wishlist.objects.all()
     serializer_class = WishlistSerializer
     http_method_names = ["get", "post", "delete"]
@@ -58,10 +58,13 @@ class WishlistModelViewSet(viewsets.ModelViewSet):
     
     @action(detail=False, methods=["delete"], url_path="delete_by_product/(?P<product_id>[0-9]+)")
     def destroy_by_product(self, request, product_id=None):
+        print(f"DELETE request received for product_id: {product_id}")
         wishlist_item = Wishlist.objects.filter(user=request.user, product_id=product_id).first()
         if wishlist_item:
+            print("Wishlist item found and being deleted.")
             wishlist_item.delete()
             return Response({"detail": "Wishlist item deleted successfully."}, status=204)
+        print("Wishlist item not found.")
         return Response({"detail": "Wishlist item not found."}, status=404)
 
 

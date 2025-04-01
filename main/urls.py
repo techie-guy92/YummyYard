@@ -6,8 +6,6 @@ from .views import (get_product_price, get_cart_price, WishlistModelViewSet, )
 router =  DefaultRouter()
 router.register(r"wishlist", WishlistModelViewSet, basename="wishlist")
 
-for urlpattern in router.urls:
-    print(urlpattern)
     
 urlpatterns = [
     path("get_product_price/<int:product_id>/", get_product_price, name="get_product_price"),
