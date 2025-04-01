@@ -97,7 +97,7 @@ class CouponAdmin(admin.ModelAdmin):
 class WishlistAdmin(admin.ModelAdmin):
     list_display = ["id", "user", "product", "price"]
     search_fields = ["user", "product"]
-    ordering = ["user"]
+    ordering = ["user", "id"]
 
     def price(self, obj):
         return obj.get_product_price()

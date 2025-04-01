@@ -40,10 +40,65 @@ def get_cart_price(request, cart_id):
 
 
 #====================================== Wishlist View ================================================
+
+class WishlistModelViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticated]
+    queryset = Wishlist.objects.all()
+    serializer_class = WishlistSerializer
+    http_method_names = ["get", "post", "delete"]
+    pagination_class = PageNumberPagination
+    filter_backends = [SearchFilter]
+    search_fields = ["user__username", "user__email", "product__name"]
+
+    def get_queryset(self):
+        return Wishlist.objects.filter(user=self.request.user)
+    
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+    
+    @action(detail=False, methods=["delete"], url_path="delete_by_product/(?P<product_id>[0-9]+)")
+    def destroy_by_product(self, request, product_id=None):
+        wishlist_item = Wishlist.objects.filter(user=request.user, product_id=product_id).first()
+        if wishlist_item:
+            wishlist_item.delete()
+            return Response({"detail": "Wishlist item deleted successfully."}, status=204)
+        return Response({"detail": "Wishlist item not found."}, status=404)
+
+
 #====================================== ShoppingCart View ============================================
+
+class ShoppingCartAPIView(APIView):
+    pass
+
+
 #====================================== Delivery Schedule View =======================================
+
+class DeliveryScheduleAPIView(APIView):
+    pass
+
+
 #====================================== Order Serializer =============================================
+
+class OrderAPIView(APIView):
+    pass
+
+
 #====================================== Transaction View =============================================
+
+class TransactionModelViewSet(viewsets.ModelViewSet):
+    pass
+
+
 #====================================== UserView View ================================================
+
+class UserViewModelViewSet(viewsets.ModelViewSet):
+    pass
+
+
 #====================================== Rating View ==================================================
+
+class RatingModelViewSet(viewsets.ModelViewSet):
+    pass
+
+
 # ====================================================================================================

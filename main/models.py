@@ -266,6 +266,7 @@ class Wishlist(models.Model):
         verbose_name = "Wishlist"
         verbose_name_plural = "Wishlists"
         indexes = [models.Index(fields=["product"])]
+        constraints = [models.UniqueConstraint(fields=["user", "product"], name="unique_wishlist_item")]
         
 
 #====================================== ShoppingCart Model ============================================
@@ -477,11 +478,8 @@ class DeliverySchedule(models.Model):
         verbose_name = "Delivery Schedule"
         verbose_name_plural = "Delivery Schedules"
         indexes = [models.Index(fields=["date"]), models.Index(fields=["day"]), models.Index(fields=["time"])]
-        # constraints = [
-        #     models.UniqueConstraint(fields=["date", "time"], name="unique_delivery_slot"),
-        # ]
 
-   
+
 #====================================== Order Model ===================================================
 
 class Order(models.Model):

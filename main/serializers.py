@@ -4,12 +4,58 @@ from users.models import *
 
 
 #====================================== Wishlist Serializer ================================================
+
+class WishlistSerializer(serializers.ModelSerializer):
+    product_name = serializers.ReadOnlyField(source="product.name")
+    product_price = serializers.ReadOnlyField(source="product.price")
+    # user = serializers.HiddenField(default=None)
+    
+    class Meta:
+        model = Wishlist
+        fields = ["id", "user", "product", "product_price", "product_name"]
+        extra_kwargs = {"user": {"read_only": True}}
+        
+        
 #====================================== ShoppingCart Serializer ============================================
+
+class CartItemSerializer(serializers.ModelSerializer):
+    pass
+        
+        
+class ShoppingCartSerializer(serializers.Serializer):
+    pass
+        
+        
 #====================================== Delivery Schedule Serializer =======================================
+
+class DeliveryScheduleSerializer(serializers.ModelSerializer):
+    pass
+        
+        
 #====================================== Order Serializer ===================================================
+
+class OrderSerializer(serializers.ModelSerializer):
+    pass
+        
+        
 #====================================== Transaction Serializer =============================================
+
+class TransactionSerializer(serializers.ModelSerializer):
+    pass
+        
+        
 #====================================== UserView Serializer ================================================
+
+class UserViewSerializer(serializers.ModelSerializer):
+    pass
+        
+        
 #====================================== Rating Serializer ==================================================
+
+class RatingSerializer(serializers.ModelSerializer):
+    pass
+        
+        
 #===========================================================================================================
 
 # class DeliveryScheduleSerializer(serializers.ModelSerializer):
