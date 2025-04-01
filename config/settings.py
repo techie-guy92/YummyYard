@@ -277,7 +277,7 @@ SIMPLE_JWT = {
 
 SPECTACULAR_SETTINGS = {
     "TITLE" : "YummyYard",
-    "DESCRIPTION" : "Here you can find whatever you want as foodstuff in your kitchen or pantry.",
+    "DESCRIPTION" : "Here you can find whatever you want as foodstuff for your kitchen or pantry.",
     "VERSION" : "1.0.0",
     "SERVE_INCLUDE_SCHEMA" : False,
 }
