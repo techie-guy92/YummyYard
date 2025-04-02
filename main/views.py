@@ -58,20 +58,43 @@ class WishlistModelViewSet(viewsets.ModelViewSet):
     
     @action(detail=False, methods=["delete"], url_path="delete_by_product/(?P<product_id>[0-9]+)")
     def destroy_by_product(self, request, product_id=None):
-        print(f"DELETE request received for product_id: {product_id}")
         wishlist_item = Wishlist.objects.filter(user=request.user, product_id=product_id).first()
         if wishlist_item:
-            print("Wishlist item found and being deleted.")
             wishlist_item.delete()
-            return Response({"detail": "Wishlist item deleted successfully."}, status=204)
+            print("Wishlist item found and being deleted.")
+            return Response({"detail": "Wishlist item deleted successfully."}, status=status.HTTP_204_NO_CONTENT)
         print("Wishlist item not found.")
-        return Response({"detail": "Wishlist item not found."}, status=404)
+        return Response({"detail": "Wishlist item not found."}, status=status.HTTP_404_NOT_FOUND)
 
 
 #====================================== ShoppingCart View ============================================
 
-class ShoppingCartAPIView(APIView):
-    pass
+class ShoppingCartAPIView(viewsets.ViewSet):
+    permission_classes = [IsAuthenticated]
+    
+    @extend_schema(
+        request = ShoppingCartSerializer,
+        responses = {201: "Cart created successfully", 400: "Failed to create cart"}    
+    )
+    def create(self, request, *args, **kwargs):
+        serializer = ShoppingCartSerializer(data=request.data, context={"request": request})
+        if serializer.is_valid():
+            cart = serializer.save()
+            return Response(
+                {
+                    "message": "کالاهای شما اضافه شد.", 
+                    "cart_id": cart.id, 
+                    "total_price": cart.total_price,
+                }, 
+                status=status.HTTP_201_CREATED
+        )
+        return Response(
+            {
+                "error": serializer.errors, 
+                "details": "Failed to create shopping cart."
+            }, 
+            status=status.HTTP_400_BAD_REQUEST
+        )
 
 
 #====================================== Delivery Schedule View =======================================

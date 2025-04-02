@@ -19,11 +19,35 @@ class WishlistSerializer(serializers.ModelSerializer):
 #====================================== ShoppingCart Serializer ============================================
 
 class CartItemSerializer(serializers.ModelSerializer):
-    pass
+    class Meta:
+        model = CartItem
+        fields = ["product", "quantity", "grand_total"]
         
         
 class ShoppingCartSerializer(serializers.Serializer):
-    pass
+    cart_items = CartItemSerializer(many=True, write_only=True)
+    total_price = serializers.IntegerField(read_only=True)
+    
+    class Meta:
+        model = ShoppingCart
+        fields = ["cart_items", "total_price"] 
+        
+    def create(self, validated_data):
+        cart_items_data = validated_data.pop("cart_items")
+        request = self.context.get("request")
+        validated_data["online_customer"] = request.user
+        try:
+            with transaction.atomic():
+                cart = ShoppingCart.objects.create(**validated_data)
+                for item_data in cart_items_data:
+                    CartItem.objects.create(cart=cart, **item_data )
+                cart.total_price = cart.calculate_total_price()
+                cart.save(update_fields=["total_price"])
+                return cart
+        except ValidationError as error:
+            raise serializers.ValidationError({"error": str(error)})
+        except Exception as error:
+            raise serializers.ValidationError({"error": "An unexpected error occurred."})
         
         
 #====================================== Delivery Schedule Serializer =======================================
