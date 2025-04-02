@@ -2,10 +2,11 @@ from rest_framework import status, viewsets
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import generics
-from rest_framework.permissions import IsAdminUser, IsAuthenticated, IsAuthenticatedOrReadOnly
+from rest_framework.permissions import IsAdminUser, IsAuthenticated, IsAuthenticatedOrReadOnly, AllowAny
 from rest_framework.pagination import PageNumberPagination
-from rest_framework.filters import SearchFilter
 from rest_framework.request import Request
+from rest_framework.filters import SearchFilter
+from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.decorators import action
 from drf_spectacular.utils import extend_schema
 from django.http import JsonResponse
@@ -38,6 +39,32 @@ def get_cart_price(request, cart_id):
         return JsonResponse({"error": "Shopping cart not found"}, status=404)
     except Exception as error:
         return JsonResponse({"error": str(error)}, status=500)
+
+
+#====================================== Gategory View ================================================
+
+class CategoryModelViewSet(viewsets.ModelViewSet):
+    permission_classes = [AllowAny]
+    queryset = Category.objects.all().order_by("parent")
+    serializer_class = CategorySerializer
+    http_method_names = ["get"]
+    pagination_class = PageNumberPagination
+    filter_backends = [SearchFilter, DjangoFilterBackend]
+    filterset_fields = ["parent"]
+    search_fields = ["slug", "parent__name"]
+
+
+#====================================== Product View =================================================
+
+class ProductModelViewSet(viewsets.ModelViewSet):
+    permission_classes = [AllowAny]
+    queryset = Product.objects.all().order_by("-price")
+    serializer_class = ProductSerializer
+    http_method_names = ["get"]
+    pagination_class = PageNumberPagination
+    filter_backends = [SearchFilter, DjangoFilterBackend]
+    filterset_fields = ["category"]
+    search_fields = ["slug", "name", "category__name"]
 
 
 #====================================== Wishlist View ================================================
@@ -89,13 +116,7 @@ class ShoppingCartAPIView(viewsets.ViewSet):
                 }, 
                 status=status.HTTP_201_CREATED
         )
-        return Response(
-            {
-                "error": serializer.errors, 
-                "details": "Failed to create shopping cart."
-            }, 
-            status=status.HTTP_400_BAD_REQUEST
-        )
+        return Response({"error": serializer.errors, "details": "Failed to create shopping cart."}, status=status.HTTP_400_BAD_REQUEST)
 
 
 #====================================== Delivery Schedule View =======================================
@@ -151,7 +172,7 @@ class DeliveryScheduleAPIView(APIView):
             except ValidationError as error:
                 return Response({"error": str(error)}, status=status.HTTP_400_BAD_REQUEST)
             except Exception as error:
-                logger.error(f"Unexpected error occurred in DeliveryScheduleAPIView for user {request.user.id}: {error}")
+                logger.error(f"Unexpected error occurred in DeliveryScheduleAPIView for user {request.user.username}: {error}")
                 return Response({"error": "An unexpected error occurred."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         else:
             return Response({"error": serializer.errors, "details": "Validation failed."}, status=status.HTTP_400_BAD_REQUEST)

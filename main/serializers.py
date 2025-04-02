@@ -3,6 +3,27 @@ from .models import *
 from users.models import *
 
 
+#====================================== Gategory Serializer ================================================
+
+class CategorySerializer(serializers.ModelSerializer):
+    children = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Category
+        fields = ["id", "name", "parent", "slug", "description", "image", "children"]
+
+    def get_children(self, obj):
+        return CategorySerializer(obj.Category_parent.all(), many=True).data
+        
+        
+#====================================== Product Serializer =================================================
+
+class ProductSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Product
+        fields = ["id", "name", "category", "slug", "price", "description", "image"]
+        
+        
 #====================================== Wishlist Serializer ================================================
 
 class WishlistSerializer(serializers.ModelSerializer):
@@ -100,22 +121,3 @@ class RatingSerializer(serializers.ModelSerializer):
         
         
 #===========================================================================================================
-
-# class DeliveryScheduleSerializer(serializers.ModelSerializer):
-#     class Meta:
-#         model = DeliverySchedule
-#         fields = ["id", "shopping_cart", "user", "date", "time", "delivery_method", "delivery_cost"]
-
-#     def validate(self, data):
-#         if data.get("shopping_cart") and data.get("user"):
-#             cart_user = data["shopping_cart"].online_customer
-#             if cart_user and cart_user != data["user"]:
-#                 raise serializers.ValidationError(
-#                     "User and ShoppingCart's online_customer must match."
-#                 )
-#         return data
-
-#     def create(self, validated_data):
-#         instance = super().create(validated_data)
-#         instance.reserve_delivery_slot()
-#         return instance
