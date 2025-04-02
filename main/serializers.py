@@ -53,9 +53,28 @@ class ShoppingCartSerializer(serializers.Serializer):
 #====================================== Delivery Schedule Serializer =======================================
 
 class DeliveryScheduleSerializer(serializers.ModelSerializer):
-    pass
-        
-        
+    delivery_cost = serializers.ReadOnlyField()
+    day = serializers.ReadOnlyField()
+    
+    class Meta:
+        model = DeliverySchedule
+        fields = ["delivery_method", "date", "day", "time", "delivery_cost"]
+        extra_kwargs = {"user": {"read_only": True}, "shopping_cart": {"read_only": True}}
+
+    # def create(self, validated_data):
+    #     request = self.context.get("request")
+    #     validated_data["user"] = request.user
+    #     validated_data["shopping_cart"] = ShoppingCart.objects.filter(online_customer=request.user).last()
+    #     if not validated_data["shopping_cart"]:
+    #         raise serializers.ValidationError("No active shopping cart found.")
+    #     return super().create(validated_data)
+    
+    def validate(self, data):
+        if not ShoppingCart.objects.filter(online_customer=self.context["request"].user).exists():
+            raise serializers.ValidationError("No active shopping cart found. Please add products to your cart before scheduling delivery.")
+        return data
+
+         
 #====================================== Order Serializer ===================================================
 
 class OrderSerializer(serializers.ModelSerializer):

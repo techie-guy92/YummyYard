@@ -5,6 +5,7 @@ from rest_framework import generics
 from rest_framework.permissions import IsAdminUser, IsAuthenticated, IsAuthenticatedOrReadOnly
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.filters import SearchFilter
+from rest_framework.request import Request
 from rest_framework.decorators import action
 from drf_spectacular.utils import extend_schema
 from django.http import JsonResponse
@@ -76,7 +77,7 @@ class ShoppingCartAPIView(viewsets.ViewSet):
         request = ShoppingCartSerializer,
         responses = {201: "Cart created successfully", 400: "Failed to create cart"}    
     )
-    def create(self, request, *args, **kwargs):
+    def create(self, request: Request, *args, **kwargs):
         serializer = ShoppingCartSerializer(data=request.data, context={"request": request})
         if serializer.is_valid():
             cart = serializer.save()
@@ -100,7 +101,60 @@ class ShoppingCartAPIView(viewsets.ViewSet):
 #====================================== Delivery Schedule View =======================================
 
 class DeliveryScheduleAPIView(APIView):
-    pass
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        request=DeliveryScheduleSerializer,
+        responses={
+            201: "Delivery schedule created successfully",
+            400: "No active shopping cart found",
+            409: "This order has already been completed",
+            500: "An unexpected error occurred",
+        },
+    )
+    def post(self, request):
+        cart = ShoppingCart.objects.filter(online_customer=request.user).last()
+        if not cart:
+            return Response({"error": "سفارش فعالی وجود ندارد."}, status=status.HTTP_400_BAD_REQUEST)
+        order = Order.objects.filter(shopping_cart=cart).first()
+        if order:
+            return Response({"error": "این سفارش قبلا تکمیل شده است."}, status=status.HTTP_409_CONFLICT)
+        delivery_schedule = DeliverySchedule.objects.filter(user=request.user, shopping_cart=cart).first()
+        if delivery_schedule:
+            return Response(
+                {
+                    "error": "این ارسال سفارش قبلا ثبت شده است.",
+                    "delivery_id": delivery_schedule.id,
+                    "delivery_date": delivery_schedule.date,
+                    "delivery_time": delivery_schedule.time,
+                }, 
+                status=status.HTTP_409_CONFLICT,
+            )
+        
+        data = request.data.copy()
+        serializer = DeliveryScheduleSerializer(data=data, context={"request": request})
+        if serializer.is_valid():
+            try:
+                delivery_data = serializer.validated_data
+                delivery = DeliverySchedule(user=request.user, shopping_cart=cart, **delivery_data)
+                delivery.save() 
+                return Response(
+                    {
+                        "message": "Delivery schedule created successfully.",
+                        "delivery_id": delivery.id,
+                        "delivery_date": delivery.date,
+                        "delivery_time": delivery.time,
+                        "delivery_cost": delivery.delivery_cost,
+                    },
+                    status=status.HTTP_201_CREATED,
+                )
+            except ValidationError as error:
+                return Response({"error": str(error)}, status=status.HTTP_400_BAD_REQUEST)
+            except Exception as error:
+                logger.error(f"Unexpected error occurred in DeliveryScheduleAPIView for user {request.user.id}: {error}")
+                return Response({"error": "An unexpected error occurred."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        else:
+            return Response({"error": serializer.errors, "details": "Validation failed."}, status=status.HTTP_400_BAD_REQUEST)
 
 
 #====================================== Order Serializer =============================================
