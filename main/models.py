@@ -220,7 +220,7 @@ class Coupon(models.Model):
     usage_count = models.PositiveIntegerField(default=0, editable=False, verbose_name="Usage Count")
     valid_from = models.DateTimeField(verbose_name="Valid From")
     valid_to = models.DateTimeField(verbose_name="Valid To")
-    is_active = models.BooleanField(default=True, verbose_name="Is Active")
+    is_active = models.BooleanField(default=False, verbose_name="Is Active")
     
     def __str__(self):
         return f"{self.code}"
@@ -229,7 +229,7 @@ class Coupon(models.Model):
         return self.valid_to < localtime(now())
     
     def is_valid(self):
-        return self.is_active and not self.is_expired() and self.usage_count < self.max_usage
+        return self.is_active and not self.is_expired() and self.usage_count <= self.max_usage
     
     def save(self, *args, **kwargs):
         if not self.code:
@@ -596,9 +596,6 @@ class Order(models.Model):
                 expected_discount = (self.total_amount * self.coupon.discount_percentage) / 100
                 if self.discount_applied != expected_discount:
                     raise ValidationError("The applied discount does not match the expected discount.")
-                if self.coupon.usage_count + 1 >= self.coupon.max_usage:
-                        self.coupon.is_active = False
-                        self.coupon.save(update_fields=["is_active"])
             except ValidationError as error:
                 raise ValidationError(f"Validation error while applying discount: {str(error)}")
             except Exception as error:

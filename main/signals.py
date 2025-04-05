@@ -14,13 +14,19 @@ logger = getLogger(__name__)
 def check_coupon_expiration(sender, instance, **kwargs):
     try:
         logger.debug(f"Signal triggered for coupon: {instance.code}. Current time: {localtime(now())}, Valid To: {instance.valid_to}")
+        instance.refresh_from_db()
         if instance.is_expired() and instance.is_active:
-            logger.info(f"Coupon {instance.code} has expired. Deactivating...")
+            logger.info(f"Coupon {instance.code} has expired.")
             instance.is_active = False
             instance.save(update_fields=["is_active"])
-            logger.info(f"Coupon {instance.code} deactivated.")
-        else:
-            logger.debug(f"Coupon {instance.code} is not expired or already inactive.")
+            logger.info(f"Coupon {instance.code} deactivated due to expiration.")
+        if instance.usage_count >= instance.max_usage and instance.is_active:
+            logger.info(f"Coupon {instance.code} has reached its maximum usage.")
+            instance.is_active = False
+            instance.save(update_fields=["is_active"])
+            logger.info(f"Coupon {instance.code} deactivated due to maximum usage.")
+        if instance.is_active:
+            logger.debug(f"Coupon {instance.code} is still valid.")
     except Exception as error:
         logger.error(f"Error in check_coupon_expiration signal: {error}", exc_info=True)
 

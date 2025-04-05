@@ -132,9 +132,6 @@ class OrderSerializer(serializers.ModelSerializer):
                     coupon.usage_count = models.F("usage_count") + 1
                     coupon.save(update_fields=["usage_count"])
                     coupon.refresh_from_db()
-                    if coupon.usage_count >= coupon.max_usage:
-                        coupon.is_active = False
-                        coupon.save(update_fields=["is_active"])
                 except Coupon.DoesNotExist:
                     raise serializers.ValidationError("Invalid discount code.")
 
