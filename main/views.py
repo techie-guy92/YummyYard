@@ -136,7 +136,7 @@ class DeliveryScheduleAPIView(APIView):
         cart = ShoppingCart.objects.filter(online_customer=request.user).last()
         if not cart:
             return Response({"error": "سفارش فعالی وجود ندارد."}, status=status.HTTP_400_BAD_REQUEST)
-        order = Order.objects.filter(shopping_cart=cart).first()
+        order = Order.objects.filter(online_customer=request.user, shopping_cart=cart).first()
         if order:
             return Response({"error": "این سفارش قبلا تکمیل شده است."}, status=status.HTTP_409_CONFLICT)
         delivery_schedule = DeliverySchedule.objects.filter(user=request.user, shopping_cart=cart).first()
@@ -180,7 +180,23 @@ class DeliveryScheduleAPIView(APIView):
 #====================================== Order Serializer =============================================
 
 class OrderAPIView(APIView):
-    pass
+    @extend_schema(
+        request = OrderSerializer,
+        responses = {
+            201: "An order has been successfully registered.",
+            400: "Something went wrong. Please check your input.",
+            500: "An internal error occurred. Please try again later."
+        }
+    )
+    def post(self, request):
+        try:
+            serializer = OrderSerializer(data=request.data, context={"request": request})
+            if serializer.is_valid():
+                serializer.save()
+                return Response({"message": "سفارش شما با موفقیت ثبت شد و آماده پرداخت است."}, status=status.HTTP_201_CREATED)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as error:
+            return Response({"error": f"An unexpected error occurred: {str(error)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 #====================================== Transaction View =============================================

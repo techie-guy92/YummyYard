@@ -184,7 +184,7 @@ class DeliveryScheduleAdmin(admin.ModelAdmin):
 
 @admin.register(Order)
 class OrderAdmin(admin.ModelAdmin):
-    list_display = ["id", "customer", "order_type", "payment_method", "discount_applied", "total_amount", "amount_payable", "delivery_schedule", "status", "created_at", "updated_at"]
+    list_display = ["id", "customer", "order_type", "payment_method", "total_amount", "amount_payable", "discount_applied", "delivery_schedule", "status", "created_at", "updated_at"]
     list_filter = ["order_type", "status", "payment_method"]
     search_fields = ["online_customer", "in_person_customer", "payment_method"]
     ordering = ["created_at"]

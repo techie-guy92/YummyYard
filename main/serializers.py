@@ -99,8 +99,60 @@ class DeliveryScheduleSerializer(serializers.ModelSerializer):
 #====================================== Order Serializer ===================================================
 
 class OrderSerializer(serializers.ModelSerializer):
-    pass
-        
+    discount = serializers.CharField(max_length=10, write_only=True, required=False)
+
+    class Meta:
+        model = Order
+        fields = ["discount"]
+
+    def create(self, validated_data):
+        discount_code = validated_data.pop("discount", None)
+        request = self.context.get("request")
+        customer = request.user
+
+        validated_data["online_customer"] = customer
+        validated_data["order_type"] = "online"
+        validated_data["payment_method"] = "online"
+
+        cart, delivery = self.validate_order_components(customer)
+        validated_data["shopping_cart"] = cart
+        validated_data["delivery_schedule"] = delivery
+        validated_data["total_amount"] = validated_data["shopping_cart"].total_price + validated_data["delivery_schedule"].delivery_cost
+
+        with transaction.atomic():
+            if discount_code:
+                try:
+                    coupon = Coupon.objects.get(code=discount_code, is_active=True)
+                    if not coupon.is_valid():
+                        raise serializers.ValidationError("The discount code is no longer valid or has expired.")
+                    discount_amount = validated_data["total_amount"] * (coupon.discount_percentage / 100)
+                    validated_data["discount_applied"] = discount_amount
+                    validated_data["amount_payable"] = validated_data["total_amount"] - discount_amount
+                    validated_data["coupon"] = coupon 
+                    coupon.usage_count = models.F("usage_count") + 1
+                    coupon.save(update_fields=["usage_count"])
+                    coupon.refresh_from_db()
+                    if coupon.usage_count >= coupon.max_usage:
+                        coupon.is_active = False
+                        coupon.save(update_fields=["is_active"])
+                except Coupon.DoesNotExist:
+                    raise serializers.ValidationError("Invalid discount code.")
+
+            order = Order.objects.create(**validated_data)
+            return order
+
+    def validate_order_components(self, customer):
+        cart = ShoppingCart.objects.filter(online_customer=customer).last()
+        delivery = DeliverySchedule.objects.filter(user=customer, shopping_cart=cart).first()
+        order = Order.objects.filter(online_customer=customer, shopping_cart=cart).first()
+        if not cart:
+            raise serializers.ValidationError("No active shopping cart found.")
+        if not delivery:
+            raise serializers.ValidationError("No delivery schedule found.")
+        if order:
+            raise serializers.ValidationError("An order already exists for this cart.")
+        return cart, delivery
+            
         
 #====================================== Transaction Serializer =============================================
 

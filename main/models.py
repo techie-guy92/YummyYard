@@ -220,7 +220,7 @@ class Coupon(models.Model):
     usage_count = models.PositiveIntegerField(default=0, editable=False, verbose_name="Usage Count")
     valid_from = models.DateTimeField(verbose_name="Valid From")
     valid_to = models.DateTimeField(verbose_name="Valid To")
-    is_active = models.BooleanField(default=False, verbose_name="Is Active")
+    is_active = models.BooleanField(default=True, verbose_name="Is Active")
     
     def __str__(self):
         return f"{self.code}"
@@ -522,8 +522,8 @@ class Order(models.Model):
     delivery_schedule = models.ForeignKey(DeliverySchedule, on_delete=models.SET_NULL, blank=True, null=True, verbose_name="Delivery Schedule")
     payment_method = models.CharField(max_length=15, choices=PAYMENT_METHOD, verbose_name="Payment Method")
     total_amount = models.PositiveIntegerField(default=0, verbose_name="Total Amount")
-    amount_payable = models.PositiveIntegerField(verbose_name="Amount Payable")
-    discount_applied = models.DecimalField(max_digits=4, decimal_places=2, default=0, verbose_name="Discount Applied")
+    amount_payable = models.PositiveIntegerField(default=0, verbose_name="Amount Payable")
+    discount_applied = models.IntegerField(default=0, verbose_name="Discount Applied")
     coupon = models.ForeignKey(Coupon, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Coupon")
     status = models.CharField(max_length=20, choices=STATUS_TYPES, default="on_hold", verbose_name="Status")
     description = models.TextField(null=True, blank=True, verbose_name="Description")
@@ -555,7 +555,8 @@ class Order(models.Model):
             cart_price = self.shopping_cart.total_price
             delivery_cost = self.delivery_schedule.delivery_cost
             self.total_amount = cart_price + delivery_cost
-            self.amount_payable = self.total_amount - self.discount_applied
+            if not self.discount_applied:
+                self.amount_payable = self.total_amount
             if self.amount_payable <= 0:
                 raise ValidationError("amount_payable cannot be zero or negative.")
         except ShoppingCart.DoesNotExist:
@@ -563,30 +564,53 @@ class Order(models.Model):
         except Exception as error:
             raise ValidationError(f"An error occurred while validating the price: {str(error)}")
 
+    # def validate_discount(self):
+    #     if self.discount_applied:
+    #         if not self.coupon:
+    #             raise ValidationError("No valid coupon is linked to this order.")
+    #         try:
+    #             if not self.coupon.is_valid():
+    #                 raise ValidationError("This coupon is no longer valid or has expired.")
+    #             expected_discount = (self.total_amount * self.coupon.discount_percentage) / 100
+    #             if self.discount_applied != expected_discount:
+    #                 raise ValidationError("The applied discount does not match the expected discount.")
+    #             with transaction.atomic():
+    #                 self.coupon.usage_count = models.F("usage_count") + 1
+    #                 self.coupon.save(update_fields=["usage_count"])
+    #                 self.coupon.refresh_from_db()
+    #                 if self.coupon.usage_count >= self.coupon.max_usage:
+    #                     self.coupon.is_active = False
+    #                     self.coupon.save(update_fields=["is_active"])
+    #         except ValidationError as error:
+    #             raise ValidationError(f"Validation error while applying discount: {str(error)}")
+    #         except Exception as error:
+    #             raise ValidationError(f"Unexpected error while applying discount: {str(error)}")
+            
     def validate_discount(self):
         if self.discount_applied:
+            if not self.coupon:
+                raise ValidationError("No valid coupon is linked to this order.")
             try:
-                if self.discount_applied != self.coupon.discount_percentage:
-                    raise ValidationError("discount_applied does not match the coupon's discount_percentage.")
                 if not self.coupon.is_valid():
-                    raise ValidationError("This coupon is no longer valid.")
-                with transaction.atomic():
-                    self.coupon.usage_count = models.F("usage_count") + 1
-                    self.coupon.save(update_fields=["usage_count"])
-                    self.coupon.refresh_from_db()
-                    if self.coupon.usage_count >= self.coupon.max_usage:
+                    raise ValidationError("This coupon is no longer valid or has expired.")
+                expected_discount = (self.total_amount * self.coupon.discount_percentage) / 100
+                if self.discount_applied != expected_discount:
+                    raise ValidationError("The applied discount does not match the expected discount.")
+                if self.coupon.usage_count + 1 >= self.coupon.max_usage:
                         self.coupon.is_active = False
                         self.coupon.save(update_fields=["is_active"])
+            except ValidationError as error:
+                raise ValidationError(f"Validation error while applying discount: {str(error)}")
             except Exception as error:
-                raise ValidationError(f"Error applying discount: {str(error)}")
-        
+                raise ValidationError(f"Unexpected error while applying discount: {str(error)}")
+
     def save(self, *args, **kwargs):
+        self.full_clean()
         if not self.order_type:
             if self.online_customer:
                 self.order_type = "online"
             elif self.in_person_customer:
                 self.order_type = "in_person"
-        self.full_clean()
         super().save(*args, **kwargs)
 
     class Meta:
