@@ -566,28 +566,6 @@ class Order(models.Model):
         except Exception as error:
             raise ValidationError(f"An error occurred while validating the price: {str(error)}")
 
-    # def validate_discount(self):
-    #     if self.discount_applied:
-    #         if not self.coupon:
-    #             raise ValidationError("No valid coupon is linked to this order.")
-    #         try:
-    #             if not self.coupon.is_valid():
-    #                 raise ValidationError("This coupon is no longer valid or has expired.")
-    #             expected_discount = (self.total_amount * self.coupon.discount_percentage) / 100
-    #             if self.discount_applied != expected_discount:
-    #                 raise ValidationError("The applied discount does not match the expected discount.")
-    #             with transaction.atomic():
-    #                 self.coupon.usage_count = models.F("usage_count") + 1
-    #                 self.coupon.save(update_fields=["usage_count"])
-    #                 self.coupon.refresh_from_db()
-    #                 if self.coupon.usage_count >= self.coupon.max_usage:
-    #                     self.coupon.is_active = False
-    #                     self.coupon.save(update_fields=["is_active"])
-    #         except ValidationError as error:
-    #             raise ValidationError(f"Validation error while applying discount: {str(error)}")
-    #         except Exception as error:
-    #             raise ValidationError(f"Unexpected error while applying discount: {str(error)}")
-            
     def validate_discount(self):
         if self.discount_applied:
             if not self.coupon:
