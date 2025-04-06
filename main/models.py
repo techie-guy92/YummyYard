@@ -453,21 +453,23 @@ class DeliverySchedule(models.Model):
             if start_hour <= crr_hour + 4:
                 raise ValidationError(f"The selected timeframe ({self.time}) is unavailable. Please select a timeframe starting after {crr_hour + 4}:00. If no later timeframes are available today, please choose a delivery slot for tomorrow.")
                 
-    # def validate_delivery_slot(self):
-    #     total_booked_normal = DeliverySchedule.objects.filter(date=self.date, time=self.time, delivery_method="normal").count()
-    #     total_booked_fast = DeliverySchedule.objects.filter(date=self.date, time=self.time, delivery_method="fast").count()
-    #     if total_booked_normal >= self.MAX_CAPACITY_DELIVERY_NORMAL:  
-    #         raise ValidationError("Normal delivery slot is fully booked for this timeframe. Please select other timeframes.")
-    #     if total_booked_fast >= self.MAX_CAPACITY_DELIVERY_FAST:  
-    #         raise ValidationError("Fast delivery slot is fully booked for this timeframe. Please select other timeframes.")
-        
     def validate_delivery_slot(self):
-        total_booked = (DeliverySchedule.objects.filter(date=self.date, time=self.time).values("delivery_method").annotate(delivery_count=Count("delivery_method")))
-        total_booked_dict = {entry["delivery_method"]: entry["delivery_count"] for entry in total_booked}
-        if total_booked_dict.get("normal", 0) >= self.MAX_CAPACITY_DELIVERY_NORMAL:
-            raise ValidationError("Normal delivery slot is fully booked for this timeframe. Please select other timeframes.")
-        if total_booked_dict.get("fast", 0) >= self.MAX_CAPACITY_DELIVERY_FAST:
-            raise ValidationError("Fast delivery slot is fully booked for this timeframe. Please select other timeframes.")
+        if self.delivery_method == "normal":
+            total_booked_normal = DeliverySchedule.objects.filter(date=self.date, time=self.time, delivery_method="normal").count()
+            if total_booked_normal >= self.MAX_CAPACITY_DELIVERY_NORMAL:
+                raise ValidationError("Normal delivery slot is fully booked for this timeframe. Please select other timeframes.")
+        elif self.delivery_method == "fast":
+            total_booked_fast = DeliverySchedule.objects.filter(date=self.date, time=self.time, delivery_method="fast").count()
+            if total_booked_fast >= self.MAX_CAPACITY_DELIVERY_FAST:
+                raise ValidationError("Fast delivery slot is fully booked for this timeframe. Please select other timeframes.")
+        
+    # def validate_delivery_slot(self):
+    #     total_booked = (DeliverySchedule.objects.filter(date=self.date, time=self.time).values("delivery_method").annotate(delivery_count=Count("delivery_method")))
+    #     total_booked_dict = {entry["delivery_method"]: entry["delivery_count"] for entry in total_booked}
+    #     if total_booked_dict.get("normal", 0) >= self.MAX_CAPACITY_DELIVERY_NORMAL:
+    #         raise ValidationError("Normal delivery slot is fully booked for this timeframe. Please select other timeframes.")
+    #     if total_booked_dict.get("fast", 0) >= self.MAX_CAPACITY_DELIVERY_FAST:
+    #         raise ValidationError("Fast delivery slot is fully booked for this timeframe. Please select other timeframes.")
         
     def calculate_delivery_cost(self):
         if self.delivery_method == "fast":
