@@ -314,9 +314,9 @@ CELERY_BEAT_SCHEDULE = {
         'task': 'users.tasks.check_premium_subscriptions',
         'schedule': crontab(minute='*/5'),  
     },
-    'check_coupon_expiration-every-five-minute': {
+    'check_coupon_expiration-every-minute': {
         'task': 'main.tasks.check_coupon_expiration',
-        'schedule': crontab(minute='*/5'),  
+        'schedule': crontab(minute='*/1'),  
     },
 }
 

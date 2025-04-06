@@ -20,7 +20,7 @@ def check_coupon_expiration(sender, instance, **kwargs):
             instance.is_active = False
             instance.save(update_fields=["is_active"])
             logger.info(f"Coupon {instance.code} deactivated due to expiration.")
-        if instance.usage_count >= instance.max_usage and instance.is_active:
+        if instance.usage_count > instance.max_usage and instance.is_active:
             logger.info(f"Coupon {instance.code} has reached its maximum usage.")
             instance.is_active = False
             instance.save(update_fields=["is_active"])

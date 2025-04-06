@@ -228,7 +228,7 @@ class Coupon(models.Model):
     def is_expired(self):
         return self.valid_to < localtime(now())
     
-    def is_valid(self):
+    def is_valid(self): 
         return self.is_active and not self.is_expired() and self.usage_count <= self.max_usage
     
     def save(self, *args, **kwargs):
@@ -239,7 +239,7 @@ class Coupon(models.Model):
     class Meta:
         verbose_name = "Coupon"
         verbose_name_plural = "Coupons"
-        indexes = [models.Index(fields=["is_active"]), models.Index(fields=["valid_from"]), models.Index(fields=["valid_to"])]
+        indexes = [models.Index(fields=["is_active"]), models.Index(fields=["max_usage"]), models.Index(fields=["usage_count"]), models.Index(fields=["valid_from"]), models.Index(fields=["valid_to"]),]
         
         
 #====================================== Wishlist Model ================================================
