@@ -34,7 +34,7 @@ services:
       
   celery_worker:
     container_name: celery_worker
-    command: "celery -A core.celery_config worker --pool=solo --loglevel=info"
+    command: "celery -A config.celery_config worker --loglevel=info"
     depends_on:
       - app
       - postgres
