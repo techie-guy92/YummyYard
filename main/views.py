@@ -9,6 +9,7 @@ from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.decorators import action
 from drf_spectacular.utils import extend_schema
 from django.http import JsonResponse
+from django.shortcuts import get_object_or_404
 from logging import getLogger
 from .models import *
 from .serializers import *
@@ -160,7 +161,7 @@ class DeliveryScheduleAPIView(APIView):
                 delivery.save() 
                 return Response(
                     {
-                        "message": "Delivery schedule created successfully.",
+                        "message": "زمان سفارش با مئفقیت ثبت شد.",
                         "delivery_id": delivery.id,
                         "delivery_date": delivery.date,
                         "delivery_time": delivery.time,
@@ -172,7 +173,7 @@ class DeliveryScheduleAPIView(APIView):
                 return Response({"error": str(error)}, status=status.HTTP_400_BAD_REQUEST)
             except Exception as error:
                 logger.error(f"Unexpected error occurred in DeliveryScheduleAPIView for user {request.user.username}: {error}")
-                return Response({"error": "An unexpected error occurred."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+                return Response({"error": f"An unexpected error occurred: {error}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         else:
             return Response({"error": serializer.errors, "details": "Validation failed."}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -214,7 +215,18 @@ class UserViewModelViewSet(viewsets.ModelViewSet):
 #====================================== Rating View ==================================================
 
 class RatingModelViewSet(viewsets.ModelViewSet):
-    pass
+    permission_classes = [IsAuthenticated]
+    queryset = Rating.objects.all()
+    serializer_class = RatingSerializer
+    http_method_names = ["get", "post"]
+    pagination_class = PageNumberPagination
+    filter_backends = [SearchFilter]
+    search_fields = ["id", "user__username"]
 
+    def perform_create(self, serializer):
+        product_id = self.kwargs.get("product_id")  
+        product = get_object_or_404(Product, id=product_id)
+        serializer.save(user=self.request.user, product=product)
 
+    
 # ====================================================================================================

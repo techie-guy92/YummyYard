@@ -1,4 +1,6 @@
 from rest_framework import serializers
+from django.db.models import Q
+from django.shortcuts import get_object_or_404
 from .models import *
 from users.models import *
 
@@ -166,7 +168,22 @@ class UserViewSerializer(serializers.ModelSerializer):
 #====================================== Rating Serializer ==================================================
 
 class RatingSerializer(serializers.ModelSerializer):
-    pass
-        
+    class Meta:
+        model = Rating
+        fields = ["rating", "review"]
+        extra_kwargs = {"user": {"read_only": True}, "product": {"read_only": True}}
+
+    def validate(self, data):
+        request = self.context.get("request")
+        product = self.context.get("product")
+        customer = request.user
+        if not product:
+            product_id = self.context.get("view").kwargs.get("product_id")
+            product = get_object_or_404(Product, id=product_id)
+        has_completed_order = (Order.objects.filter(online_customer=customer, status="completed", shopping_cart__products=product).exists())
+        if not has_completed_order:
+            raise serializers.ValidationError("You can only rate this product if you have a completed order that included it.")
+        return data
+
         
 #===========================================================================================================
