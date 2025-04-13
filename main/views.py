@@ -224,9 +224,11 @@ class RatingModelViewSet(viewsets.ModelViewSet):
     search_fields = ["id", "user__username"]
 
     def perform_create(self, serializer):
-        product_id = self.kwargs.get("product_id")  
+        product_id = self.kwargs.get("product_id")
+        if not product_id:
+            product_id = self.request.data.get("product")
         product = get_object_or_404(Product, id=product_id)
         serializer.save(user=self.request.user, product=product)
 
-    
+
 # ====================================================================================================

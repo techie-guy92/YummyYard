@@ -175,14 +175,14 @@ class RatingSerializer(serializers.ModelSerializer):
 
     def validate(self, data):
         request = self.context.get("request")
-        product = self.context.get("product")
+        product = self.context.get("product") 
         customer = request.user
         if not product:
-            product_id = self.context.get("view").kwargs.get("product_id")
+            product_id = self.context.get("view").kwargs.get("product_id") or self.initial_data.get("product")
             product = get_object_or_404(Product, id=product_id)
-        has_completed_order = (Order.objects.filter(online_customer=customer, status="completed", shopping_cart__products=product).exists())
+        has_completed_order = Order.objects.filter(online_customer=customer, status="completed", shopping_cart__products=product).exists()
         if not has_completed_order:
-            raise serializers.ValidationError("You can only rate this product if you have a completed order that included it.")
+            raise serializers.ValidationError("You can only rate this product if you have completed an order for it.")
         return data
 
         

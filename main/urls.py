@@ -16,7 +16,8 @@ urlpatterns = [
     path("get_product_price/<int:product_id>/", get_product_price, name="get_product_price"),
     path("get_cart_price/<int:cart_id>/", get_cart_price, name="get_cart_price"),
     path("add_schedule/", DeliveryScheduleAPIView.as_view(), name="add_schedule"),
-    path("complete_order/", OrderAPIView.as_view(), name="complete_order")
+    path("complete_order/", OrderAPIView.as_view(), name="complete_order"),
+    path("<int:product_id>/ratings/", RatingModelViewSet.as_view({"get": "list", "post": "create"}), name="ratings_product_id")
 ] 
 
 
