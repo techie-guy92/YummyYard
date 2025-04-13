@@ -202,8 +202,16 @@ class OrderAPIView(APIView):
 
 #====================================== Transaction View =============================================
 
+# Note: This class must be connected to payment gateway, now it was just defined as sample.
+
 class TransactionModelViewSet(viewsets.ModelViewSet):
-    pass
+    permission_classes = [IsAuthenticated]
+    queryset = Transaction.objects.all()
+    serializer_class = TransactionSerializer
+    http_method_names = ["post"]
+    
+    def perform_create(self, serializer):
+        pass
 
 
 #====================================== UserView View ================================================

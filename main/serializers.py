@@ -1,6 +1,6 @@
 from rest_framework import serializers
-from django.db.models import Q
 from django.shortcuts import get_object_or_404
+from django.db.models import Q
 from .models import *
 from users.models import *
 
@@ -155,8 +155,12 @@ class OrderSerializer(serializers.ModelSerializer):
         
 #====================================== Transaction Serializer =============================================
 
+# Note: This class must be connected to payment gateway, now it was just defined as sample.
+
 class TransactionSerializer(serializers.ModelSerializer):
-    pass
+    class Meta:
+        model = Transaction
+        fields = ["payment_id", "is_successful"]
         
         
 #====================================== UserView Serializer ================================================
