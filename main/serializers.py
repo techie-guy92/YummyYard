@@ -162,7 +162,7 @@ class OrderSerializer(serializers.ModelSerializer):
 class TransactionSerializer(serializers.ModelSerializer):
     class Meta:
         model = Transaction
-        fields = ["payment_id", "is_successful"]
+        fields = ["user", "amount", "payment_id", "is_successful"]
         
         
 #====================================== UserView Serializer ================================================
