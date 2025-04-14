@@ -217,7 +217,20 @@ class TransactionModelViewSet(viewsets.ModelViewSet):
 #====================================== UserView View ================================================
 
 class UserViewModelViewSet(viewsets.ModelViewSet):
-    pass
+    permission_classes = [IsAuthenticated]
+    queryset = UserView.objects.all()
+    serializer_class = UserViewSerializer
+    http_method_names = ["get", "post"]
+    pagination_class = PageNumberPagination
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+
+    def get_queryset(self):
+        product_id = self.kwargs.get("product_id")
+        if product_id:
+            return self.queryset.filter(user=self.request.user, product_id=product_id)
+        return self.queryset.filter(user=self.request.user)
 
 
 #====================================== Rating View ==================================================

@@ -1,7 +1,8 @@
 from django.urls import path, re_path, include
 from rest_framework.routers import DefaultRouter
 from .views import (get_product_price, get_cart_price, WishlistModelViewSet, ShoppingCartAPIView, DeliveryScheduleAPIView,
-                    CategoryModelViewSet, ProductModelViewSet, OrderAPIView, RatingModelViewSet, TransactionModelViewSet,)
+                    CategoryModelViewSet, ProductModelViewSet, OrderAPIView, RatingModelViewSet, TransactionModelViewSet,
+                    UserViewModelViewSet, )
 
 
 router =  DefaultRouter()
@@ -11,6 +12,7 @@ router.register(r"wishlist", WishlistModelViewSet, basename="wishlist")
 router.register(r"add_products", ShoppingCartAPIView, basename="add_products")
 router.register(r"ratings", RatingModelViewSet, basename="ratings")
 router.register(r"payment", TransactionModelViewSet, basename="payment")
+router.register(r"last_seen", UserViewModelViewSet, basename="last_seen")
 
     
 urlpatterns = [
@@ -18,7 +20,9 @@ urlpatterns = [
     path("get_cart_price/<int:cart_id>/", get_cart_price, name="get_cart_price"),
     path("add_schedule/", DeliveryScheduleAPIView.as_view(), name="add_schedule"),
     path("complete_order/", OrderAPIView.as_view(), name="complete_order"),
-    path("<int:product_id>/ratings/", RatingModelViewSet.as_view({"get": "list", "post": "create"}), name="ratings_product_id")
+    path("<int:product_id>/ratings/", RatingModelViewSet.as_view({"get": "list", "post": "create"}), name="ratings_product_id"),
+    path("<int:product_id>/last_seen/", UserViewModelViewSet.as_view({"get": "list", "post": "create"}), name="last_seen_product_id"),
+
 ] 
 
 

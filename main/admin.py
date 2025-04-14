@@ -229,9 +229,9 @@ class DeliveryAdmin(admin.ModelAdmin):
 
 @admin.register(UserView)
 class UserViewAdmin(admin.ModelAdmin):
-    list_display = ["user", "product", "timestamp"]
+    list_display = ["user", "product", "view_count", "last_seen"]
     search_fields = ["product"]
-    ordering = ["product"]
+    ordering = ["product", "view_count", "last_seen"]
 
 
 #====================================== Rating Admin ==================================================

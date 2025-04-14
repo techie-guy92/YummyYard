@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from django.shortcuts import get_object_or_404
 from django.db.models import Q
+from django.utils import timezone
 from .models import *
 from users.models import *
 
@@ -166,9 +167,29 @@ class TransactionSerializer(serializers.ModelSerializer):
 #====================================== UserView Serializer ================================================
 
 class UserViewSerializer(serializers.ModelSerializer):
-    pass
-        
-        
+    class Meta:
+        model = UserView
+        fields = ["user", "product", "last_seen", "view_count"]
+        read_only_fields = ["user", "last_seen", "view_count"]
+
+    def create(self, validated_data):
+        user = self.context.get("request").user
+        product = validated_data.get("product")
+        product_id = self.context.get("view").kwargs.get("product_id") or (product.id if product else None)
+        if not product_id:
+            raise serializers.ValidationError("Product ID is required. Please provide it in the URL or JSON payload.")
+        product = get_object_or_404(Product, id=product_id)
+        try:
+            user_view, created = UserView.objects.get_or_create(user=user, product=product)
+            if not created:
+                user_view.last_seen = timezone.now()
+                user_view.view_count += 1
+                user_view.save()
+            return user_view
+        except Exception as error:
+            raise serializers.ValidationError(f"Failed to create or update UserView: {str(error)}")
+
+
 #====================================== Rating Serializer ==================================================
 
 class RatingSerializer(serializers.ModelSerializer):

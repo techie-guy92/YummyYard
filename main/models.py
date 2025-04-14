@@ -699,15 +699,17 @@ class UserView(models.Model):
     Attributes:
         user (User): The user who viewed the product.
         product (Product): The product that was viewed.
-        timestamp (datetime): The timestamp when the product was viewed.
+        view_count (int): The number of times the user viewed the product.
+        last_seen (datetime): The last_seen when the product was viewed.
     """
     
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="UserView_user", verbose_name="User")
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name="UserView_product", verbose_name="Product")
-    timestamp = models.DateTimeField(auto_now_add=True, editable=False, verbose_name="Viewed At")
+    view_count = models.PositiveIntegerField(default=1, verbose_name="View Count")  
+    last_seen = models.DateTimeField(auto_now_add=True, editable=False, verbose_name="Last Seen")
     
     def __str__(self):
-        return f"{self.user} viewed {self.product.name}" if self.user else f"Anonymous viewed {self.product.name}"
+        return f"{self.user} viewed {self.product.name} {self.view_count} times" if self.user else f"Anonymous viewed {self.product.name} {self.view_count} times"
     
     class Meta:
         verbose_name = "User View"
