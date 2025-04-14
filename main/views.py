@@ -202,7 +202,8 @@ class OrderAPIView(APIView):
 
 #====================================== Transaction View =============================================
 
-# Note: This class must be connected to payment gateway, now it was just defined as sample.
+# Note: This class is a placeholder for future integration with a payment gateway. 
+# It is currently defined as a sample and does not include the full implementation.
 
 class TransactionModelViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
@@ -211,7 +212,23 @@ class TransactionModelViewSet(viewsets.ModelViewSet):
     http_method_names = ["post"]
     
     def perform_create(self, serializer):
-        pass
+        user = self.request.user
+        order = serializer.validated_data["order"]
+        amount = order.amount_payable
+        # Simulated gateway response 
+        gateway_response = {
+            "payment_id": "XYZ12345",
+            "status": "successful",
+            "amount": amount,
+        }
+        if gateway_response["status"] != "successful":
+            raise ValidationError("پرداخت ناموفق، لطفا دوباره تلاش کنید.")
+        serializer.save(
+            user=user, 
+            amount=gateway_response["amount"],
+            payment_id=gateway_response["payment_id"],
+            is_successful=True
+        )
 
 
 #====================================== UserView View ================================================

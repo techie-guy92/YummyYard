@@ -617,8 +617,8 @@ class Transaction(models.Model):
     
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="Transaction_user", verbose_name="User")
     order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name="Transaction_order", verbose_name="Order")
-    amount = models.PositiveIntegerField(verbose_name="Amount")
-    payment_id = models.CharField(max_length=50, blank=True, null=True, verbose_name="Payment ID")
+    amount = models.PositiveIntegerField(verbose_name="Amount") # Filled by payment gateway
+    payment_id = models.CharField(max_length=50, unique=True, verbose_name="Payment ID")  # Gateway-provided identifier
     is_successful = models.BooleanField(default=False, verbose_name="Is Successful")
     created_at = models.DateTimeField(auto_now_add=True, editable=False, verbose_name="Created At")
 

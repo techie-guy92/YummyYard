@@ -156,7 +156,8 @@ class OrderSerializer(serializers.ModelSerializer):
         
 #====================================== Transaction Serializer =============================================
 
-# Note: This class must be connected to payment gateway, now it was just defined as sample.
+# Note: This class is a placeholder for future integration with a payment gateway. 
+# It is currently defined as a sample and does not include the full implementation.
 
 class TransactionSerializer(serializers.ModelSerializer):
     class Meta:
