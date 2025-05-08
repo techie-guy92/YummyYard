@@ -5,9 +5,9 @@ from .models import *
 
 
 # Start the Celery worker
-# on Windows: celery -A config.celery_config worker --pool=solo --loglevel=info
-# on Linux:   celery -A config.celery_config worker --loglevel=info
-# on Linux:   celery -A config.celery_config worker --pool=solo --loglevel=info -B
+# celery -A config.celery_config worker --loglevel=info
+# celery -A config.celery_config worker --pool=solo --loglevel=info
+# celery -A config.celery_config worker --pool=solo --loglevel=info -B
 
 # Start Celery beat
 # celery -A config.celery_config beat --loglevel=info

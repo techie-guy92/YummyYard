@@ -37,16 +37,21 @@ def upload_to(instance, filename):
 
 class Category(models.Model):
     """
-    Represents a product category in the system.
+    Represents a hierarchical product category in the system.
 
     Attributes:
         name (str): The name of the category.
-        parent (Category): A reference to the parent category, supporting hierarchical organization.
-        slug (str): A unique slug for the category, used for URLs.
-        description (str): An optional description of the category.
-        image (ImageField): An optional image for the category.
-        created_at (datetime): The timestamp when the category was created.
-        updated_at (datetime): The timestamp when the category was last updated.
+        parent (Category, optional): A reference to the parent category, allowing nested categorization.
+        slug (str): A unique, SEO-friendly identifier for the category used in URLs.
+        description (str, optional): A textual description providing additional information about the category.
+        image (ImageField, optional): An image representing the category.
+        created_at (datetime): The timestamp when the category was first added.
+        updated_at (datetime): The timestamp when the category was last modified.
+
+    Methods:
+        validate_parent(): Ensures a category cannot be its own parent.
+        get_all_children(): Recursively retrieves all subcategories of the current category.
+        save(): Automatically validates data and generates a unique slug for the category before saving.
     """
     
     name = models.CharField(max_length=100, verbose_name="Category")
@@ -96,17 +101,20 @@ class Category(models.Model):
 
 class Product(models.Model):
     """
-    Represents a product available for sale.
+    Represents a product available for sale in the marketplace.
 
     Attributes:
         name (str): The name of the product.
         category (Category): The category to which the product belongs.
-        slug (str): A unique slug for the product, used for URLs.
-        price (int): The price of the product.
-        description (str): An optional description of the product.
-        image (ImageField): An optional image for the product.
-        created_at (datetime): The timestamp when the product was created.
-        updated_at (datetime): The timestamp when the product was last updated.
+        slug (str): A unique, SEO-friendly identifier for the product used in URLs.
+        price (int): The selling price of the product.
+        description (str, optional): A detailed description of the product, providing additional information.
+        image (ImageField, optional): An image representing the product.
+        created_at (datetime): The timestamp when the product was initially added.
+        updated_at (datetime): The timestamp when the product's details were last modified.
+
+    Methods:
+        save(): Generates a unique slug for the product based on its name to ensure URL uniqueness.
     """
     
     name = models.CharField(max_length=250, verbose_name="Product") 
@@ -161,16 +169,19 @@ class Gallery(models.Model):
 
 class Warehouse(models.Model):
     """
-    Represents stock management for a product.
+    Represents the inventory management system for a product within different warehouse operations.
 
     Attributes:
-        product (Product): The product in the warehouse.
-        warehouse_type (str): The type of warehouse entry (e.g., input, output, defective).
-        stock (int): The stock quantity of the product.
-        is_active (bool): Whether the warehouse entry is active based on stock availability.
-        price (int): The price of the product in the warehouse.
-        created_at (datetime): The timestamp when the warehouse entry was created.
-        updated_at (datetime): The timestamp when the warehouse entry was last updated.
+        product (Product): The associated product in the warehouse.
+        warehouse_type (str): The type of warehouse operation (e.g., input, output, defective, sent back).
+        stock (int): The quantity of the product stored in the warehouse.
+        is_available (bool): Indicates whether the product is available in stock.
+        price (int): The cost price of the product in the warehouse.
+        created_at (datetime): The timestamp when the warehouse entry was initially recorded.
+        updated_at (datetime): The timestamp when the warehouse entry was last modified.
+
+    Methods:
+        total_stock(product): Calculates the total stock for a given product by aggregating input, output, and defective stock levels.
     """
     
     WAREHOUSE_TYPE = [("input", "Input"), ("output", "Output"), ("defective", "Defective"), ("sent_back", "Sent Back")]
@@ -179,7 +190,7 @@ class Warehouse(models.Model):
     warehouse_type = models.CharField(max_length=10, choices=WAREHOUSE_TYPE, default="input", verbose_name="Warehouse Type")
     stock = models.PositiveIntegerField(default=0, verbose_name="Stock")  
     is_available = models.BooleanField(default=True, editable=False, verbose_name="Is Available") 
-    price = models.IntegerField(default=0, verbose_name="Price")
+    price = models.IntegerField(default=0, verbose_name="Cost Price")
     created_at = models.DateTimeField(auto_now_add=True, editable=False, verbose_name="Created At")
     updated_at = models.DateTimeField(auto_now=True, editable=False, verbose_name="Updated At")
     
@@ -191,7 +202,8 @@ class Warehouse(models.Model):
         input_stock = Warehouse.objects.filter(product=product, warehouse_type="input").aggregate(total=Sum("stock"))["total"] or 0
         output_stock = Warehouse.objects.filter(product=product, warehouse_type="output").aggregate(total=Sum("stock"))["total"] or 0
         defective_stock = Warehouse.objects.filter(product=product, warehouse_type="defective").aggregate(total=Sum("stock"))["total"] or 0
-        return input_stock - (output_stock + defective_stock)
+        total = input_stock - (output_stock + defective_stock)
+        return total
     
     class Meta:
         verbose_name = "Warehouse"
@@ -203,14 +215,22 @@ class Warehouse(models.Model):
 
 class Coupon(models.Model):
     """
-    Represents a discount coupon.
+    Represents a discount coupon that can be applied to purchases.
 
     Attributes:
-        code (str): A unique code for the coupon.
-        discount_percentage (Decimal): The discount percentage for the coupon.
-        valid_from (datetime): The date and time when the coupon becomes valid.
+        code (str): A unique identifier for the coupon.
+        category (Category): The category associated with the coupon (optional).
+        discount_percentage (Decimal): The percentage discount applied when using the coupon.
+        max_usage (int): The maximum number of times the coupon can be used.
+        usage_count (int): The number of times the coupon has been used.
+        valid_from (datetime): The date and time when the coupon becomes active.
         valid_to (datetime): The date and time when the coupon expires.
-        is_active (bool): Whether the coupon is currently active.
+        is_active (bool): Indicates whether the coupon is currently available for use.
+
+    Methods:
+        is_expired(): Checks if the coupon has passed its expiration date.
+        is_valid(): Determines if the coupon is still usable based on its active status, expiration date, and usage limit.
+        save(): Automatically generates a coupon code if not provided before saving the instance.
     """
     
     code = models.CharField(max_length=10, blank=True, verbose_name="Code")
@@ -246,11 +266,14 @@ class Coupon(models.Model):
 
 class Wishlist(models.Model):
     """
-    Represents a user's wishlist of products.
+    Represents a user's wishlist, allowing users to save favorite products for future reference.
 
     Attributes:
-        user (User): The user who owns the wishlist.
+        user (User): The user who owns the wishlist entry.
         product (Product): The product added to the wishlist.
+
+    Methods:
+        get_product_price(): Returns the price of the product in the wishlist.
     """
     
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="Wishlist_user", verbose_name="User")
@@ -273,15 +296,21 @@ class Wishlist(models.Model):
 
 class ShoppingCart(models.Model):
     """
-    Represents a user's shopping cart.
-
-    This model tracks the items and their total amount for a user during an ongoing shopping session.
+    Represents a user's shopping cart, tracking selected products and total cost during a shopping session.
 
     Attributes:
-        online_customer (User): The online user who owns the shopping cart (optional).
-        in_person_customer (InPersonCustomer): The in-person customer who owns the shopping cart (optional).
-        products (ManyToManyField): The products in the shopping cart, linked through CartItem.
-        total_price (int): The total price of all items in the shopping cart.
+        online_customer (CustomUser, optional): The registered user who owns the shopping cart.
+        in_person_customer (InPersonCustomer, optional): The guest or in-person customer associated with the cart.
+        products (ManyToManyField): The products added to the shopping cart, linked through `CartItem`.
+        total_price (int): The aggregated price of all items in the shopping cart.
+
+    Methods:
+        customer(): Returns the associated customer (either online or in-person).
+        validate_customer(): Ensures a shopping cart has either an online or in-person customer (but not both).
+        calculate_total_price(): Computes the total price based on items in the cart.
+        place_order(): Converts the cart items into a warehouse stock record when an order is placed.
+        clear_cart(): Removes all items from the cart and resets the total price.
+        save(): Validates data and ensures the total price is updated after modifications.
     """
     
     online_customer = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, blank=True, null=True, related_name="ShoppingCart_online_customers", verbose_name="Online Customer")
@@ -335,17 +364,23 @@ class ShoppingCart(models.Model):
         verbose_name_plural = "Shopping Carts"
         indexes = [models.Index(fields=["online_customer"]), models.Index(fields=["in_person_customer"])]
         
+        
 class CartItem(models.Model):
     """
-    Represents an individual item in a shopping cart.
-
-    This model tracks the product, its quantity, and the calculated total price for the given quantity.
+    Represents an individual product entry in a shopping cart.
 
     Attributes:
-        cart (ShoppingCart): The shopping cart to which this item belongs.
-        product (Product): The product being purchased.
-        quantity (int): The quantity of the product in the cart.
-        total_price (int): The total price of the product based on its quantity.
+        cart (ShoppingCart): The shopping cart that contains this item.
+        product (Product): The specific product added to the cart.
+        quantity (int): The number of units of the product selected by the customer.
+        grand_total (int): The total cost of the product in the cart based on quantity.
+
+    Methods:
+        get_product_price(): Returns the price of the associated product.
+        validate_quantity(): Ensures the quantity is greater than zero.
+        validate_stock(): Confirms the requested quantity does not exceed available stock.
+        validate_grand_total(): Updates the `grand_total` field based on the product price and quantity.
+        save(): Ensures data integrity before storing the item in the cart.
     """
     
     cart = models.ForeignKey(ShoppingCart, on_delete=models.CASCADE, related_name="CartItem_cart", verbose_name="Cart")
@@ -390,18 +425,28 @@ class CartItem(models.Model):
 
 class DeliverySchedule(models.Model):
     """
-    Represents a delivery schedule with specified dates and time slots.
-
-    This model manages available delivery slots, including the day of the week,
-    the exact delivery date, time ranges, and their capacity for deliveries.
+    Represents a scheduled delivery slot for customer orders.
+    This model manages delivery availability by defining valid days, time slots, 
+    capacity limits, and scheduling constraints.
 
     Attributes:
+        user (User): The customer requesting the delivery.
+        shopping_cart (ShoppingCart): The associated shopping cart for the delivery.
+        delivery_method (str): The chosen delivery method (e.g., normal, fast, postal).
+        date (DateField): The specific date when the delivery is scheduled.
         day (str): The day of the week for the delivery slot.
-        date (DateField): The specific date of the delivery slot.
-        time (str): The time of the delivery slot (e.g., 8 - 10).
-        is_available (bool): Indicates whether this delivery slot is currently available.
-        total_capacity (int): Maximum allowed deliveries for this slot.
-        current_capacity (int): Number of deliveries currently booked for this slot.
+        time (str): The selected delivery timeframe (e.g., 8 - 10).
+        delivery_cost (int): The calculated delivery cost based on the selected method.
+        created_at (datetime): The timestamp when the delivery schedule was created.
+        updated_at (datetime): The timestamp when the delivery schedule was last modified.
+
+    Methods:
+        customer(): Returns the username of the customer associated with the delivery.
+        validate_order(): Ensures the user and associated shopping cart data are consistent.
+        validate_timeframe(): Prevents scheduling deliveries in the past or beyond allowed limits.
+        validate_delivery_slot(): Enforces capacity restrictions for different delivery methods.
+        calculate_delivery_cost(): Determines the delivery fee based on the method selected.
+        save(): Cleans, formats, and updates the delivery schedule before saving it.
     """
 
     TIMES = [("8_10", "8 - 10"), ("10_12", "10 - 12"), ("12_14", "12 - 14"), ("14_16", "14 - 16"), ("16_18", "16 - 18"), ("18_20", "18 - 20"), ("20_22", "20 - 22")]
@@ -494,23 +539,30 @@ class DeliverySchedule(models.Model):
 
 class Order(models.Model):
     """
-    Represents an order made by a customer.
-
-    This model includes details about the customer, the payment method, delivery method,
-    the total amount payable, and the status of the order.
+    Represents a customer order, tracking details such as payment method, delivery method, pricing, and overall order status.
 
     Attributes:
-        online_customer (User): The online user who placed the order (optional).
-        in_person_customer (InPersonCustomer): The in-person customer who placed the order (optional).
-        order_type (str): The type of order (e.g., 'in_person', 'online').
-        payment_method (str): The payment method used (e.g., 'cash', 'credit_card').
-        delivery_method (str): The selected delivery method (e.g., 'normal', 'fast').
-        status (str): The current status of the order (e.g., 'waiting', 'successful').
-        discount_applied (Decimal): The discount applied to the order (if any).
-        amount_payable (int): The total amount to be paid after discount.
-        description (str): Additional details or notes about the order.
+        online_customer (User, optional): The online user who placed the order.
+        in_person_customer (InPersonCustomer, optional): The in-person customer making a direct purchase.
+        order_type (str): Specifies whether the order is placed online or in-person.
+        shopping_cart (ShoppingCart): The linked shopping cart containing purchased items.
+        delivery_schedule (DeliverySchedule, optional): The scheduled delivery details.
+        payment_method (str): The payment method used (cash, credit card, or online).
+        total_amount (int): The total cost before any discounts are applied.
+        amount_payable (int): The final payable amount after applying discounts.
+        discount_applied (int): The discount value deducted from the total amount.
+        coupon (Coupon, optional): A discount coupon applied to the order.
+        status (str): The current status of the order (e.g., waiting, successful, canceled).
+        description (str, optional): Additional details or customer notes about the order.
         created_at (datetime): The timestamp when the order was created.
-        updated_at (datetime): The timestamp when the order was last updated.
+        updated_at (datetime): The timestamp when the order was last modified.
+
+    Methods:
+        customer(): Returns the customer associated with the order.
+        validate_customer(): Ensures an order has only one type of customer (online or in-person).
+        validate_price(): Calculates total price and enforces validation rules on amount payable.
+        validate_discount(): Ensures coupon validity and verifies applied discount accuracy.
+        save(): Cleans data and determines the order type before saving.
     """
     
     ORDER_TYPE = [("in_person", "In-Person"), ("online", "Online")]
@@ -600,25 +652,27 @@ class Order(models.Model):
 
 class Transaction(models.Model):
     """
-    Represents a financial transaction for an order.
-
-    This model tracks payment-related information, including the amount paid,
-    whether the payment is successful, and other metadata like payment IDs.
+    Represents a financial transaction associated with an order.
+    This model tracks payment details, including the amount paid, transaction success status, and payment gateway metadata.
 
     Attributes:
         user (User): The user who initiated the transaction.
-        order (Order): The order associated with this transaction.
-        amount (int): The amount paid in the transaction.
-        is_successful (bool): Indicates whether the payment was completed successfully.
-        status_code (int): The status code returned by the payment gateway (if applicable).
-        payment_id (str): The unique identifier for the transaction provided by the payment gateway.
-        created_at (datetime): The timestamp when the transaction was created.
+        order (Order): The order linked to this payment transaction.
+        amount (int): The amount charged for the transaction, provided by the payment gateway.
+        payment_id (str): A unique identifier for the transaction assigned by the payment gateway.
+        is_successful (bool): Indicates whether the transaction was completed successfully.
+        created_at (datetime): The timestamp when the transaction record was created.
+
+    Methods:
+        validate_amount(): Ensures the transaction amount matches the expected order payable amount.
+        validate_payment(): Updates the order status and creates a delivery entry upon successful payment.
+        save(): Validates and processes the transaction before saving it to the database.
     """
     
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="Transaction_user", verbose_name="User")
     order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name="Transaction_order", verbose_name="Order")
-    amount = models.PositiveIntegerField(verbose_name="Amount") # Filled by payment gateway
-    payment_id = models.CharField(max_length=50, unique=True, verbose_name="Payment ID")  # Gateway-provided identifier
+    amount = models.PositiveIntegerField(verbose_name="Amount") 
+    payment_id = models.CharField(max_length=50, unique=True, verbose_name="Payment ID")  
     is_successful = models.BooleanField(default=False, verbose_name="Is Successful")
     created_at = models.DateTimeField(auto_now_add=True, editable=False, verbose_name="Created At")
 
@@ -663,13 +717,16 @@ class Transaction(models.Model):
 
 class Delivery(models.Model):
     """
-    Represents the delivery details of an order.
+    Represents the shipment and delivery details of an order.
+    This model tracks the status, shipment timestamps, and tracking information associated with the delivery process.
 
     Attributes:
-        order (Order): The order being delivered.
-        status (str): The delivery status (e.g., pending, shipped, delivered).
-        tracking_id (str): The tracking number for the delivery.
-        delivered_at (datetime): The actual delivery time.
+        order (Order): The order linked to this delivery record.
+        status (str): The current delivery status (e.g., pending, shipped, delivered).
+        tracking_id (str, optional): The unique tracking number assigned to the delivery.
+        postman (str, optional): The name of the delivery person handling the shipment.
+        shipped_at (datetime, optional): The timestamp when the order was shipped.
+        delivered_at (datetime, optional): The timestamp when the order was successfully delivered.
     """
     
     STATUS_DELIVERY = [("pending", "Pending"), ("shipped", "Shipped"), ("delivered", "Delivered")]
@@ -694,13 +751,14 @@ class Delivery(models.Model):
 
 class UserView(models.Model):
     """
-    Represents a record of a user viewing a product.
+    Represents a user's interaction with a product by tracking view count and last seen time.
+    This model records how frequently a user views a specific product, providing insight into user engagement and product popularity.
 
     Attributes:
-        user (User): The user who viewed the product.
-        product (Product): The product that was viewed.
-        view_count (int): The number of times the user viewed the product.
-        last_seen (datetime): The last_seen when the product was viewed.
+        user (User): The authenticated user who viewed the product.
+        product (Product): The product that was accessed.
+        view_count (int): The total number of times the user has viewed the product.
+        last_seen (datetime): The timestamp of the most recent view event.
     """
     
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="UserView_user", verbose_name="User")
@@ -725,13 +783,14 @@ class UserView(models.Model):
 class Rating(models.Model):
     """
     Represents a user's rating and review of a product.
+    This model stores user feedback by capturing both numeric ratings and optional written reviews.
 
     Attributes:
-        user (User): The user who rated the product.
-        product (Product): The product being rated.
-        rating (int): The user's rating for the product (1-5 scale).
-        review (str): An optional review of the product.
-        created_at (datetime): The timestamp when the rating was created.
+        user (User): The user who provided the rating.
+        product (Product): The product that was rated.
+        rating (int): The rating given by the user, restricted to a scale of 1-5.
+        review (str, optional): An optional review text describing the user's experience.
+        created_at (datetime): The timestamp when the rating was recorded.
     """
     
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="Rating_user", verbose_name="User")

@@ -16,9 +16,9 @@ Module for utility functions and reusable components.
 
 passwordRe = compile(r"^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])(?=.*[!@#\$%\^&\*]).{8,}$")
 password_validator = RegexValidator(regex=passwordRe, message="رمز عبور باید متشکل از حروف کوچک، بزرگ و عدد باشد و همچنین هشت رقم داشته باشد.", code="invalid_password")
-
 emailRe = compile(r"^[\w\.-]+@[a-zA-Z\d\.-]+\.[a-zA-Z]{2,}$")
 email_validator = RegexValidator(regex=emailRe, message="ایمیل معتبر نیست.", code="invalid_email")
+
 
 
 def email_sender(subject, message, HTML_Content, to):
@@ -32,16 +32,18 @@ def email_sender(subject, message, HTML_Content, to):
     message.send()
 
 
+
 def code_generator(count):
     """
     Generate a random code of specified length.
     """
     
-    characters = list(ascii_letters + digits)
-    code_list = [choice(characters) for _ in range(count)]
-    return "".join(code_list)
+    chars = list(ascii_letters + digits)
+    code = "".join([choice(chars) for _ in range(count)])
+    return code
          
-         
+
+
 def replace_dash_to_space(title):
     """
     Replace spaces with dashes in a given title.
@@ -50,7 +52,8 @@ def replace_dash_to_space(title):
     new_title = "".join([eliminator.replace(" ", "-") for eliminator in title])
     return new_title.lower()
     
-    
+
+
 User = get_user_model()
     
 def create_test_users():
@@ -73,6 +76,5 @@ def create_test_users():
     user_4 = User.objects.create_user(**primary_user_4)    
     return user_1, user_2, user_3, user_4
     
-
 
 #============================================================================================

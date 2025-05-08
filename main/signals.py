@@ -35,15 +35,16 @@ def check_coupon_expiration(sender, instance, **kwargs):
 
 @receiver(post_save, sender=Warehouse)
 def handle_update_stock(sender, instance, created, **kwargs):
-    total_stock = Warehouse.total_stock(product=instance.product)
+    product = instance.product
+    total_stock = Warehouse.total_stock(product=product)
     is_available = total_stock > 0
     # Update directly without triggering save()
-    Warehouse.objects.filter(product=instance.product).update(is_available=is_available)
+    Warehouse.objects.filter(product=product).update(is_available=is_available)
 
 
 @receiver(post_save, sender=CartItem)
 @receiver(post_delete, sender=CartItem)
-def update_cart_total_price(sender, instance, **kwargs):
+def update_cart_total_price(sender, instance, created, **kwargs):
     cart = instance.cart
     if cart:
         cart.total_price = cart.calculate_total_price()
