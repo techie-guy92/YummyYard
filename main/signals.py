@@ -73,17 +73,16 @@ def set_order_status_to_waiting(sender, instance, created, **kwargs):
 @receiver(post_save, sender=Delivery)
 def handle_delivery_status_shipped(sender, instance, **kwargs):
     try:
-        logger.debug(f"Signal triggered for Delivery ID {instance.id} with status 'shipped' at {localtime(now())}.")
+        crr_datetime = localtime(now())
+        logger.debug(f"Signal triggered for Delivery ID {instance.id} with status 'shipped' at {crr_datetime}.")
 
         if instance.status == "shipped":
             def update_status():
-                instance.shipped_at = localtime(now())
+                instance.shipped_at = crr_datetime
                 instance.order.status = "shipped"
                 instance.save(update_fields=["shipped_at"])
                 instance.order.save(update_fields=["status"])
-                logger.info(
-                    f"Delivery ID {instance.id} shipped at {instance.shipped_at}. Order ID {instance.order.id} marked as 'shipped'."
-                )
+                logger.info(f"Delivery ID {instance.id} shipped at {instance.shipped_at}. Order ID {instance.order.id} marked as 'shipped'.")
 
             # Defer critical updates until transaction is committed. It is used when deferring non-critical operations until the transaction is finalized
             transaction.on_commit(update_status)
