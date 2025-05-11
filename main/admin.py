@@ -4,9 +4,6 @@ from django.db.models import Q
 from .models import *
 
 
-#===================================== Actions ========================================================
-
-
 #====================================== Category Admin ================================================
 
 class CategoryFilter(SimpleListFilter):
@@ -152,7 +149,7 @@ class CartItemAdmin(admin.ModelAdmin):
     def price(self, obj):
         return obj.get_product_price()
     
-    
+      
 #====================================== Delivery Schedule Admin =======================================
 
 @admin.register(DeliverySchedule)
