@@ -37,7 +37,7 @@ class WishlistSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Wishlist
-        fields = ["id", "user", "product", "product_price", "product_name"]
+        fields = ["id", "user", "product", "product_name", "product_price"]
         # extra_kwargs = {"user": {"read_only": True}}
         
         

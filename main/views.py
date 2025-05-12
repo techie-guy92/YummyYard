@@ -77,7 +77,7 @@ class WishlistModelViewSet(viewsets.ModelViewSet):
     pagination_class = PageNumberPagination
     filter_backends = [SearchFilter]
     search_fields = ["user__username", "user__email", "product__name"]
-
+    
     def get_queryset(self):
         return Wishlist.objects.filter(user=self.request.user)
     
