@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from rest_framework.views import APIView
 from django.shortcuts import get_object_or_404
 from django.db.models import Q
 from django.utils import timezone
@@ -10,7 +11,7 @@ from users.models import *
 
 class CategorySerializer(serializers.ModelSerializer):
     children = serializers.SerializerMethodField()
-
+   
     class Meta:
         model = Category
         fields = ["id", "name", "parent", "slug", "description", "image", "children"]
@@ -32,12 +33,12 @@ class ProductSerializer(serializers.ModelSerializer):
 class WishlistSerializer(serializers.ModelSerializer):
     product_name = serializers.ReadOnlyField(source="product.name")
     product_price = serializers.ReadOnlyField(source="product.price")
-    # user = serializers.HiddenField(default=None)
+    user = serializers.HiddenField(default=serializers.CurrentUserDefault())
     
     class Meta:
         model = Wishlist
         fields = ["id", "user", "product", "product_price", "product_name"]
-        extra_kwargs = {"user": {"read_only": True}}
+        # extra_kwargs = {"user": {"read_only": True}}
         
         
 #====================================== ShoppingCart Serializer ============================================

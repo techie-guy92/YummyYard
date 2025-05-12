@@ -81,8 +81,8 @@ class WishlistModelViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         return Wishlist.objects.filter(user=self.request.user)
     
-    def perform_create(self, serializer):
-        serializer.save(user=self.request.user)
+    # def perform_create(self, serializer):
+    #     serializer.save(user=self.request.user)
     
     @action(detail=False, methods=["delete"], url_path="delete_by_product/(?P<product_id>[0-9]+)")
     def destroy_by_product(self, request, product_id=None):
