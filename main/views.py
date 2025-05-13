@@ -76,7 +76,7 @@ class WishlistModelViewSet(viewsets.ModelViewSet):
     http_method_names = ["get", "post", "delete"]
     pagination_class = PageNumberPagination
     filter_backends = [SearchFilter]
-    search_fields = ["user__username", "user__email", "product__name"]
+    search_fields = ["product__name", "user__username"]
     
     def get_queryset(self):
         return Wishlist.objects.filter(user=self.request.user)
@@ -89,9 +89,7 @@ class WishlistModelViewSet(viewsets.ModelViewSet):
         wishlist_item = Wishlist.objects.filter(user=request.user, product_id=product_id).first()
         if wishlist_item:
             wishlist_item.delete()
-            print("Wishlist item found and being deleted.")
             return Response({"detail": "Wishlist item deleted successfully."}, status=status.HTTP_204_NO_CONTENT)
-        print("Wishlist item not found.")
         return Response({"detail": "Wishlist item not found."}, status=status.HTTP_404_NOT_FOUND)
 
 
@@ -108,15 +106,18 @@ class ShoppingCartAPIView(viewsets.ViewSet):
         serializer = ShoppingCartSerializer(data=request.data, context={"request": request})
         if serializer.is_valid():
             cart = serializer.save()
+            serialized_cart_items = CartItemSerializer(cart.CartItem_cart.all(), many=True).data
             return Response(
                 {
                     "message": "کالاهای شما اضافه شد.", 
                     "cart_id": cart.id, 
                     "total_price": cart.total_price,
+                    "cart_items": serialized_cart_items, 
                 }, 
                 status=status.HTTP_201_CREATED
-        )
+            )
         return Response({"error": serializer.errors, "details": "Failed to create shopping cart."}, status=status.HTTP_400_BAD_REQUEST)
+
 
 
 #====================================== Delivery Schedule View =======================================
