@@ -119,7 +119,6 @@ class ShoppingCartAPIView(viewsets.ViewSet):
         return Response({"error": serializer.errors, "details": "Failed to create shopping cart."}, status=status.HTTP_400_BAD_REQUEST)
 
 
-
 #====================================== Delivery Schedule View =======================================
 
 class DeliveryScheduleAPIView(APIView):
