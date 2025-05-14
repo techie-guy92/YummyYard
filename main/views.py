@@ -111,6 +111,7 @@ class ShoppingCartAPIView(viewsets.ViewSet):
                 {
                     "message": "کالاهای شما اضافه شد.", 
                     "cart_id": cart.id, 
+                    "cart_items_count": cart.CartItem_cart.count(), 
                     "total_price": cart.total_price,
                     "cart_items": serialized_cart_items, 
                 }, 

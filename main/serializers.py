@@ -71,8 +71,8 @@ class ShoppingCartSerializer(serializers.Serializer):
         try:
             with transaction.atomic():
                 cart = ShoppingCart.objects.create(**validated_data)
-                for item_data in cart_items_data:
-                    CartItem.objects.create(cart=cart, **item_data)
+                for cart_item_data in cart_items_data:
+                    CartItem.objects.create(cart=cart, **cart_item_data)
                 cart.total_price = cart.calculate_total_price()
                 cart.save(update_fields=["total_price"])
                 return cart
