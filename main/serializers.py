@@ -44,6 +44,7 @@ class WishlistSerializer(serializers.ModelSerializer):
 #====================================== ShoppingCart Serializer ============================================
 
 class CartItemSerializer(serializers.ModelSerializer): 
+    product = serializers.PrimaryKeyRelatedField(queryset=Product.objects.all(), write_only=True)  
     product_name = serializers.SerializerMethodField()
     grand_total = serializers.ReadOnlyField()
     
@@ -71,7 +72,7 @@ class ShoppingCartSerializer(serializers.Serializer):
             with transaction.atomic():
                 cart = ShoppingCart.objects.create(**validated_data)
                 for item_data in cart_items_data:
-                    CartItem.objects.create(cart=cart, **item_data )
+                    CartItem.objects.create(cart=cart, **item_data)
                 cart.total_price = cart.calculate_total_price()
                 cart.save(update_fields=["total_price"])
                 return cart
