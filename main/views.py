@@ -164,9 +164,9 @@ class DeliveryScheduleAPIView(APIView):
                     {
                         "message": "زمان سفارش با مئفقیت ثبت شد.",
                         "delivery_id": delivery.id,
+                        "delivery_cost": delivery.delivery_cost,
                         "delivery_date": delivery.date,
                         "delivery_time": delivery.time,
-                        "delivery_cost": delivery.delivery_cost,
                     },
                     status=status.HTTP_201_CREATED,
                 )
@@ -194,8 +194,9 @@ class OrderAPIView(APIView):
         try:
             serializer = OrderSerializer(data=request.data, context={"request": request})
             if serializer.is_valid():
-                serializer.save()
-                return Response({"message": "سفارش شما با موفقیت ثبت شد و آماده پرداخت است."}, status=status.HTTP_201_CREATED)
+                order = serializer.save()
+                return Response(
+                    {"message": "سفارش شما با موفقیت ثبت شد و آماده پرداخت است.", "Order_data": OrderSerializer(order).data}, status=status.HTTP_201_CREATED)
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         except Exception as error:
             return Response({"error": f"An unexpected error occurred: {str(error)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

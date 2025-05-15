@@ -110,12 +110,22 @@ class DeliveryScheduleSerializer(serializers.ModelSerializer):
 #====================================== Order Serializer ===================================================
 
 class OrderSerializer(serializers.ModelSerializer):
+    online_customer = serializers.ReadOnlyField(source="online_customer.username")
+    delivery_schedule = serializers.SerializerMethodField()
     discount = serializers.CharField(max_length=10, write_only=True, required=False)
 
     class Meta:
         model = Order
-        fields = ["discount"]
-
+        fields = ["online_customer", "delivery_schedule", "payment_method", "total_amount", "discount", "discount_applied", "amount_payable", "status"]
+        extra_kwargs = {
+            "delivery_schedule": {"read_only": True},
+            "payment_method": {"read_only": True},
+            "total_amount": {"read_only": True},
+            "discount_applied": {"read_only": True},
+            "amount_payable": {"read_only": True},
+            "status": {"read_only": True}
+            }
+        
     def create(self, validated_data):
         discount_code = validated_data.pop("discount", None)
         request = self.context.get("request")
@@ -161,6 +171,9 @@ class OrderSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("An order already exists for this cart.")
         return cart, delivery
             
+    def get_delivery_schedule(self, obj):
+        return f"{obj.delivery_schedule.date} ({obj.delivery_schedule.time})"
+        
         
 #====================================== Transaction Serializer =============================================
 
