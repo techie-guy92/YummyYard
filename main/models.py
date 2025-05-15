@@ -303,6 +303,7 @@ class ShoppingCart(models.Model):
         in_person_customer (InPersonCustomer, optional): The guest or in-person customer associated with the cart.
         products (ManyToManyField): The products added to the shopping cart, linked through `CartItem`.
         total_price (int): The aggregated price of all items in the shopping cart.
+        status (str): The current status of the order (e.g., active, processed, abandoned).
 
     Methods:
         customer(): Returns the associated customer (either online or in-person).
@@ -388,6 +389,7 @@ class CartItem(models.Model):
         product (Product): The specific product added to the cart.
         quantity (int): The number of units of the product selected by the customer.
         grand_total (int): The total cost of the product in the cart based on quantity.
+        status (str): The current status of the order (e.g., active, processed).
 
     Methods:
         get_product_price(): Returns the price of the associated product.
