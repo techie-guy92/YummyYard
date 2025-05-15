@@ -313,11 +313,14 @@ class ShoppingCart(models.Model):
         save(): Validates data and ensures the total price is updated after modifications.
     """
     
+    STATUS_TYPES = [("active", "Active"), ("processed", "Processed"), ("abandoned", "Abandoned")]
+    
     online_customer = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, blank=True, null=True, related_name="ShoppingCart_online_customers", verbose_name="Online Customer")
     in_person_customer = models.ForeignKey(InPersonCustomer, on_delete=models.CASCADE, blank=True, null=True, related_name="ShoppingCart_in_person_customers", verbose_name="In-Person Customer")
     products = models.ManyToManyField(Product, through="CartItem", related_name="ShoppingCart_products", verbose_name="Products")
     total_price = models.PositiveIntegerField(default=0, verbose_name="Total Price")
-
+    status = models.CharField(max_length=10, choices=STATUS_TYPES, default="active", verbose_name="Cart Status")
+    
     def customer(self):
         return self.online_customer if self.online_customer else self.in_person_customer
     
@@ -343,14 +346,21 @@ class ShoppingCart(models.Model):
                     product=item.product,
                     warehouse_type="output",
                     stock=item.quantity,
-                    price=item.product.price,
-                    )
+                    price=item.product.price)
     
-    def clear_cart(self):
-        CartItem.objects.filter(cart=self).delete()
-        self.total_price = 0
-        self.save(update_fields=["total_price"])
+    def mark_as_processed(self):
+        self.status = "processed"
+        self.save(update_fields=["status"])
         
+    def clear_cart(self):
+        cart_items = CartItem.objects.filter(cart=self, status="active")
+        if self.status == "processed":
+            return  
+        if cart_items.exists():
+            with transaction.atomic():
+                self.mark_as_processed()
+                cart_items.update(status="processed")
+
     def save(self, *args, **kwargs):
         self.full_clean()
         is_new = self.pk is None  
@@ -362,7 +372,11 @@ class ShoppingCart(models.Model):
     class Meta:
         verbose_name = "Shopping Cart"
         verbose_name_plural = "Shopping Carts"
-        indexes = [models.Index(fields=["online_customer"]), models.Index(fields=["in_person_customer"])]
+        indexes = [
+            models.Index(fields=["online_customer"]),
+            models.Index(fields=["in_person_customer"]),
+            models.Index(fields=["status"]), 
+        ]
         
         
 class CartItem(models.Model):
@@ -382,11 +396,13 @@ class CartItem(models.Model):
         validate_grand_total(): Updates the `grand_total` field based on the product price and quantity.
         save(): Ensures data integrity before storing the item in the cart.
     """
+    STATUS_TYPES = [("active", "Active"), ("processed", "Processed")]
     
     cart = models.ForeignKey(ShoppingCart, on_delete=models.CASCADE, related_name="CartItem_cart", verbose_name="Cart")
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name="CartItem_product", verbose_name="Product")
     quantity = models.PositiveIntegerField(default=1, verbose_name="Quantity")
     grand_total = models.PositiveIntegerField(default=0, verbose_name="Grand Total")
+    status = models.CharField(max_length=10, choices=STATUS_TYPES, default="active", verbose_name="Status")
     
     def __str__(self):
         return f"{self.quantity} x {self.product.name} in {self.cart.online_customer.username if self.cart.online_customer else self.cart.in_person_customer.first_name+' '+self.cart.in_person_customer.last_name}'s Cart"
@@ -450,14 +466,14 @@ class DeliverySchedule(models.Model):
     """
 
     TIMES = [("8_10", "8 - 10"), ("10_12", "10 - 12"), ("12_14", "12 - 14"), ("14_16", "14 - 16"), ("16_18", "16 - 18"), ("18_20", "18 - 20"), ("20_22", "20 - 22")]
-    DELIVERY_METHODS = [("normal", "Normal Shipping"), ("fast", "Fast Shipping"), ("postal", "Postal Delivery")]
+    DELIVERY_TYPES = [("normal", "Normal Shipping"), ("fast", "Fast Shipping"), ("postal", "Postal Delivery")]
     MAX_DAYS_AHEAD = 7
     MAX_CAPACITY_DELIVERY_NORMAL = 5
     MAX_CAPACITY_DELIVERY_FAST = 3  
     
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="DeliverySchedule_user", verbose_name="User")
     shopping_cart = models.ForeignKey(ShoppingCart, on_delete=models.CASCADE, related_name="DeliverySchedule_shopping_cart", verbose_name="Shopping Cart")
-    delivery_method = models.CharField(max_length=20, choices=DELIVERY_METHODS, verbose_name="Delivery Method")
+    delivery_method = models.CharField(max_length=20, choices=DELIVERY_TYPES, verbose_name="Delivery Method")
     date = models.DateField(verbose_name="Delivery Date")
     day = models.CharField(max_length=10, editable=False, verbose_name="Day of the Week")
     time = models.CharField(max_length=10, choices=TIMES, verbose_name="Time")

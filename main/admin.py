@@ -105,16 +105,16 @@ class WishlistAdmin(admin.ModelAdmin):
 class CartItemInLine(admin.TabularInline):
     model = CartItem
     extra = 1
-    readonly_fields = ["grand_total"]
+    readonly_fields = ["status", "grand_total"]
 
 
 @admin.register(ShoppingCart)
 class ShoppingCartAdmin(admin.ModelAdmin):
-    list_display = ["id", "customer", "total_price"]
+    list_display = ["id", "customer", "status", "total_price"]
     search_fields = ["online_customer", "in_person_customer", "products"]
     ordering = ["id"]
     inlines = [CartItemInLine]
-    readonly_fields = ["total_price"]
+    readonly_fields = ["status", "total_price"]
     
     def customer(self, obj):
         return obj.customer()
@@ -141,10 +141,10 @@ class ShoppingCartAdmin(admin.ModelAdmin):
     
 @admin.register(CartItem)
 class CartItemAdmin(admin.ModelAdmin):
-    list_display = ["id", "cart", "product", "quantity", "price", "grand_total"]
-    search_fields = ["id", "product"]
+    list_display = ["id", "cart", "product", "status", "quantity", "price", "grand_total"]
+    search_fields = ["id", "product", "status"]
     ordering = ["id"]
-    readonly_fields = ["grand_total", "price"]
+    readonly_fields = ["status", "grand_total", "price"]
     
     def price(self, obj):
         return obj.get_product_price()

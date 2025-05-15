@@ -43,7 +43,6 @@ def handle_update_stock(sender, instance, created, **kwargs):
 
 
 @receiver(post_save, sender=CartItem)
-@receiver(post_delete, sender=CartItem)
 def update_cart_total_price(sender, instance, created, **kwargs):
     cart = instance.cart
     if cart:

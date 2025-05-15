@@ -113,7 +113,7 @@ class OrderSerializer(serializers.ModelSerializer):
     online_customer = serializers.ReadOnlyField(source="online_customer.username")
     delivery_schedule = serializers.SerializerMethodField()
     discount = serializers.CharField(max_length=10, write_only=True, required=False)
-
+    
     class Meta:
         model = Order
         fields = ["online_customer", "delivery_schedule", "payment_method", "total_amount", "discount", "discount_applied", "amount_payable", "status"]
@@ -125,7 +125,12 @@ class OrderSerializer(serializers.ModelSerializer):
             "amount_payable": {"read_only": True},
             "status": {"read_only": True}
             }
-        
+    
+    def get_delivery_schedule(self, obj):
+        if obj.delivery_schedule:
+            return f"{obj.delivery_schedule.date} ({obj.delivery_schedule.time})"
+        return "No delivery schedule assigned"
+
     def create(self, validated_data):
         discount_code = validated_data.pop("discount", None)
         request = self.context.get("request")
@@ -155,26 +160,37 @@ class OrderSerializer(serializers.ModelSerializer):
                     coupon.refresh_from_db()
                 except Coupon.DoesNotExist:
                     raise serializers.ValidationError("Invalid discount code.")
-
             order = Order.objects.create(**validated_data)
+            cart.clear_cart()
             return order
 
     def validate_order_components(self, customer):
-        cart = ShoppingCart.objects.filter(online_customer=customer).last()
-        delivery = DeliverySchedule.objects.filter(user=customer, shopping_cart=cart).first()
-        order = Order.objects.filter(online_customer=customer, shopping_cart=cart).first()
+        cart = ShoppingCart.objects.filter(online_customer=customer, status="active").last()
         if not cart:
             raise serializers.ValidationError("No active shopping cart found.")
+        if cart.status == "processed":
+            raise serializers.ValidationError("You cannot place an order with a processed cart. Please start a new cart.")
+        delivery = DeliverySchedule.objects.filter(user=customer, shopping_cart=cart).first()
         if not delivery:
             raise serializers.ValidationError("No delivery schedule found.")
-        if order:
+        if Order.objects.filter(online_customer=customer, shopping_cart=cart).exists():
             raise serializers.ValidationError("An order already exists for this cart.")
         return cart, delivery
+
+    # def validate_order_components(self, customer):
+    #     cart = ShoppingCart.objects.filter(online_customer=customer).last()
+    #     delivery = DeliverySchedule.objects.filter(user=customer, shopping_cart=cart).first()
+    #     # order = Order.objects.filter(online_customer=customer, shopping_cart=cart).first()
+    #     order = Order.objects.filter(online_customer=customer, shopping_cart=cart).exists()
+    #     if not cart:
+    #         raise serializers.ValidationError("No active shopping cart found.")
+    #     if not delivery:
+    #         raise serializers.ValidationError("No delivery schedule found.")
+    #     if order:
+    #         raise serializers.ValidationError("An order already exists for this cart.")
+    #     return cart, delivery
             
-    def get_delivery_schedule(self, obj):
-        return f"{obj.delivery_schedule.date} ({obj.delivery_schedule.time})"
-        
-        
+
 #====================================== Transaction Serializer =============================================
 
 # Note: This class is a placeholder for future integration with a payment gateway. 
