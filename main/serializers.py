@@ -202,6 +202,34 @@ class TransactionSerializer(serializers.ModelSerializer):
         fields = ["user", "amount", "payment_id", "is_successful"]
         
         
+#====================================== Delivery Serializer ================================================
+
+class DeliverySerializer(serializers.ModelSerializer):
+    tracking_code = serializers.CharField(max_length=20, write_only=True, required=True)
+
+    class Meta:
+        model = Delivery
+        fields = ["order", "tracking_code", "postman", "status", "shipped_at", "delivered_at"]
+        
+    def update(self, instance, validated_data):
+        if validated_data.get("tracking_code") == instance.tracking_id:
+            instance.delivered_at = localtime(now())
+            instance.status = "delivered"
+            instance.order.status = "completed"
+            instance.order.save(update_fields=["status"])
+            instance.save(update_fields=["delivered_at", "status"])
+        return instance
+        
+    def validate(self, attrs):
+        tracking_code = attrs.get("tracking_code") 
+        instance = getattr(self, "instance", None)  
+        if not instance:
+            raise serializers.ValidationError("Delivery instance does not exist.")
+        if tracking_code != instance.tracking_id:
+            raise serializers.ValidationError("Invalid tracking code provided.")
+        return attrs
+
+       
 #====================================== UserView Serializer ================================================
 
 class UserViewSerializer(serializers.ModelSerializer):

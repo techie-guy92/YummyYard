@@ -185,6 +185,8 @@ class DeliveryScheduleAPIView(APIView):
 #====================================== Order View ===================================================
 
 class OrderAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+    
     @extend_schema(
         request = OrderSerializer,
         responses = {
@@ -236,6 +238,33 @@ class TransactionModelViewSet(viewsets.ModelViewSet):
         )
 
 
+#====================================== Delivery View ================================================
+
+class DeliveryAPIView(APIView):
+    permission_classes = [CheckOwnershipPermission]
+    
+    @extend_schema(
+        request = DeliverySerializer,
+        responses = {
+            200: "Delivery status updated successfully.",
+            400: "Invalid request data.",
+            500: "Internal server error."
+        }
+    )
+    def put(self, request):
+        try:
+            delivery = Delivery.objects.filter(order__online_customer=request.user, order__status="successful").last()
+            if not delivery:
+                return Response({"error": "سفارش پرداخت شده که تکمیل نشده باشد وجود ندارد."}, status=status.HTTP_404_NOT_FOUND)
+            serializer = DeliverySerializer(instance=delivery, data=request.data, partial=True, context={"request": request})
+            if serializer.is_valid():
+                updated_delivery = serializer.save()
+                return Response({"message": "کد وارد شده صیحیح می باشد، و سفارش تکمیل شد.", "delivery_data": DeliverySerializer(updated_delivery).data}, status=status.HTTP_200_OK)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as error:
+          return Response({"error": f"An unexpected error occurred: {str(error)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+    
 #====================================== UserView View ================================================
 
 class UserViewModelViewSet(viewsets.ModelViewSet):

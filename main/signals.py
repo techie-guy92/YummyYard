@@ -71,19 +71,38 @@ def set_order_status_to_waiting(sender, instance, created, **kwargs):
 
 
 @receiver(post_save, sender=Delivery)
+def send_tracking_id(sender, instance, **kwargs):
+    tracking_id = instance.tracking_id
+    customer = instance.order.online_customer
+    delivery_schedule = instance.order.delivery_schedule
+    if not customer:
+        logger.error(f"Delivery {instance.id} has no assigned customer. Email cannot be sent.")
+        return
+    if instance.order.status == "successful":
+        delivery_date = delivery_schedule.date.strftime("%Y-%m-%d") if delivery_schedule else "Not Scheduled"
+        delivery_time = delivery_schedule.time.strftime("%H:%M") if delivery_schedule else "Unknown"
+        subject = "Tracking id"
+        html_content = f"""Hello dear {customer.first_name} {customer.last_name},<br><br>
+        Your payment was successfully completed, and your order will be delivered on <b>{delivery_date} at {delivery_time}</b>.
+        <br>Your tracking ID is: <b>{tracking_id}</b>. Please provide this code to the postman."""
+        try:
+            email_sender(subject, "", html_content, [customer.email])
+        except Exception as error:
+            logger.error(f"Failed to send tracking email to {customer.email}: {error}")
+
+
+@receiver(post_save, sender=Delivery)
 def handle_delivery_status_shipped(sender, instance, **kwargs):
     try:
         crr_datetime = localtime(now())
         logger.debug(f"Signal triggered for Delivery ID {instance.id} with status 'shipped' at {crr_datetime}.")
-
-        if instance.status == "shipped":
+        if instance.status == "shipped" and not instance.shipped_at:
             def update_status():
                 instance.shipped_at = crr_datetime
                 instance.order.status = "shipped"
                 instance.save(update_fields=["shipped_at"])
                 instance.order.save(update_fields=["status"])
                 logger.info(f"Delivery ID {instance.id} shipped at {instance.shipped_at}. Order ID {instance.order.id} marked as 'shipped'.")
-
             # Defer critical updates until transaction is committed. It is used when deferring non-critical operations until the transaction is finalized
             transaction.on_commit(update_status)
         else:
@@ -92,34 +111,4 @@ def handle_delivery_status_shipped(sender, instance, **kwargs):
         logger.error(f"Error in handle_delivery_status_shipped signal for Delivery ID {instance.id}: {error}", exc_info=True)
 
 
-# @receiver(post_save, sender=Delivery)
-# def handle_delivery_status_delivered(sender, instance, created, **kwargs):
-#     try:
-#         logger.debug(f"Signal triggered for Delivery ID {instance.id} with status '{instance.status}'.")
-#         # It is used when we need to lock rows for concurrency control
-#         db_delivery = Delivery.objects.select_for_update().get(pk=instance.pk)
-#         if instance.tracking_id == db_delivery.tracking_id:
-#             logger.info(f"Tracking ID match confirmed for Delivery ID {instance.id}. Proceeding with status update.")
-#             instance.delivered_at = localtime(now())
-#             instance.status = "completed"
-#             instance.order.status = "completed"
-#             with transaction.atomic():
-#                 instance.save(update_fields=["status", "delivered_at"])
-#                 instance.order.save(update_fields=["status"])
-#             logger.info(
-#                 f"Delivery ID {instance.id} marked as 'completed' at {instance.delivered_at}. "
-#                 f"Order ID {instance.order.id} status updated to 'completed'."
-#             )
-#         else:
-#             logger.warning(
-#                 f"[Tracking Mismatch] Delivery ID {instance.id} - DB Tracking ID: {db_delivery.tracking_id}, "
-#                 f"Instance Tracking ID: {instance.tracking_id}."
-#             )
-#             return
-#     except Delivery.DoesNotExist:
-#         logger.error(f"Delivery ID {instance.id} not found in database during processing.")
-#     except Exception as error:
-#         logger.error(f"Critical error in handle_delivery_status_delivered signal for Delivery ID {instance.id}: {error}", exc_info=True)
-        
-      
 #========================================================================================================

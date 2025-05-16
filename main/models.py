@@ -708,9 +708,7 @@ class Transaction(models.Model):
     def validate_payment(self):
         if self.is_successful:
             self.order.status = "successful"
-            # self.order.shopping_cart.clear_cart()
             self.order.save(update_fields=["status"])
-            
             self.order.refresh_from_db()
             with transaction.atomic():
                 delivery, created = Delivery.objects.get_or_create(order=self.order, defaults={
