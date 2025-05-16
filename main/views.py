@@ -135,13 +135,16 @@ class DeliveryScheduleAPIView(APIView):
         },
     )
     def post(self, request):
-        cart = ShoppingCart.objects.filter(online_customer=request.user).last()
+        customer = request.user
+        cart = ShoppingCart.objects.filter(online_customer=customer, status="active").last()
         if not cart:
             return Response({"error": "سفارش فعالی وجود ندارد."}, status=status.HTTP_400_BAD_REQUEST)
-        order = Order.objects.filter(online_customer=request.user, shopping_cart=cart).first()
-        if order:
+        if cart.status == "processed":
+            return Response({"error": "You cannot place an order with a processed cart. Please start a new cart."}, status=status.HTTP_400_BAD_REQUEST)
+        order = Order.objects.filter(online_customer=customer, shopping_cart=cart)
+        if order.exists():
             return Response({"error": "این سفارش قبلا تکمیل شده است."}, status=status.HTTP_409_CONFLICT)
-        delivery_schedule = DeliverySchedule.objects.filter(user=request.user, shopping_cart=cart).first()
+        delivery_schedule = DeliverySchedule.objects.filter(user=customer, shopping_cart=cart).first()
         if delivery_schedule:
             return Response(
                 {
@@ -158,7 +161,7 @@ class DeliveryScheduleAPIView(APIView):
         if serializer.is_valid():
             try:
                 delivery_data = serializer.validated_data
-                delivery = DeliverySchedule(user=request.user, shopping_cart=cart, **delivery_data)
+                delivery = DeliverySchedule(user=customer, shopping_cart=cart, **delivery_data)
                 delivery.save() 
                 return Response(
                     {
@@ -173,13 +176,13 @@ class DeliveryScheduleAPIView(APIView):
             except ValidationError as error:
                 return Response({"error": str(error)}, status=status.HTTP_400_BAD_REQUEST)
             except Exception as error:
-                logger.error(f"Unexpected error occurred in DeliveryScheduleAPIView for user {request.user.username}: {error}")
+                logger.error(f"Unexpected error occurred in DeliveryScheduleAPIView for user {customer.username}: {error}")
                 return Response({"error": f"An unexpected error occurred: {error}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         else:
             return Response({"error": serializer.errors, "details": "Validation failed."}, status=status.HTTP_400_BAD_REQUEST)
 
 
-#====================================== Order Serializer =============================================
+#====================================== Order View ===================================================
 
 class OrderAPIView(APIView):
     @extend_schema(

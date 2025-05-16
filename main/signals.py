@@ -55,7 +55,8 @@ def handle_place_order(sender, instance, created, **kwargs):
     if created:  
         shopping_cart = instance.shopping_cart 
         shopping_cart.place_order()
-        logger.debug(f"Order ID {instance.id} triggered place_order for ShoppingCart ID {shopping_cart.id}")  
+        shopping_cart.clear_cart()
+        logger.debug(f"Order ID {instance.id} triggered place_order and clear_cart for ShoppingCart ID {shopping_cart.id}")  
 
 
 @receiver(post_save, sender=Order)
