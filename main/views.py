@@ -89,8 +89,8 @@ class WishlistModelViewSet(viewsets.ModelViewSet):
         wishlist_item = Wishlist.objects.filter(user=request.user, product_id=product_id).first()
         if wishlist_item:
             wishlist_item.delete()
-            return Response({"detail": "Wishlist item deleted successfully."}, status=status.HTTP_204_NO_CONTENT)
-        return Response({"detail": "Wishlist item not found."}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"detail": "کالای مورد نظر با موفقیت حذف شد."}, status=status.HTTP_204_NO_CONTENT)
+        return Response({"detail": "کالای مورد نظر یافت نشد."}, status=status.HTTP_404_NOT_FOUND)
 
 
 #====================================== ShoppingCart View ============================================
@@ -117,7 +117,7 @@ class ShoppingCartAPIView(viewsets.ViewSet):
                 }, 
                 status=status.HTTP_201_CREATED
             )
-        return Response({"error": serializer.errors, "details": "Failed to create shopping cart."}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({"error": serializer.errors, "details": "سبد خرید ایجاد نشد."}, status=status.HTTP_400_BAD_REQUEST)
 
 
 #====================================== Delivery Schedule View =======================================
@@ -140,7 +140,7 @@ class DeliveryScheduleAPIView(APIView):
         if not cart:
             return Response({"error": "سفارش فعالی وجود ندارد."}, status=status.HTTP_400_BAD_REQUEST)
         if cart.status == "processed":
-            return Response({"error": "You cannot place an order with a processed cart. Please start a new cart."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": "شما نمی توانید یک سفارش پردازش شده را ثبت کنید، لطفا یک سبد خرید جدید ایجاد کنید."}, status=status.HTTP_400_BAD_REQUEST)
         order = Order.objects.filter(online_customer=customer, shopping_cart=cart)
         if order.exists():
             return Response({"error": "این سفارش قبلا تکمیل شده است."}, status=status.HTTP_409_CONFLICT)
@@ -259,7 +259,7 @@ class DeliveryAPIView(APIView):
             serializer = DeliverySerializer(instance=delivery, data=request.data, partial=True, context={"request": request})
             if serializer.is_valid():
                 updated_delivery = serializer.save()
-                return Response({"message": "کد وارد شده صیحیح می باشد، و سفارش تکمیل شد.", "delivery_data": DeliverySerializer(updated_delivery).data}, status=status.HTTP_200_OK)
+                return Response({"message": "سفارش شما با موفقیت تکمیل شد.", "delivery_data": DeliverySerializer(updated_delivery).data}, status=status.HTTP_200_OK)
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         except Exception as error:
           return Response({"error": f"An unexpected error occurred: {str(error)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

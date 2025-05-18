@@ -80,10 +80,9 @@ def send_tracking_id(sender, instance, **kwargs):
         return
     if instance.order.status == "successful":
         delivery_date = delivery_schedule.date.strftime("%Y-%m-%d") if delivery_schedule else "Not Scheduled"
-        delivery_time = delivery_schedule.time.strftime("%H:%M") if delivery_schedule else "Unknown"
         subject = "Tracking id"
         html_content = f"""Hello dear {customer.first_name} {customer.last_name},<br><br>
-        Your payment was successfully completed, and your order will be delivered on <b>{delivery_date} at {delivery_time}</b>.
+        Your payment was successfully completed, and your order will be delivered on <b>{delivery_date} at {delivery_schedule.time}</b>.
         <br>Your tracking ID is: <b>{tracking_id}</b>. Please provide this code to the postman."""
         try:
             email_sender(subject, "", html_content, [customer.email])

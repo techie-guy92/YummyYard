@@ -103,7 +103,7 @@ class DeliveryScheduleSerializer(serializers.ModelSerializer):
     
     def validate(self, data):
         if not ShoppingCart.objects.filter(online_customer=self.context["request"].user).exists():
-            raise serializers.ValidationError("No active shopping cart found. Please add products to your cart before scheduling delivery.")
+            raise serializers.ValidationError("سبد خرید فعالی پیدا نشد، لطفا سبد خرید ایجاد کنید و محصولات خود را به ان تضافه کنید.")
         return data
 
          
@@ -150,7 +150,7 @@ class OrderSerializer(serializers.ModelSerializer):
                 try:
                     coupon = Coupon.objects.get(code=discount_code, is_active=True)
                     if not coupon.is_valid():
-                        raise serializers.ValidationError("The discount code is no longer valid or has expired.")
+                        raise serializers.ValidationError("کد تخفیف دیگر معنبر نیست یا منقضی شده است.")
                     discount_amount = validated_data["total_amount"] * (coupon.discount_percentage / 100)
                     validated_data["discount_applied"] = discount_amount
                     validated_data["amount_payable"] = validated_data["total_amount"] - discount_amount
@@ -159,7 +159,7 @@ class OrderSerializer(serializers.ModelSerializer):
                     coupon.save(update_fields=["usage_count"])
                     coupon.refresh_from_db()
                 except Coupon.DoesNotExist:
-                    raise serializers.ValidationError("Invalid discount code.")
+                    raise serializers.ValidationError("کد تخفیف اشتباه است.")
             order = Order.objects.create(**validated_data)
             cart.clear_cart()
             return order
@@ -167,14 +167,14 @@ class OrderSerializer(serializers.ModelSerializer):
     def validate_order_components(self, customer):
         cart = ShoppingCart.objects.filter(online_customer=customer, status="active").last()
         if not cart:
-            raise serializers.ValidationError("No active shopping cart found.")
+            raise serializers.ValidationError("سفارش فعالی پیدا نشد.")
         if cart.status == "processed":
-            raise serializers.ValidationError("You cannot place an order with a processed cart. Please start a new cart.")
+            raise serializers.ValidationError("شما نمی توانید یک سفارش پردازش شده را ثبت کنید، لطفا یک سبد خرید جدید ایجاد کنید.")
         delivery = DeliverySchedule.objects.filter(user=customer, shopping_cart=cart).first()
         if not delivery:
-            raise serializers.ValidationError("No delivery schedule found.")
+            raise serializers.ValidationError("زمان ارسال پیدا نشد.")
         if Order.objects.filter(online_customer=customer, shopping_cart=cart).exists():
-            raise serializers.ValidationError("An order already exists for this cart.")
+            raise serializers.ValidationError("این سفارش قبلا ثبت شده است.")
         return cart, delivery
 
     # def validate_order_components(self, customer):
@@ -224,9 +224,9 @@ class DeliverySerializer(serializers.ModelSerializer):
         tracking_code = attrs.get("tracking_code") 
         instance = getattr(self, "instance", None)  
         if not instance:
-            raise serializers.ValidationError("Delivery instance does not exist.")
+            raise serializers.ValidationError("سفارش مورد نظر پیدا نشد.")
         if tracking_code != instance.tracking_id:
-            raise serializers.ValidationError("Invalid tracking code provided.")
+            raise serializers.ValidationError("کد وارد شده صحیح نمی باشد.")
         return attrs
 
        
