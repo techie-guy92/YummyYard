@@ -256,7 +256,7 @@ class DeliveryAPIView(APIView):
             delivery = Delivery.objects.filter(order__online_customer=request.user, order__status="successful").last()
             if not delivery:
                 return Response({"error": "سفارش پرداخت شده که تکمیل نشده باشد وجود ندارد."}, status=status.HTTP_404_NOT_FOUND)
-            serializer = DeliverySerializer(instance=delivery, data=request.data, partial=True, context={"request": request})
+            serializer = DeliverySerializer(data=request.data, instance=delivery, partial=True, context={"request": request})
             if serializer.is_valid():
                 updated_delivery = serializer.save()
                 return Response({"message": "سفارش شما با موفقیت تکمیل شد.", "delivery_data": DeliverySerializer(updated_delivery).data}, status=status.HTTP_200_OK)

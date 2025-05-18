@@ -177,19 +177,6 @@ class OrderSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("این سفارش قبلا ثبت شده است.")
         return cart, delivery
 
-    # def validate_order_components(self, customer):
-    #     cart = ShoppingCart.objects.filter(online_customer=customer).last()
-    #     delivery = DeliverySchedule.objects.filter(user=customer, shopping_cart=cart).first()
-    #     # order = Order.objects.filter(online_customer=customer, shopping_cart=cart).first()
-    #     order = Order.objects.filter(online_customer=customer, shopping_cart=cart).exists()
-    #     if not cart:
-    #         raise serializers.ValidationError("No active shopping cart found.")
-    #     if not delivery:
-    #         raise serializers.ValidationError("No delivery schedule found.")
-    #     if order:
-    #         raise serializers.ValidationError("An order already exists for this cart.")
-    #     return cart, delivery
-            
 
 #====================================== Transaction Serializer =============================================
 
