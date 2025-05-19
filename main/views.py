@@ -207,6 +207,34 @@ class OrderAPIView(APIView):
             return Response({"error": f"An unexpected error occurred: {str(error)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
+#====================================== Order View ===================================================
+
+class OrderCancellationAPIView(APIView):
+    permission_classes = [CheckOwnershipPermission]
+    @extend_schema(
+        request = OrderCancellationSerializer,
+        responses = {
+            200: "Order successfully canceled.",
+            400: "Order cancellation failed.",
+            404: "No rrder found",
+            500: "Internal server error."
+        }
+    )
+    def put(self, request, order_id):
+        try:
+            order = Order.objects.filter(pk=order_id, online_customer=request.user).first()
+            if not order:
+                return Response({"error": "سفارش مورد نظر یافت نشد."}, status=status.HTTP_404_NOT_FOUND)
+            
+            serializer = OrderCancellationSerializer(data={}, instance=order, partial=True)
+            if serializer.is_valid():
+                serializer.save()
+                return Response({"message": "سفارش با موفقیت لغو شد."}, status=status.HTTP_200_OK)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as error:
+          return Response({"error": f"An unexpected error occurred: {str(error)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+
 #====================================== Transaction View =============================================
 
 # Note: This class is a placeholder for future integration with a payment gateway. 

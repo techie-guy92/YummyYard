@@ -178,6 +178,34 @@ class OrderSerializer(serializers.ModelSerializer):
         return cart, delivery
 
 
+#====================================== Order Serializer ===================================================
+
+class OrderCancellationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Order
+        fields = ["status"]
+        extra_kwargs = {"status": {"read_only": True}}
+        
+    def update(self, instance, validated_data):
+        crr_datetime = localtime(now())
+        crr_date = crr_datetime.date()
+        crr_hour = crr_datetime.hour
+        delivery_hour = int(instance.delivery_schedule.time.split("_")[0])
+        if instance.status in ["shipped", "completed"]:
+            raise serializers.ValidationError("سفارش تکمیل شده یا ارسال شده نمیتواند لغو شود.")
+        if instance.delivery_schedule.date == crr_date and delivery_hour <= crr_hour + 2:
+            raise serializers.ValidationError("لغو سفارش کمتر از دو ساعت به ارسال امکان پذیر نیست.") 
+        instance.status = "canceled"
+        instance.save(update_fields=["status"])
+        return instance
+    
+    def validate(self, attrs):
+        instance = getattr(self, "instance", None)
+        if not instance:
+            raise serializers.ValidationError("سفارش مورد نظر یافت نشد.")
+        return attrs
+    
+
 #====================================== Transaction Serializer =============================================
 
 # Note: This class is a placeholder for future integration with a payment gateway. 
