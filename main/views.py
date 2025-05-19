@@ -216,7 +216,7 @@ class OrderCancellationAPIView(APIView):
         responses = {
             200: "Order successfully canceled.",
             400: "Order cancellation failed.",
-            404: "No rrder found",
+            404: "No rrder found.",
             500: "Internal server error."
         }
     )
@@ -225,7 +225,6 @@ class OrderCancellationAPIView(APIView):
             order = Order.objects.filter(pk=order_id, online_customer=request.user).first()
             if not order:
                 return Response({"error": "سفارش مورد نظر یافت نشد."}, status=status.HTTP_404_NOT_FOUND)
-            
             serializer = OrderCancellationSerializer(data={}, instance=order, partial=True)
             if serializer.is_valid():
                 serializer.save()
