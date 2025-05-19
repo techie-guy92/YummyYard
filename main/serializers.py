@@ -193,10 +193,12 @@ class OrderCancellationSerializer(serializers.ModelSerializer):
         delivery_hour = int(instance.delivery_schedule.time.split("_")[0])
         if instance.status in ["shipped", "completed"]:
             raise serializers.ValidationError("سفارش تکمیل شده یا ارسال شده نمیتواند لغو شود.")
-        if instance.delivery_schedule.date == crr_date and delivery_hour <= crr_hour + 2:
-            raise serializers.ValidationError("لغو سفارش کمتر از دو ساعت به ارسال امکان پذیر نیست.") 
+        if instance.delivery_schedule.date < crr_date or (instance.delivery_schedule.date == crr_date and delivery_hour <= crr_hour + 2):
+            raise serializers.ValidationError("لغو سفارش کمتر از دو ساعت به ارسال امکان پذیر نیست.")
         instance.status = "canceled"
+        instance.shopping_cart.status = "abandoned"
         instance.save(update_fields=["status"])
+        instance.shopping_cart.save(update_fields=["status"])
         return instance
     
     def validate(self, attrs):

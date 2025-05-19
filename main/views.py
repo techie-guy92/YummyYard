@@ -222,13 +222,14 @@ class OrderCancellationAPIView(APIView):
     )
     def put(self, request, order_id):
         try:
-            order = Order.objects.filter(pk=order_id, online_customer=request.user).first()
+            order = Order.objects.filter(id=order_id, online_customer=request.user).first()
             if not order:
-                return Response({"error": "سفارش مورد نظر یافت نشد."}, status=status.HTTP_404_NOT_FOUND)
-            serializer = OrderCancellationSerializer(data={}, instance=order, partial=True)
+                return Response({"error": "سفارش مورد نظر یافت نشد و یا شما امکان دستری به آن را ندارید."}, status=status.HTTP_404_NOT_FOUND)
+            serializer = OrderCancellationSerializer(instance=order, data={}, partial=True)
             if serializer.is_valid():
                 serializer.save()
                 return Response({"message": "سفارش با موفقیت لغو شد."}, status=status.HTTP_200_OK)
+            print(serializer.errors)
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         except Exception as error:
           return Response({"error": f"An unexpected error occurred: {str(error)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
