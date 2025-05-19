@@ -21,8 +21,6 @@ urlpatterns = [
     path("add_schedule/", DeliveryScheduleAPIView.as_view(), name="add_schedule"),
     path("complete_order/", OrderAPIView.as_view(), name="complete_order"),
     path("cancel_order/<int:order_id>/", OrderCancellationAPIView.as_view(), name="cancel_order"),
-    # /products/cancel_order/<int:order_id>/  → main.views.OrderCancellationAPIView (cancel_order)
-
     path("complete_delivery/", DeliveryAPIView.as_view(), name="complete_delivery"),
     path("<int:product_id>/ratings/", RatingModelViewSet.as_view({"get": "list", "post": "create"}), name="ratings_product_id"),
     path("<int:product_id>/last_seen/", UserViewModelViewSet.as_view({"get": "list", "post": "create"}), name="last_seen_product_id"),
