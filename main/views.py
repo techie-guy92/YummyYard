@@ -126,8 +126,8 @@ class DeliveryScheduleAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
     @extend_schema(
-        request=DeliveryScheduleSerializer,
-        responses={
+        request = DeliveryScheduleSerializer,
+        responses = {
             201: "Delivery schedule created successfully",
             400: "No active shopping cart found",
             409: "This order has already been completed",
@@ -181,6 +181,33 @@ class DeliveryScheduleAPIView(APIView):
         else:
             return Response({"error": serializer.errors, "details": "Validation failed."}, status=status.HTTP_400_BAD_REQUEST)
 
+        
+#====================================== Delivery Schedule Change View =================================
+
+class DeliveryScheduleChangeAPIView(APIView):
+    permission_classes = [CheckOwnershipPermission]
+    
+    @extend_schema(
+        request = DeliveryScheduleChangeSerializer,
+        responses = {
+            200: "A new delivery schadule has been successfully registered.",
+            400: "Something went wrong. Please check your input.",
+            500: "An internal error occurred. Please try again later."
+        },
+    )
+    def put(self, request, delivery_id):
+        try:
+            delivery_schadule = DeliverySchedule.objects.filter(pk=delivery_id, user=request.user).first()
+            if not delivery_schadule:
+                return Response({"error": "سفارش مورد نظر یافت نشد و یا شما امکان دستری به آن را ندارید."}, status=status.HTTP_404_NOT_FOUND)
+            serializer = DeliveryScheduleChangeSerializer(data=request.data, instance=delivery_schadule, partial=True)
+            if serializer.is_valid():
+                new_delivery_schadule = serializer.save()
+                return Response({"message": f"زمان ارسال سفارش شما با موفقیت به {new_delivery_schadule.date} دز {new_delivery_schadule.time} تغییر کرد."}, status=status.HTTP_200_OK)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as error:
+            return Response({"error": f"An error occured {str(error)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
 
 #====================================== Order View ===================================================
 
@@ -207,7 +234,7 @@ class OrderAPIView(APIView):
             return Response({"error": f"An unexpected error occurred: {str(error)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-#====================================== Order View ===================================================
+#====================================== Order Cancellation View =======================================
 
 class OrderCancellationAPIView(APIView):
     permission_classes = [CheckOwnershipPermission]

@@ -101,11 +101,54 @@ class DeliveryScheduleSerializer(serializers.ModelSerializer):
     #         raise serializers.ValidationError("No active shopping cart found.")
     #     return super().create(validated_data)
     
+    def update(self, instance, validated_data):
+        datetime = localtime(now())
+        crr_date = datetime.date()
+        crr_hour = datetime.hour
+        delivery_date = instance.date
+        delivery_time = int(instance.time.split("_")[0])
+        if delivery_date < crr_date or (delivery_date == crr_date and delivery_time <= crr_hour + 2):
+            raise serializers.ValidationError("تغییر زمان سفارش کمتر از دو ساعت به ارسال امکان پذیر نیست.")
+        instance.date =  validated_data.get("date", instance.date)
+        instance.time = validated_data.get("time", instance.time)
+        instance.save(update_fields=["date", "time"])
+        return instance
+    
     def validate(self, data):
+        instance = getattr(self, "instance", None)
+        if not instance:
+            raise serializers.ValidationError("سفارش مورد نظر یافت نشد.")
         if not ShoppingCart.objects.filter(online_customer=self.context["request"].user).exists():
             raise serializers.ValidationError("سبد خرید فعالی پیدا نشد، لطفا سبد خرید ایجاد کنید و محصولات خود را به ان تضافه کنید.")
         return data
 
+
+#====================================== Delivery Schedule Change Serializer =================================
+
+class DeliveryScheduleChangeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = DeliverySchedule
+        fields = ["date", "time"]
+    
+    def update(self, instance, validated_data):
+        datetime = localtime(now())
+        crr_date = datetime.date()
+        crr_hour = datetime.hour
+        delivery_date = instance.date
+        delivery_time = int(instance.time.split("_")[0])
+        if delivery_date < crr_date or (delivery_date == crr_date and delivery_time <= crr_hour + 2):
+            raise serializers.ValidationError("تغییر زمان سفارش کمتر از دو ساعت به ارسال امکان پذیر نیست.")
+        instance.date =  validated_data.get("date", instance.date)
+        instance.time = validated_data.get("time", instance.time)
+        instance.save(update_fields=["date", "time"])
+        return instance
+    
+    def validate(self, data):
+        instance = getattr(self, "instance", None)
+        if not instance:
+            raise serializers.ValidationError("سفارش مورد نظر یافت نشد.")
+        return data
+    
          
 #====================================== Order Serializer ===================================================
 
@@ -178,7 +221,7 @@ class OrderSerializer(serializers.ModelSerializer):
         return cart, delivery
 
 
-#====================================== Order Serializer ===================================================
+#====================================== Order Cancellation Serializer =======================================
 
 class OrderCancellationSerializer(serializers.ModelSerializer):
     class Meta:
