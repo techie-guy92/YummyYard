@@ -293,6 +293,8 @@ class DeliverySerializer(serializers.ModelSerializer):
 #====================================== UserView Serializer ================================================
 
 class UserViewSerializer(serializers.ModelSerializer):
+    user = serializers.HiddenField(default=serializers.CurrentUserDefault())
+    
     class Meta:
         model = UserView
         fields = ["user", "product", "last_seen", "view_count"]

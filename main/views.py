@@ -329,9 +329,6 @@ class UserViewModelViewSet(viewsets.ModelViewSet):
     http_method_names = ["get", "post"]
     pagination_class = PageNumberPagination
 
-    def perform_create(self, serializer):
-        serializer.save(user=self.request.user)
-
     def get_queryset(self):
         product_id = self.kwargs.get("product_id")
         if product_id:
