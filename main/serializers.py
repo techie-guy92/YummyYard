@@ -91,7 +91,7 @@ class DeliveryScheduleSerializer(serializers.ModelSerializer):
     class Meta:
         model = DeliverySchedule
         fields = ["delivery_method", "date", "day", "time", "delivery_cost"]
-        extra_kwargs = {"user": {"read_only": True}, "shopping_cart": {"read_only": True}}
+        read_only_fields = ["user", "shopping_cart"]
 
     # def create(self, validated_data):
     #     request = self.context.get("request")
@@ -160,14 +160,7 @@ class OrderSerializer(serializers.ModelSerializer):
     class Meta:
         model = Order
         fields = ["online_customer", "delivery_schedule", "payment_method", "total_amount", "discount", "discount_applied", "amount_payable", "status"]
-        extra_kwargs = {
-            "delivery_schedule": {"read_only": True},
-            "payment_method": {"read_only": True},
-            "total_amount": {"read_only": True},
-            "discount_applied": {"read_only": True},
-            "amount_payable": {"read_only": True},
-            "status": {"read_only": True}
-            }
+        read_only_fields = ["delivery_schedule", "payment_method", "total_amount", "discount_applied", "amount_payable", "status"]
     
     def get_delivery_schedule(self, obj):
         if obj.delivery_schedule:
@@ -227,7 +220,7 @@ class OrderCancellationSerializer(serializers.ModelSerializer):
     class Meta:
         model = Order
         fields = ["status"]
-        extra_kwargs = {"status": {"read_only": True}}
+        read_only_fields = ["status"]
         
     def update(self, instance, validated_data):
         crr_datetime = localtime(now())
@@ -324,7 +317,7 @@ class RatingSerializer(serializers.ModelSerializer):
     class Meta:
         model = Rating
         fields = ["rating", "review"]
-        extra_kwargs = {"user": {"read_only": True}, "product": {"read_only": True}}
+        read_only_fields = ["user", "product"]
 
     def validate(self, data):
         request = self.context.get("request")
