@@ -36,7 +36,7 @@ primary_user_4 = {
 
 #======================================= Users for View =============================================
 
-primary_user_5 = {
+new_user_1 = {
     "username": "robbrt_kelly",
     "first_name": "robbert",
     "last_name": "kelly",

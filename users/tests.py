@@ -14,7 +14,7 @@ from .models import *
 from .serializers import *
 from .views import *
 from .urls import *
-from constants import primary_user_1, primary_user_2, primary_user_3, primary_user_4, primary_user_5, invalid_user_1
+from users_constant import primary_user_1, primary_user_2, primary_user_3, primary_user_4, new_user_1, invalid_user_1
 from utilities import create_test_users
 
 
@@ -59,14 +59,14 @@ class SignUpTest(APITestCase):
         self.assertFalse(ser_data_4["is_superuser"])
          
     def test_signup_view(self):
-        response = self.client.post(self.url, primary_user_5, format="json")
-        user = CustomUser.objects.get(username=primary_user_5["username"])
+        response = self.client.post(self.url, new_user_1, format="json")
+        user = CustomUser.objects.get(username=new_user_1["username"])
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(response.data["message"], "اطلاعات شما ثبت شد، برای تکمیل فرایند ثبت نام به ایمیل خود بروید و ایمیل خود را تایید کنید.")
-        self.assertTrue(user.check_password(primary_user_5["password"]))
-        self.assertEqual(user.email, primary_user_5["email"])
+        self.assertTrue(user.check_password(new_user_1["password"]))
+        self.assertEqual(user.email, new_user_1["email"])
         self.assertEqual(len(mail.outbox), 1)
-        self.assertEqual(mail.outbox[0].to, [primary_user_5["email"]])
+        self.assertEqual(mail.outbox[0].to, [new_user_1["email"]])
         self.assertIn("Verify your email", mail.outbox[0].subject)
         self.assertIn("Click on the link to verify your email", mail.outbox[0].body)
 
@@ -105,7 +105,7 @@ class ResendVerificationEmailTest(APITestCase):
         self.assertEqual(response.data["message"], "ایمیل شما قبلا تایید شده است.")
     
     def test_email_not_found_view(self):
-        user = {"username": primary_user_5["username"]}
+        user = {"username": new_user_1["username"]}
         response = self.client.post(self.url, user, format="json")
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
         self.assertEqual(response.data["error"], "نام کاربری مورد نظر یافت نشد.")
@@ -151,7 +151,7 @@ class LoginTest(APITestCase):
         self.url = reverse("login")
         self.user_1, self.user_2, self.user_3, self.user_4 = create_test_users()
         self.login_data = {"username": primary_user_2["username"], "password": primary_user_2["password"]}
-        self.invalid_login_data = {"username": primary_user_5["username"], "password": primary_user_5["password"]}
+        self.invalid_login_data = {"username": new_user_1["username"], "password": new_user_1["password"]}
         
     def test_login_serializer(self):
         serializer = LoginSerializer(data=self.login_data)

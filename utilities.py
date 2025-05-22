@@ -5,7 +5,8 @@ from re import compile
 from random import choice
 from string import ascii_letters, digits
 from django.contrib.auth import get_user_model
-from constants import *
+from users_constant import *
+from products_constant import *
 
 
 """
@@ -56,6 +57,7 @@ def replace_dash_to_space(title):
 
 User = get_user_model()
     
+    
 def create_test_users():
     """
     Create and return test users.
@@ -75,6 +77,24 @@ def create_test_users():
     user_3.save(update_fields=["is_active"])
     user_4 = User.objects.create_user(**primary_user_4)    
     return user_1, user_2, user_3, user_4
+
+
+def create_test_categories(name, parent=None):
+    """
+    Create and return test categories.
+    """
     
+    from main.models import Category
+    return Category.objects.create(name=name, parent=parent)
+
+
+def create_test_products(name, category, price):
+    """
+    Create and return test products.
+    """
+    
+    from main.models import Product
+    return Product.objects.create(name=name, category=category, price=price)
+
 
 #============================================================================================

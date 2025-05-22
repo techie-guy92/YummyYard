@@ -12,8 +12,9 @@ from .models import *
 from .serializers import *
 from .views import *
 from .urls import *
-from constants import primary_user_1, primary_user_2, primary_user_3, primary_user_4, primary_user_5, invalid_user_1
-from utilities import create_test_users
+from users_constant import *
+from products_constant import *
+from utilities import create_test_users, create_test_categories, create_test_products
 
 
 #====================================== Gategory Test ===================================================
