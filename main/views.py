@@ -100,7 +100,9 @@ class ShoppingCartAPIView(viewsets.ViewSet):
     
     @extend_schema(
         request = ShoppingCartSerializer,
-        responses = {201: "Cart created successfully", 400: "Failed to create cart"}    
+        responses = {
+            201: "Cart created successfully", 
+            400: "Failed to create cart"},    
     )
     def create(self, request: Request, *args, **kwargs):
         serializer = ShoppingCartSerializer(data=request.data, context={"request": request})

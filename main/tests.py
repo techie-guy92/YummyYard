@@ -19,70 +19,215 @@ from utilities import create_test_users
 #====================================== Gategory Test ===================================================
 
 class GategoryTest(APITestCase):
-    pass
+    def setUp(self):
+        self.client = APIClient()
+        self.url = reverse("categories-list")
 
+    def test_category_model(self):
+        pass
+    
+    def test_category_serializer(self):
+        pass
+    
+    def test_category_view(self):
+        pass
+    
+    def test_category_url(self):
+        pass
+    
 
 #====================================== Product Test ====================================================
 
 class ProductTest(APITestCase):
-    pass
+    def setUp(self):
+        self.client = APIClient()
+        self.url = reverse("products-list")
+
+    def test_product_model(self):
+        pass
+    
+    def test_product_serializer(self):
+        pass
+    
+    def test_product_view(self):
+        pass
+    
+    def test_product_url(self):
+        pass
 
 
 #====================================== Wishlist Test ===================================================
 
 class WishlistTest(APITestCase):
-    pass
+    def setUp(self):
+        self.client = APIClient()
+        self.url = reverse("wishlist-list")
 
-
+    def test_wishlist_model(self):
+        pass
+    
+    def test_wishlist_serializer(self):
+        pass
+    
+    def test_wishlist_view(self):
+        pass
+    
+    def test_wishlist_url(self):
+        pass
+    
+    
 #====================================== ShoppingCart Test ===============================================
 
 class ShoppingCartTest(APITestCase):
-    pass
+    def setUp(self):
+        self.client = APIClient()
+        self.url = reverse("add_products-list")
 
-
+    def test_shopping_cart_model(self):
+        pass
+    
+    def test_shopping_cart_serializer(self):
+        pass
+    
+    def test_shopping_cart_view(self):
+        pass
+    
+    def test_shopping_cart_url(self):
+        pass
+    
+    
 #====================================== Delivery Schedule Test ==========================================
 
 class DeliveryScheduleTest(APITestCase):
-    pass
+    def setUp(self):
+        self.client = APIClient()
+        self.url = reverse("add_schedule")
 
-
+    def test_delivery_schedule_model(self):
+        pass
+    
+    def test_delivery_schedule_serializer(self):
+        pass
+    
+    def test_delivery_schedule_view(self):
+        pass
+    
+    def test_delivery_schedule_url(self):
+        pass
+    
+    
 #====================================== Delivery Schedule Change Test ===================================
 
 class DeliveryScheduleChangeTest(APITestCase):
-    pass
+    def setUp(self):
+        self.client = APIClient()
+        self.url = reverse("change_schedule")
 
-
+    def test_delivery_schedule_change_serializer(self):
+        pass
+    
+    def test_delivery_schedule_change_view(self):
+        pass
+    
+    def test_delivery_schedule_change_url(self):
+        pass
+    
+    
 #====================================== Order Test ======================================================
 
-
 class OrderTest(APITestCase):
-    pass
+    def setUp(self):
+        self.client = APIClient()
+        self.url = reverse("complete_order")
 
-
+    def test_order_model(self):
+        pass
+    
+    def test_order_serializer(self):
+        pass
+    
+    def test_order_view(self):
+        pass
+    
+    def test_order_url(self):
+        pass
+    
+    
 #====================================== Order Cancellation Test =========================================
 
-
 class OrderCancellationTest(APITestCase):
-    pass
-
-
+    def setUp(self):
+        self.client = APIClient()
+        self.url = reverse("cancel_order")
+    
+    def test_order_cancellation_serializer(self):
+        pass
+    
+    def test_order_cancellation_view(self):
+        pass
+    
+    def test_order_cancellation_url(self):
+        pass
+    
+    
 #====================================== Delivery Test ===================================================
 
-
 class DeliveryTest(APITestCase):
-    pass
+    def setUp(self):
+        self.client = APIClient()
+        self.url = reverse("complete_delivery")
 
-
+    def test_delivery_model(self):
+        pass
+    
+    def test_delivery_serializer(self):
+        pass
+    
+    def test_delivery_view(self):
+        pass
+    
+    def test_delivery_url(self):
+        pass
+    
+    
 #====================================== UserView Test ===================================================
 
 class UserViewTest(APITestCase):
-    pass
+    def setUp(self):
+        self.client = APIClient()
+        self.url = reverse("ratings_product")
 
-
+    def test_user_view_model(self):
+        pass
+    
+    def test_user_view_serializer(self):
+        pass
+    
+    def test_user_view_view(self):
+        pass
+    
+    def test_user_view_url(self):
+        pass
+    
+    
 #====================================== Rating Test =====================================================
 
 class RatingTest(APITestCase):
-    pass
+    def setUp(self):
+        self.client = APIClient()
+        self.url = reverse("last_seen_product")
 
-
+    def test_rating_model(self):
+        pass
+    
+    def test_rating_serializer(self):
+        pass
+    
+    def test_rating_view(self):
+        pass
+    
+    def test_rating_url(self):
+        pass
+    
+    
 #========================================================================================================
