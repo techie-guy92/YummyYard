@@ -122,7 +122,8 @@ class DeliveryScheduleTest(APITestCase):
 class DeliveryScheduleChangeTest(APITestCase):
     def setUp(self):
         self.client = APIClient()
-        self.url = reverse("change_schedule")
+        self.delivery_id = 44
+        self.url = reverse("change_schedule", kwargs={"delivery_id": self.delivery_id})
 
     def test_delivery_schedule_change_serializer(self):
         pass
@@ -159,7 +160,8 @@ class OrderTest(APITestCase):
 class OrderCancellationTest(APITestCase):
     def setUp(self):
         self.client = APIClient()
-        self.url = reverse("cancel_order")
+        self.order_id = 55
+        self.url = reverse("cancel_order", kwargs={"order_id": self.order_id})
     
     def test_order_cancellation_serializer(self):
         pass
@@ -196,7 +198,9 @@ class DeliveryTest(APITestCase):
 class UserViewTest(APITestCase):
     def setUp(self):
         self.client = APIClient()
-        self.url = reverse("ratings_product")
+        self.product_id = 1
+        self.url = reverse("last_seen-list")
+        self.url_2 = reverse("last_seen_by_product_id", kwargs={"product_id": self.product_id})
 
     def test_user_view_model(self):
         pass
@@ -216,7 +220,9 @@ class UserViewTest(APITestCase):
 class RatingTest(APITestCase):
     def setUp(self):
         self.client = APIClient()
-        self.url = reverse("last_seen_product")
+        self.product_id = 1
+        self.url = reverse("ratings-list")
+        self.url_2 = reverse("ratings_by_product_id", kwargs={"product_id": self.product_id})
 
     def test_rating_model(self):
         pass

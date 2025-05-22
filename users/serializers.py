@@ -32,6 +32,7 @@ class CustomUserSerializer(serializers.ModelSerializer):
         Returns:
         CustomUser: The created user instance
         """
+        
         is_admin = validated_data.pop("is_admin", False)        
         is_superuser = validated_data.pop("is_superuser", False)        
         password = validated_data.pop("password", None)
@@ -62,6 +63,7 @@ class CustomUserSerializer(serializers.ModelSerializer):
         Returns:
         dict: The validated attributes
         """
+        
         if attrs["password"] != attrs["re_password"]:
             raise serializers.ValidationError("رمز عبور و تکرار آن یکسان نمی باشد.")
         return attrs
@@ -130,6 +132,7 @@ class UpdateUserSerializer(serializers.ModelSerializer):
         Returns:
         CustomUser: The updated user instance
         """
+        
         instance.first_name = validated_data.get("first_name", instance.first_name)
         instance.last_name = validated_data.get("last_name", instance.last_name)
         instance.email = validated_data.get("email", instance.email)
@@ -149,6 +152,10 @@ class UpdateUserSerializer(serializers.ModelSerializer):
         Returns:
         dict: The validated attributes
         """
+        
+        instance = getattr(self, "instance", None)
+        if not instance:
+            raise serializers.ValidationError("کاربر مورد نظر یافت نشد.")
         if "password" in attrs and attrs["password"] != attrs.get("re_password"):
             raise serializers.ValidationError({"re_password": "رمز عبور و تکرار آن یکسان نمی باشد."})
         return attrs
@@ -191,6 +198,7 @@ class SetNewPasswordSerializer(serializers.Serializer):
         Returns:
         dict: The validated attributes
         """
+        
         if "password" not in attrs:
             raise serializers.ValidationError({"password": "وارد کردن رمز عبور ضروری است."})
         if attrs["password"] != attrs.get("re_password"):
@@ -207,6 +215,7 @@ class SetNewPasswordSerializer(serializers.Serializer):
         Returns:
         dict: The representation of the instance
         """
+        
         data = super().to_representation(instance)
         data.pop("password", None)
         data.pop("re_password", None)
@@ -219,6 +228,7 @@ class FetchUsersSerializer(serializers.ModelSerializer):
     """
     Serializer for fetching CustomUser instances.
     """
+    
     class Meta:
         model = CustomUser
         fields = "__all__"

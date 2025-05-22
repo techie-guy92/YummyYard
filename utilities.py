@@ -79,22 +79,39 @@ def create_test_users():
     return user_1, user_2, user_3, user_4
 
 
-def create_test_categories(name, parent=None):
+def create_test_categories():
     """
     Create and return test categories.
     """
     
     from main.models import Category
-    return Category.objects.create(name=name, parent=parent)
+    category_1 = Category.objects.create(name=primary_category_1["name"])
+    category_2 = Category.objects.create(name=primary_category_2["name"])
+    category_3 = Category.objects.create(name=primary_category_3["name"], parent=category_2)
+    category_4 = Category.objects.create(name=primary_category_4["name"], parent=category_2)
+    category_5 = Category.objects.create(name=primary_category_5["name"], parent=category_2)
+    category_6 = Category.objects.create(name=primary_category_6["name"], parent=category_3)
+    category_7 = Category.objects.create(name=primary_category_7["name"], parent=category_3)
+    return category_1, category_2, category_3, category_4, category_5, category_6, category_7
 
 
-def create_test_products(name, category, price):
+def create_test_products():
     """
     Create and return test products.
     """
     
     from main.models import Product
-    return Product.objects.create(name=name, category=category, price=price)
+    # It returns a tuple, so indexing starts at 0 and last one is 6.
+    categories = create_test_categories()       
+    product_1 = Product.objects.create(name=primary_product_1["name"], category=categories[4], price=primary_product_1["price"])  
+    product_2 = Product.objects.create(name=primary_product_2["name"], category=categories[4], price=primary_product_2["price"])
+    product_3 = Product.objects.create(name=primary_product_3["name"], category=categories[2], price=primary_product_3["price"])
+    product_4 = Product.objects.create(name=primary_product_4["name"], category=categories[3], price=primary_product_4["price"])
+    product_5 = Product.objects.create(name=primary_product_5["name"], category=categories[5], price=primary_product_5["price"])
+    product_6 = Product.objects.create(name=primary_product_6["name"], category=categories[5], price=primary_product_6["price"])
+    product_7 = Product.objects.create(name=primary_product_7["name"], category=categories[6], price=primary_product_7["price"])
+    product_8 = Product.objects.create(name=primary_product_8["name"], category=categories[6], price=primary_product_8["price"])
+    return product_1, product_2, product_3, product_4, product_5, product_6, product_7, product_8
 
 
 #============================================================================================
