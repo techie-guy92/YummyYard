@@ -3,7 +3,7 @@ os.environ["DJANGO_SETTINGS_MODULES"]= "config.settings"
 import django
 django.setup()
 
-from rest_framework.test import APITestCase, APIClient
+from rest_framework.test import APITestCase, APIClient, APIRequestFactory
 from rest_framework import status
 from rest_framework_simplejwt.tokens import RefreshToken, AccessToken
 from jwt import decode
@@ -34,7 +34,8 @@ class GategoryTest(APITestCase):
         pass
     
     def test_category_url(self):
-        pass
+        view = resolve("/products/categories/")
+        self.assertEqual(view.func.cls, CategoryModelViewSet)
     
 
 #====================================== Product Test ====================================================
@@ -54,27 +55,47 @@ class ProductTest(APITestCase):
         pass
     
     def test_product_url(self):
-        pass
+        view = resolve("/products/products/")
+        self.assertEqual(view.func.cls, ProductModelViewSet)
 
 
 #====================================== Wishlist Test ===================================================
 
 class WishlistTest(APITestCase):
     def setUp(self):
+        self.factory = APIRequestFactory()
         self.client = APIClient()
         self.url = reverse("wishlist-list")
-
+        self.request = self.factory.post(self.url)
+        self.user_1, self.user_2, self.user_3, self.user_4 = create_test_users()
+        self.c1, self.c2, self.c3, self.c4, self.c5, self.c6, self.c7 = create_test_categories()
+        self.p1, self.p2, self.p3, self.p4, self.p5, self.p6, self.p7, self.p8 = create_test_products()
+        self.wishlist_1 = Wishlist.objects.create(user=self.user_1, product=self.p1)
+        
     def test_wishlist_model(self):
-        pass
+        self.assertEqual(str(self.wishlist_1), f"Wishlist of {self.user_1.username}")
     
     def test_wishlist_serializer(self):
-        pass
-    
+        if self.wishlist_1:
+            self.wishlist_1.delete()
+        self.request.user = self.user_1 
+        serializer = WishlistSerializer(data={"product": self.p1.id}, context={"request": self.request})  
+        self.assertTrue(serializer.is_valid(raise_exception=True))
+        serializer.save()
+        ser_data = serializer.data
+        self.assertEqual(ser_data["product"], self.p1.id)  
+
     def test_wishlist_view(self):
-        pass
-    
+        self.client.force_authenticate(user=self.user_1) 
+        if self.wishlist_1:
+            self.wishlist_1.delete()
+        response = self.client.post(self.url, {"product": self.p1.id}, format="json")
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data["product"], self.p1.id)
+        
     def test_wishlist_url(self):
-        pass
+        view = resolve("/products/wishlist/")
+        self.assertEqual(view.func.cls, WishlistModelViewSet)
     
     
 #====================================== ShoppingCart Test ===============================================
@@ -94,7 +115,8 @@ class ShoppingCartTest(APITestCase):
         pass
     
     def test_shopping_cart_url(self):
-        pass
+        view = resolve("/products/add_products/")
+        self.assertEqual(view.func.cls, ShoppingCartAPIView)
     
     
 #====================================== Delivery Schedule Test ==========================================
@@ -114,7 +136,8 @@ class DeliveryScheduleTest(APITestCase):
         pass
     
     def test_delivery_schedule_url(self):
-        pass
+        view = resolve("/products/add_schedule/")
+        self.assertEqual(view.func.cls, DeliveryScheduleAPIView)
     
     
 #====================================== Delivery Schedule Change Test ===================================
@@ -152,7 +175,8 @@ class OrderTest(APITestCase):
         pass
     
     def test_order_url(self):
-        pass
+        view = resolve("/products/complete_order/")
+        self.assertEqual(view.func.cls, OrderAPIView)
     
     
 #====================================== Order Cancellation Test =========================================
@@ -190,7 +214,8 @@ class DeliveryTest(APITestCase):
         pass
     
     def test_delivery_url(self):
-        pass
+        view = resolve("/products/complete_delivery/")
+        self.assertEqual(view.func.cls, DeliveryAPIView)
     
     
 #====================================== UserView Test ===================================================
@@ -212,7 +237,8 @@ class UserViewTest(APITestCase):
         pass
     
     def test_user_view_url(self):
-        pass
+        view = resolve("/products/last_seen/")
+        self.assertEqual(view.func.cls, UserViewModelViewSet)
     
     
 #====================================== Rating Test =====================================================
@@ -234,7 +260,8 @@ class RatingTest(APITestCase):
         pass
     
     def test_rating_url(self):
-        pass
+        view = resolve("/products/ratings/")
+        self.assertEqual(view.func.cls, RatingModelViewSet)
     
     
 #========================================================================================================
