@@ -1,12 +1,10 @@
 import os
-os.environ["DJANGO_SETTINGS_MODULES"]= "config.settings"
+os.environ["DJANGO_SETTINGS_MODULES"] = "config.settings"
 import django
 django.setup()
 
 from rest_framework.test import APITestCase, APIClient, APIRequestFactory
 from rest_framework import status
-from rest_framework_simplejwt.tokens import RefreshToken, AccessToken
-from jwt import decode
 from django.urls import resolve, reverse
 from .models import *
 from .serializers import *
@@ -19,24 +17,33 @@ from utilities import create_test_users, create_test_categories, create_test_pro
 
 #====================================== Gategory Test ===================================================
 
-class GategoryTest(APITestCase):
+class CategoryTest(APITestCase):
     def setUp(self):
         self.client = APIClient()
         self.url = reverse("categories-list")
-
+        self.c1, self.c2, self.c3, self.c4, self.c5, self.c6, self.c7 = create_test_categories()
+        
     def test_category_model(self):
-        pass
-    
+        self.assertEqual(str(self.c1), self.c1.name) 
+
     def test_category_serializer(self):
-        pass
+        serializer = CategorySerializer(instance=self.c1)
+        ser_data = serializer.data
+        self.assertEqual(ser_data["name"], self.c1.name)
     
     def test_category_view(self):
-        pass
-    
+        response = self.client.get(self.url, format="json")
+        self.assertEqual(response.status_code, status.HTTP_200_OK) 
+        self.assertIn("results", response.data) 
+        # Ensures that result is not empty and it contains at least one item
+        self.assertGreater(len(response.data.get("results", [])), 0) 
+        self.assertEqual(response.data["results"][0]["name"], self.c1.name) 
+
     def test_category_url(self):
         view = resolve("/products/categories/")
         self.assertEqual(view.func.cls, CategoryModelViewSet)
-    
+        self.assertIsInstance(view.func.cls, type)
+
 
 #====================================== Product Test ====================================================
 
@@ -44,19 +51,28 @@ class ProductTest(APITestCase):
     def setUp(self):
         self.client = APIClient()
         self.url = reverse("products-list")
+        self.p1, self.p2, self.p3, self.p4, self.p5, self.p6, self.p7, self.p8 = create_test_products()
 
     def test_product_model(self):
-        pass
+        self.assertEqual(str(self.p1), self.p1.name)
     
     def test_product_serializer(self):
-        pass
+        serializer = ProductSerializer(instance=self.p1)
+        ser_data = serializer.data
+        self.assertEqual(ser_data["name"], self.p1.name)
+        self.assertEqual(ser_data["price"], self.p1.price)
     
     def test_product_view(self):
-        pass
+        response = self.client.get(self.url, format="json")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn("results", response.data)
+        self.assertGreater(len(response.data.get("results", [])), 0) 
+        self.assertEqual(response.data["results"][0]["name"], Product.objects.order_by("-price").first().name)  
     
     def test_product_url(self):
         view = resolve("/products/products/")
         self.assertEqual(view.func.cls, ProductModelViewSet)
+        self.assertIsInstance(view.func.cls, type)
 
 
 #====================================== Wishlist Test ===================================================
@@ -96,7 +112,8 @@ class WishlistTest(APITestCase):
     def test_wishlist_url(self):
         view = resolve("/products/wishlist/")
         self.assertEqual(view.func.cls, WishlistModelViewSet)
-    
+        self.assertIsInstance(view.func.cls, type)
+        
     
 #====================================== ShoppingCart Test ===============================================
 
@@ -117,7 +134,8 @@ class ShoppingCartTest(APITestCase):
     def test_shopping_cart_url(self):
         view = resolve("/products/add_products/")
         self.assertEqual(view.func.cls, ShoppingCartAPIView)
-    
+        self.assertIsInstance(view.func.cls, type)
+        
     
 #====================================== Delivery Schedule Test ==========================================
 
@@ -239,7 +257,8 @@ class UserViewTest(APITestCase):
     def test_user_view_url(self):
         view = resolve("/products/last_seen/")
         self.assertEqual(view.func.cls, UserViewModelViewSet)
-    
+        self.assertIsInstance(view.func.cls, type)
+        
     
 #====================================== Rating Test =====================================================
 
@@ -262,6 +281,7 @@ class RatingTest(APITestCase):
     def test_rating_url(self):
         view = resolve("/products/ratings/")
         self.assertEqual(view.func.cls, RatingModelViewSet)
-    
+        self.assertIsInstance(view.func.cls, type)
+        
     
 #========================================================================================================
