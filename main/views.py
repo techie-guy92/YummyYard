@@ -106,14 +106,19 @@ class ShoppingCartAPIView(viewsets.ViewSet):
     )
     def create(self, request: Request, *args, **kwargs):
         serializer = ShoppingCartSerializer(data=request.data, context={"request": request})
+        if not request.data.get("cart_items"): 
+            return Response({"error": "سبد خرید نمی‌تواند خالی باشد."}, status=status.HTTP_400_BAD_REQUEST)
         if serializer.is_valid():
             cart = serializer.save()
-            serialized_cart_items = CartItemSerializer(cart.CartItem_cart.all(), many=True).data
+            # cart_items_count = cart.CartItem_cart.count()
+            # serialized_cart_items = CartItemSerializer(cart.CartItem_cart.all(), many=True).data
+            cart_items_count = CartItem.objects.filter(cart=cart).count()  
+            serialized_cart_items = CartItemSerializer(CartItem.objects.filter(cart=cart), many=True).data  
             return Response(
                 {
                     "message": "کالاهای شما اضافه شد.", 
                     "cart_id": cart.id, 
-                    "cart_items_count": cart.CartItem_cart.count(), 
+                    "cart_items_count": cart_items_count, 
                     "total_price": cart.total_price,
                     "cart_items": serialized_cart_items, 
                 }, 

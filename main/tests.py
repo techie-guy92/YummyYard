@@ -119,31 +119,77 @@ class WishlistTest(APITestCase):
 
 class ShoppingCartTest(APITestCase):
     def setUp(self):
+        self.factory = APIRequestFactory()
         self.client = APIClient()
         self.url = reverse("add_products-list")
+        self.request = self.factory.post(self.url)
+        self.user_1, self.user_2, self.user_3, self.user_4 = create_test_users()
+        self.p1, self.p2, self.p3, self.p4, self.p5, self.p6, self.p7, self.p8 = create_test_products()
+        self.increment_stock_1 = Warehouse.objects.create(product=self.p1, stock=50)
+        self.increment_stock_2 = Warehouse.objects.create(product=self.p2, stock=50)
+        self.increment_stock_3 = Warehouse.objects.create(product=self.p3, stock=50)
+        self.cart_1 = ShoppingCart.objects.create(online_customer=self.user_1)
+        self.cart_item_1 = CartItem.objects.create(cart=self.cart_1, product=self.p1, quantity=2)
+        self.cart_item_2 = CartItem.objects.create(cart=self.cart_1, product=self.p2, quantity=3)
+        self.cart_1.save()
+        self.cart_2 = {"online_customer": self.user_1.id, "cart_items": [{"product": self.p1.id, "quantity": 2}, {"product": self.p2.id, "quantity": 3}]}
+        self.invalid_cart = {"online_customer": None, "cart_items": [{"product": self.p1.id, "quantity": -1}],}
+        self.empty_cart = {"online_customer": self.user_1.id, "cart_items": []} 
+
+    def test_cart_item_linking(self):
+        self.assertEqual(self.cart_1.products.count(), 2)  
+        self.assertGreater(len(self.cart_1.products.all()), 1)  
+        self.assertTrue(self.cart_1.products.filter(id=self.p1.id).exists())  
+        self.assertTrue(self.cart_1.products.filter(id=self.p2.id).exists())  
 
     def test_shopping_cart_model(self):
-        pass
-    
+        expected_total = (self.cart_item_1.quantity * self.p1.price) + (self.cart_item_2.quantity * self.p2.price)
+        self.assertEqual(self.cart_1.total_price, expected_total)
+        self.assertEqual(str(self.cart_1), f"{self.cart_1.id} - {self.user_1.username}")
+      
     def test_shopping_cart_serializer(self):
-        pass
+        self.request.user = self.user_1
+        serializer = ShoppingCartSerializer(data=self.cart_2, context={"request": self.request})
+        self.assertTrue(serializer.is_valid(raise_exception=True))
+        serializer.save()
+        ser_data = serializer.data
+        self.assertEqual(ser_data["total_price"], 115400)   
     
+    def test_shopping_cart_invalid_data(self):
+        serializer = ShoppingCartSerializer(data=self.invalid_cart, context={"request": self.request})
+        self.assertFalse(serializer.is_valid())
+        
     def test_shopping_cart_view(self):
-        pass
+        self.client.force_authenticate(self.user_1)
+        response = self.client.post(self.url, self.cart_2, format="json")
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data["message"], "کالاهای شما اضافه شد.")
+        self.assertEqual(response.data["cart_items_count"], 2)
+        self.assertIn("cart_items", response.data)
+        self.assertEqual([item["product_name"] for item in response.data["cart_items"]], [self.p1.name, self.p2.name])  
     
+    def test_shopping_cart_empty(self): 
+        self.client.force_authenticate(self.user_1)
+        response = self.client.post(self.url, self.empty_cart, format="json")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data["error"], "سبد خرید نمی‌تواند خالی باشد.") 
+
     def test_shopping_cart_url(self):
         view = resolve("/products/add_products/")
         self.assertEqual(view.func.cls, ShoppingCartAPIView)
         self.assertIsInstance(view.func.cls, type)
         
-    
+
 #====================================== Delivery Schedule Test ==========================================
 
 class DeliveryScheduleTest(APITestCase):
     def setUp(self):
         self.client = APIClient()
         self.url = reverse("add_schedule")
-
+        self.user_1, self.user_2, self.user_3, self.user_4 = create_test_users()
+        self.c1, self.c2, self.c3, self.c4, self.c5, self.c6, self.c7 = create_test_categories()
+        self.p1, self.p2, self.p3, self.p4, self.p5, self.p6, self.p7, self.p8 = create_test_products()
+        
     def test_delivery_schedule_model(self):
         pass
     
@@ -165,7 +211,10 @@ class DeliveryScheduleChangeTest(APITestCase):
         self.client = APIClient()
         self.delivery_id = 44
         self.url = reverse("change_schedule", kwargs={"delivery_id": self.delivery_id})
-
+        self.user_1, self.user_2, self.user_3, self.user_4 = create_test_users()
+        self.c1, self.c2, self.c3, self.c4, self.c5, self.c6, self.c7 = create_test_categories()
+        self.p1, self.p2, self.p3, self.p4, self.p5, self.p6, self.p7, self.p8 = create_test_products()
+        
     def test_delivery_schedule_change_serializer(self):
         pass
     
@@ -182,7 +231,10 @@ class OrderTest(APITestCase):
     def setUp(self):
         self.client = APIClient()
         self.url = reverse("complete_order")
-
+        self.user_1, self.user_2, self.user_3, self.user_4 = create_test_users()
+        self.c1, self.c2, self.c3, self.c4, self.c5, self.c6, self.c7 = create_test_categories()
+        self.p1, self.p2, self.p3, self.p4, self.p5, self.p6, self.p7, self.p8 = create_test_products()
+        
     def test_order_model(self):
         pass
     
@@ -204,7 +256,10 @@ class OrderCancellationTest(APITestCase):
         self.client = APIClient()
         self.order_id = 55
         self.url = reverse("cancel_order", kwargs={"order_id": self.order_id})
-    
+        self.user_1, self.user_2, self.user_3, self.user_4 = create_test_users()
+        self.c1, self.c2, self.c3, self.c4, self.c5, self.c6, self.c7 = create_test_categories()
+        self.p1, self.p2, self.p3, self.p4, self.p5, self.p6, self.p7, self.p8 = create_test_products()
+        
     def test_order_cancellation_serializer(self):
         pass
     
@@ -221,7 +276,10 @@ class DeliveryTest(APITestCase):
     def setUp(self):
         self.client = APIClient()
         self.url = reverse("complete_delivery")
-
+        self.user_1, self.user_2, self.user_3, self.user_4 = create_test_users()
+        self.c1, self.c2, self.c3, self.c4, self.c5, self.c6, self.c7 = create_test_categories()
+        self.p1, self.p2, self.p3, self.p4, self.p5, self.p6, self.p7, self.p8 = create_test_products()
+        
     def test_delivery_model(self):
         pass
     

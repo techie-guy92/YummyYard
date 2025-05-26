@@ -63,7 +63,7 @@ class ShoppingCartSerializer(serializers.Serializer):
     class Meta:
         model = ShoppingCart
         fields = ["cart_items", "total_price"] 
-        
+    
     def create(self, validated_data):
         cart_items_data = validated_data.pop("cart_items")
         request = self.context.get("request")
@@ -81,7 +81,10 @@ class ShoppingCartSerializer(serializers.Serializer):
         except Exception as error:
             raise serializers.ValidationError({"error": "An unexpected error occurred."})
         
-
+    # def get_cart_items(self, obj):
+    #     return CartItemSerializer(CartItem.objects.filter(cart=obj), many=True).data
+    
+    
 #====================================== Delivery Schedule Serializer =======================================
 
 class DeliveryScheduleSerializer(serializers.ModelSerializer):
