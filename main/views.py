@@ -155,7 +155,7 @@ class DeliveryScheduleAPIView(APIView):
         if delivery_schedule:
             return Response(
                 {
-                    "error": "این ارسال سفارش قبلا ثبت شده است.",
+                    "error": "این سفارش قبلا ثبت شده است و یا سفارش فعالی دارید، در صورت داشتن سفارش فعال ابتدا سفارش قبلی خود را تکمیل یا لغو کنید.",
                     "delivery_id": delivery_schedule.id,
                     "delivery_date": delivery_schedule.date,
                     "delivery_time": delivery_schedule.time,
@@ -172,7 +172,7 @@ class DeliveryScheduleAPIView(APIView):
                 delivery.save() 
                 return Response(
                     {
-                        "message": "زمان سفارش با مئفقیت ثبت شد.",
+                        "message": "زمان سفارش با موفقیت ثبت شد.",
                         "delivery_id": delivery.id,
                         "delivery_cost": delivery.delivery_cost,
                         "delivery_date": delivery.date,
