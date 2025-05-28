@@ -210,7 +210,7 @@ class DeliveryScheduleChangeAPIView(APIView):
             serializer = DeliveryScheduleChangeSerializer(data=request.data, instance=delivery_schadule, partial=True)
             if serializer.is_valid():
                 new_delivery_schadule = serializer.save()
-                return Response({"message": f"زمان ارسال سفارش شما با موفقیت به {new_delivery_schadule.date} دز {new_delivery_schadule.time} تغییر کرد."}, status=status.HTTP_200_OK)
+                return Response({"message": f"زمان ارسال سفارش شما با موفقیت به {new_delivery_schadule.date} در {new_delivery_schadule.time} تغییر کرد."}, status=status.HTTP_200_OK)
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         except Exception as error:
             return Response({"error": f"An error occured {str(error)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

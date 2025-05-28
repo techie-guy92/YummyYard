@@ -504,6 +504,8 @@ class DeliverySchedule(models.Model):
             raise ValidationError(f"An error occurred while validating the order: {str(error)}")
     
     def validate_timeframe(self):
+        if self.time not in dict(self.TIMES):
+            raise ValidationError({"time": "زمان انتخاب شده در لیست بازه‌های مجاز نیست، لطفا زمان معتبری وارد کنید."})
         crr_datetime = localtime(now())
         crr_date = crr_datetime.date()
         crr_hour = crr_datetime.hour
@@ -525,7 +527,7 @@ class DeliverySchedule(models.Model):
             total_booked_normal = DeliverySchedule.objects.filter(date=self.date, time=self.time, delivery_method="normal").count()
             if total_booked_normal >= self.MAX_CAPACITY_DELIVERY_NORMAL:
                 raise ValidationError("Normal delivery slot is fully booked for this timeframe. Please select other timeframes.")
-           
+    
     # def validate_delivery_slot(self):
     #     total_booked = (DeliverySchedule.objects.filter(date=self.date, time=self.time).values("delivery_method").annotate(delivery_count=Count("delivery_method")))
     #     total_booked_dict = {entry["delivery_method"]: entry["delivery_count"] for entry in total_booked}

@@ -7,6 +7,7 @@ from rest_framework.test import APITestCase, APIClient, APIRequestFactory
 from rest_framework import status
 from django.urls import resolve, reverse
 from django.utils.timezone import localtime, now
+from datetime import timedelta
 from .models import *
 from .serializers import *
 from .views import *
@@ -272,23 +273,55 @@ class DeliveryScheduleTest(APITestCase):
 
 class DeliveryScheduleChangeTest(APITestCase):
     def setUp(self):
+        self.factory = APIRequestFactory()
         self.client = APIClient()
-        self.delivery_id = 44
-        self.url = reverse("change_schedule", kwargs={"delivery_id": self.delivery_id})
+        self.crr_datetime = localtime(now())
+        self.crr_date = self.crr_datetime.date() + timedelta(days=1)
         self.user_1, self.user_2, self.user_3, self.user_4 = create_test_users()
-        self.c1, self.c2, self.c3, self.c4, self.c5, self.c6, self.c7 = create_test_categories()
         self.p1, self.p2, self.p3, self.p4, self.p5, self.p6, self.p7, self.p8 = create_test_products()
+        self.increment_stock_1 = Warehouse.objects.create(product=self.p1, stock=50)
+        self.increment_stock_2 = Warehouse.objects.create(product=self.p2, stock=50)
+        self.increment_stock_3 = Warehouse.objects.create(product=self.p3, stock=50)
+        self.cart = ShoppingCart.objects.create(online_customer=self.user_1)
+        self.cart_item_1 = CartItem.objects.create(cart=self.cart, product=self.p1, quantity=2)
+        self.cart_item_2 = CartItem.objects.create(cart=self.cart, product=self.p2, quantity=3)
+        self.cart.save()
+        self.delivery_schadule_1 = {"user": self.user_1, "shopping_cart": self.cart, "delivery_method": "normal", "date": self.crr_datetime.date(), "time": "20_22"}
+        self.delivery_schadule_2 = {"date": self.crr_date, "time": "14_16"}
+        self.invalid_schadule = {"date": self.crr_date, "time": "22_24"} 
+        self.delivery_schadule = DeliverySchedule.objects.create(**self.delivery_schadule_1)
+        self.url = reverse("change_schedule", kwargs={"delivery_id": self.delivery_schadule.id})
+        self.request = self.factory.post(self.url)
         
     def test_delivery_schedule_change_serializer(self):
-        pass
-    
+        serializer = DeliveryScheduleChangeSerializer(instance=self.delivery_schadule, data=self.delivery_schadule_2)
+        self.assertTrue(serializer.is_valid(raise_exception=True))
+        serializer.save()
+        updated_instance = DeliverySchedule.objects.get(id=self.delivery_schadule.id)
+        self.assertEqual(str(updated_instance.date), str(self.crr_date))
+        
+    def test_delivery_schedule_invalid_time_format(self):
+        serializer = DeliveryScheduleChangeSerializer(instance=self.delivery_schadule, data=self.invalid_schadule)
+        self.assertFalse(serializer.is_valid())  
+        self.assertIn("time", serializer.errors)  
+        self.assertEqual(serializer.errors["time"][0], '"22_24" is not a valid choice.') 
+
     def test_delivery_schedule_change_view(self):
-        pass
-    
+        self.client.force_authenticate(user=self.user_1)
+        response = self.client.put(self.url, self.delivery_schadule_2, format="json")
+        expected_message = f"زمان ارسال سفارش شما با موفقیت به {self.crr_date} در {self.delivery_schadule_2['time']} تغییر کرد."
+        updated_instance = DeliverySchedule.objects.get(id=self.delivery_schadule.id)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn("message", response.data)  
+        self.assertEqual(response.data["message"], expected_message)
+        self.assertEqual(str(updated_instance.date), str(self.crr_date))  
+        self.assertEqual(updated_instance.time, self.delivery_schadule_2["time"])  
+
     def test_delivery_schedule_change_url(self):
-        pass
+        view = resolve(f"/products/change_schedule/{self.delivery_schadule.id}/")
+        self.assertEqual(view.func.cls, DeliveryScheduleChangeAPIView)
     
-    
+
 #====================================== Order Test ======================================================
 
 class OrderTest(APITestCase):
@@ -296,8 +329,10 @@ class OrderTest(APITestCase):
         self.client = APIClient()
         self.url = reverse("complete_order")
         self.user_1, self.user_2, self.user_3, self.user_4 = create_test_users()
-        self.c1, self.c2, self.c3, self.c4, self.c5, self.c6, self.c7 = create_test_categories()
         self.p1, self.p2, self.p3, self.p4, self.p5, self.p6, self.p7, self.p8 = create_test_products()
+        self.increment_stock_1 = Warehouse.objects.create(product=self.p1, stock=50)
+        self.increment_stock_2 = Warehouse.objects.create(product=self.p2, stock=50)
+        self.increment_stock_3 = Warehouse.objects.create(product=self.p3, stock=50)
         
     def test_order_model(self):
         pass
@@ -321,8 +356,10 @@ class OrderCancellationTest(APITestCase):
         self.order_id = 55
         self.url = reverse("cancel_order", kwargs={"order_id": self.order_id})
         self.user_1, self.user_2, self.user_3, self.user_4 = create_test_users()
-        self.c1, self.c2, self.c3, self.c4, self.c5, self.c6, self.c7 = create_test_categories()
         self.p1, self.p2, self.p3, self.p4, self.p5, self.p6, self.p7, self.p8 = create_test_products()
+        self.increment_stock_1 = Warehouse.objects.create(product=self.p1, stock=50)
+        self.increment_stock_2 = Warehouse.objects.create(product=self.p2, stock=50)
+        self.increment_stock_3 = Warehouse.objects.create(product=self.p3, stock=50)
         
     def test_order_cancellation_serializer(self):
         pass
@@ -341,8 +378,10 @@ class DeliveryTest(APITestCase):
         self.client = APIClient()
         self.url = reverse("complete_delivery")
         self.user_1, self.user_2, self.user_3, self.user_4 = create_test_users()
-        self.c1, self.c2, self.c3, self.c4, self.c5, self.c6, self.c7 = create_test_categories()
         self.p1, self.p2, self.p3, self.p4, self.p5, self.p6, self.p7, self.p8 = create_test_products()
+        self.increment_stock_1 = Warehouse.objects.create(product=self.p1, stock=50)
+        self.increment_stock_2 = Warehouse.objects.create(product=self.p2, stock=50)
+        self.increment_stock_3 = Warehouse.objects.create(product=self.p3, stock=50)
         
     def test_delivery_model(self):
         pass
