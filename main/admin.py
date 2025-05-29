@@ -185,14 +185,14 @@ class OrderAdmin(admin.ModelAdmin):
     list_filter = ["order_type", "status", "payment_method"]
     search_fields = ["online_customer", "in_person_customer", "payment_method"]
     ordering = ["created_at"]
-    exclude = ["status", "description"]
+    exclude = ["status", "description", "order_type"]
     
     def customer(self, obj):
         return obj.customer()
     
     def get_fieldsets(self, request, obj = None):
         return [
-            ("Order Info", {"fields": ("in_person_customer", "online_customer", "order_type", "shopping_cart", "delivery_schedule")}),
+            ("Order Info", {"fields": ("in_person_customer", "online_customer", "shopping_cart", "delivery_schedule")}),
             ("Order Payment", {"fields": ("payment_method", "total_amount")}),
         ]
     

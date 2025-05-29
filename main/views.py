@@ -231,14 +231,28 @@ class OrderAPIView(APIView):
     )
     def post(self, request):
         try:
+            print("Raw request data:", request.data)  
+            print("Checking discount field:", request.data.get("discount"))  
             serializer = OrderSerializer(data=request.data, context={"request": request})
             if serializer.is_valid():
                 order = serializer.save()
                 return Response(
-                    {"message": "سفارش شما با موفقیت ثبت شد و آماده پرداخت است.", "Order_data": OrderSerializer(order).data}, status=status.HTTP_201_CREATED)
+                        {
+                            "message": "سفارش شما با موفقیت ثبت شد و آماده پرداخت است.", 
+                            "Order_data": OrderSerializer(order).data
+                        },
+                        status=status.HTTP_201_CREATED
+                )
+            print("Validation failed:", serializer.errors)
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-        except Exception as error:
-            return Response({"error": f"An unexpected error occurred: {str(error)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        except serializers.ValidationError as error_1:
+            error_list = error_1.detail
+            error_message = error_list[0] if isinstance(error_list, list) and error_list else "کد تخفیف اشتباه است."
+            print("Validation error occurred:", error_1.detail)
+            return Response({"error": error_message}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as error_2:
+            print("Unexpected error:", str(error_2))
+            return Response({"error": f"An unexpected error occurred: {str(error_2)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 #====================================== Order Cancellation View =======================================
@@ -266,7 +280,7 @@ class OrderCancellationAPIView(APIView):
             print(serializer.errors)
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         except Exception as error:
-          return Response({"error": f"An unexpected error occurred: {str(error)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response({"error": f"An unexpected error occurred: {str(error)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
 
 #====================================== Transaction View =============================================

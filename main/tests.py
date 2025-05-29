@@ -6,8 +6,8 @@ django.setup()
 from rest_framework.test import APITestCase, APIClient, APIRequestFactory
 from rest_framework import status
 from django.urls import resolve, reverse
-from django.utils.timezone import localtime, now
-from datetime import timedelta
+from django.utils.timezone import localtime, now, make_aware
+from datetime import timedelta, datetime
 from .models import *
 from .serializers import *
 from .views import *
@@ -151,11 +151,12 @@ class ShoppingCartTest(APITestCase):
       
     def test_shopping_cart_serializer(self):
         self.request.user = self.user_1
+        expected_total = sum(item["quantity"] * Product.objects.get(id=item["product"]).price for item in self.cart_2["cart_items"])
         serializer = ShoppingCartSerializer(data=self.cart_2, context={"request": self.request})
         self.assertTrue(serializer.is_valid(raise_exception=True))
         serializer.save()
         ser_data = serializer.data
-        self.assertEqual(ser_data["total_price"], 115400)   
+        self.assertEqual(ser_data["total_price"], expected_total)   
     
     def test_shopping_cart_invalid_data(self):
         serializer = ShoppingCartSerializer(data=self.invalid_cart, context={"request": self.request})
@@ -191,6 +192,7 @@ class DeliveryScheduleTest(APITestCase):
         self.url = reverse("add_schedule")
         self.request = self.factory.post(self.url)
         self.crr_datetime = localtime(now())
+        self.crr_date = self.crr_datetime.date() + timedelta(days=1)
         self.user_1, self.user_2, self.user_3, self.user_4 = create_test_users()
         self.p1, self.p2, self.p3, self.p4, self.p5, self.p6, self.p7, self.p8 = create_test_products()
         self.increment_stock_1 = Warehouse.objects.create(product=self.p1, stock=50)
@@ -200,11 +202,11 @@ class DeliveryScheduleTest(APITestCase):
         self.cart_item_1 = CartItem.objects.create(cart=self.cart, product=self.p1, quantity=2)
         self.cart_item_2 = CartItem.objects.create(cart=self.cart, product=self.p2, quantity=3)
         self.cart.save()
-        self.delivery_schadule_1 = {"user": self.user_1, "shopping_cart": self.cart, "delivery_method": "normal", "date": self.crr_datetime.date(), "time": "20_22"}
-        self.delivery_schadule_2 = {"user": self.user_1, "shopping_cart": self.cart, "delivery_method": "normal", "date": self.crr_datetime.date(), "time": "8_10"}
+        self.delivery_schadule_1 = {"user": self.user_1, "shopping_cart": self.cart, "delivery_method": "normal", "date": self.crr_date, "time": "20_22"}
+        self.delivery_schadule_2 = {"user": self.user_1, "shopping_cart": self.cart, "delivery_method": "normal", "date": self.crr_date, "time": "8_10"}
         self.valid_payload_1 = {"delivery_method": self.delivery_schadule_1["delivery_method"], "date": str(self.delivery_schadule_1["date"]), "time": self.delivery_schadule_1["time"]}
         self.valid_payload_2 = {"delivery_method": self.delivery_schadule_2["delivery_method"], "date": str(self.delivery_schadule_2["date"]), "time": self.delivery_schadule_2["time"]}
-        self.invalid_payload_1 = {"date": str(self.crr_datetime.date()), "time": "20_22"}
+        self.invalid_payload_1 = {"date": str(self.crr_date), "time": "20_22"}
         self.invalid_payload_2 = {"delivery_method": "normal"} 
         
     def test_delivery_schedule_model(self):
@@ -268,15 +270,20 @@ class DeliveryScheduleTest(APITestCase):
         view = resolve("/products/add_schedule/")
         self.assertEqual(view.func.cls, DeliveryScheduleAPIView)
     
-
+    def tearDown(self):
+        CartItem.objects.all().delete()  
+        ShoppingCart.objects.all().delete()  
+        DeliverySchedule.objects.all().delete() 
+        
+        
 #====================================== Delivery Schedule Change Test ===================================
 
 class DeliveryScheduleChangeTest(APITestCase):
     def setUp(self):
-        self.factory = APIRequestFactory()
         self.client = APIClient()
         self.crr_datetime = localtime(now())
-        self.crr_date = self.crr_datetime.date() + timedelta(days=1)
+        self.the_day_after_tommorow = self.crr_datetime.date() + timedelta(days=2)
+        self.three_day_ahead = self.crr_datetime.date() + timedelta(days=3)
         self.user_1, self.user_2, self.user_3, self.user_4 = create_test_users()
         self.p1, self.p2, self.p3, self.p4, self.p5, self.p6, self.p7, self.p8 = create_test_products()
         self.increment_stock_1 = Warehouse.objects.create(product=self.p1, stock=50)
@@ -286,19 +293,18 @@ class DeliveryScheduleChangeTest(APITestCase):
         self.cart_item_1 = CartItem.objects.create(cart=self.cart, product=self.p1, quantity=2)
         self.cart_item_2 = CartItem.objects.create(cart=self.cart, product=self.p2, quantity=3)
         self.cart.save()
-        self.delivery_schadule_1 = {"user": self.user_1, "shopping_cart": self.cart, "delivery_method": "normal", "date": self.crr_datetime.date(), "time": "20_22"}
-        self.delivery_schadule_2 = {"date": self.crr_date, "time": "14_16"}
-        self.invalid_schadule = {"date": self.crr_date, "time": "22_24"} 
+        self.delivery_schadule_1 = {"user": self.user_1, "shopping_cart": self.cart, "delivery_method": "normal", "date": self.the_day_after_tommorow, "time": "20_22"}
+        self.delivery_schadule_2 = {"date": self.three_day_ahead, "time": "14_16"}
+        self.invalid_schadule = {"date": self.three_day_ahead, "time": "22_24"} 
         self.delivery_schadule = DeliverySchedule.objects.create(**self.delivery_schadule_1)
         self.url = reverse("change_schedule", kwargs={"delivery_id": self.delivery_schadule.id})
-        self.request = self.factory.post(self.url)
         
     def test_delivery_schedule_change_serializer(self):
         serializer = DeliveryScheduleChangeSerializer(instance=self.delivery_schadule, data=self.delivery_schadule_2)
         self.assertTrue(serializer.is_valid(raise_exception=True))
         serializer.save()
         updated_instance = DeliverySchedule.objects.get(id=self.delivery_schadule.id)
-        self.assertEqual(str(updated_instance.date), str(self.crr_date))
+        self.assertEqual(str(updated_instance.date), str(self.three_day_ahead))
         
     def test_delivery_schedule_invalid_time_format(self):
         serializer = DeliveryScheduleChangeSerializer(instance=self.delivery_schadule, data=self.invalid_schadule)
@@ -309,45 +315,140 @@ class DeliveryScheduleChangeTest(APITestCase):
     def test_delivery_schedule_change_view(self):
         self.client.force_authenticate(user=self.user_1)
         response = self.client.put(self.url, self.delivery_schadule_2, format="json")
-        expected_message = f"زمان ارسال سفارش شما با موفقیت به {self.crr_date} در {self.delivery_schadule_2['time']} تغییر کرد."
+        expected_message = f"زمان ارسال سفارش شما با موفقیت به {self.three_day_ahead} در {self.delivery_schadule_2['time']} تغییر کرد."
         updated_instance = DeliverySchedule.objects.get(id=self.delivery_schadule.id)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertIn("message", response.data)  
         self.assertEqual(response.data["message"], expected_message)
-        self.assertEqual(str(updated_instance.date), str(self.crr_date))  
+        self.assertEqual(str(updated_instance.date), str(self.three_day_ahead))  
         self.assertEqual(updated_instance.time, self.delivery_schadule_2["time"])  
 
     def test_delivery_schedule_change_url(self):
         view = resolve(f"/products/change_schedule/{self.delivery_schadule.id}/")
         self.assertEqual(view.func.cls, DeliveryScheduleChangeAPIView)
     
-
+    def tearDown(self):
+        CartItem.objects.all().delete()  
+        ShoppingCart.objects.all().delete()  
+        DeliverySchedule.objects.all().delete() 
+        
+        
 #====================================== Order Test ======================================================
 
 class OrderTest(APITestCase):
     def setUp(self):
+        self.factory = APIRequestFactory()
         self.client = APIClient()
         self.url = reverse("complete_order")
+        self.request = self.factory.post(self.url)
+        self.crr_datetime = localtime(now())
+        self.four_day_ahead = make_aware(datetime.combine(self.crr_datetime.date() + timedelta(days=4), datetime.min.time()))
         self.user_1, self.user_2, self.user_3, self.user_4 = create_test_users()
         self.p1, self.p2, self.p3, self.p4, self.p5, self.p6, self.p7, self.p8 = create_test_products()
-        self.increment_stock_1 = Warehouse.objects.create(product=self.p1, stock=50)
-        self.increment_stock_2 = Warehouse.objects.create(product=self.p2, stock=50)
-        self.increment_stock_3 = Warehouse.objects.create(product=self.p3, stock=50)
+        self.increment_stock_1 = Warehouse.objects.create(product=self.p1, stock=150)
+        self.increment_stock_2 = Warehouse.objects.create(product=self.p2, stock=150)
+        self.increment_stock_3 = Warehouse.objects.create(product=self.p3, stock=150)
+        self.increment_stock_4 = Warehouse.objects.create(product=self.p4, stock=150)
+        self.cart_1 = ShoppingCart.objects.create(online_customer=self.user_1)
+        self.cart_2 = ShoppingCart.objects.create(online_customer=self.user_2)  
+        self.cart_item_1 = CartItem.objects.create(cart=self.cart_1, product=self.p1, quantity=2)
+        self.cart_item_2 = CartItem.objects.create(cart=self.cart_1, product=self.p2, quantity=3)
+        self.cart_item_3 = CartItem.objects.create(cart=self.cart_2, product=self.p3, quantity=2)
+        self.cart_item_4 = CartItem.objects.create(cart=self.cart_2, product=self.p2, quantity=5)
+        self.cart_1.save()
+        self.cart_2.save()
+        self.delivery_schedule_1 = DeliverySchedule.objects.create(user=self.user_1, shopping_cart=self.cart_1, delivery_method="normal", date=self.four_day_ahead, time="20_22")
+        self.delivery_schedule_2 = DeliverySchedule.objects.create(user=self.user_2, shopping_cart=self.cart_2, delivery_method="fast", date=self.four_day_ahead, time="20_22") 
+        self.coupon = Coupon.objects.create(code="DISCOUNT15", discount_percentage=15, max_usage=3, valid_from=self.crr_datetime, valid_to=self.four_day_ahead)
+        self.coupon.is_active = True  
+        self.coupon.save()
+        self.coupon.refresh_from_db()
+        self.order_1 = {"online_customer": self.user_1, "shopping_cart": self.cart_1, "delivery_schedule": self.delivery_schedule_1, "payment_method": "online"}
+        self.order_2 = {"online_customer": self.user_2.id, "shopping_cart": self.cart_2.id, "delivery_schedule": self.delivery_schedule_2.id, "payment_method": "online"} 
         
+    # @classmethod
+    # def setUpTestData(cls):
+    #     cls.factory = APIRequestFactory()
+    #     cls.client = APIClient()
+    #     cls.url = reverse("complete_order")
+    #     cls.request = cls.factory.post(cls.url)
+    #     cls.crr_datetime = localtime(now())
+    #     cls.four_day_ahead = make_aware(datetime.combine(cls.crr_datetime.date() + timedelta(days=4), datetime.min.time()))
+    #     cls.user_1, cls.user_2, cls.user_3, cls.user_4 = create_test_users()
+    #     cls.p1, cls.p2, cls.p3, cls.p4, cls.p5, cls.p6, cls.p7, cls.p8 = create_test_products()
+    #     cls.increment_stock_1 = Warehouse.objects.create(product=cls.p1, stock=150)
+    #     cls.increment_stock_2 = Warehouse.objects.create(product=cls.p2, stock=150)
+    #     cls.increment_stock_3 = Warehouse.objects.create(product=cls.p3, stock=150)
+    #     cls.increment_stock_4 = Warehouse.objects.create(product=cls.p4, stock=150)
+    #     cls.cart_1 = ShoppingCart.objects.create(online_customer=cls.user_1)
+    #     cls.cart_2 = ShoppingCart.objects.create(online_customer=cls.user_2)
+    #     cls.cart_item_1 = CartItem.objects.create(cart=cls.cart_1, product=cls.p1, quantity=2)
+    #     cls.cart_item_2 = CartItem.objects.create(cart=cls.cart_1, product=cls.p2, quantity=3)
+    #     cls.cart_item_3 = CartItem.objects.create(cart=cls.cart_2, product=cls.p3, quantity=2)
+    #     cls.cart_item_4 = CartItem.objects.create(cart=cls.cart_2, product=cls.p2, quantity=5)
+    #     cls.cart_1.save()
+    #     cls.cart_2.save()
+    #     cls.delivery_schedule_1 = DeliverySchedule.objects.create(user=cls.user_1, shopping_cart=cls.cart_1, delivery_method="normal", date=cls.four_day_ahead, time="20_22")
+    #     cls.delivery_schedule_2 = DeliverySchedule.objects.create(user=cls.user_2, shopping_cart=cls.cart_2, delivery_method="fast", date=cls.four_day_ahead, time="20_22")
+    #     cls.coupon = Coupon.objects.create(code="DISCOUNT15", discount_percentage=15, max_usage=3, valid_from=cls.crr_datetime, valid_to=cls.four_day_ahead)
+    #     cls.coupon.is_active = True  
+    #     cls.coupon.save()
+    #     cls.coupon.refresh_from_db()
+    #     cls.order_1 = {"online_customer": cls.user_1, "shopping_cart": cls.cart_1, "delivery_schedule": cls.delivery_schedule_1, "payment_method": "online"}
+    #     cls.order_2 = {"online_customer": cls.user_2.id, "shopping_cart": cls.cart_2.id, "delivery_schedule": cls.delivery_schedule_2.id, "payment_method": "online"}
+     
     def test_order_model(self):
-        pass
+        order = Order.objects.create(**self.order_1)
+        self.assertEqual(str(order), f"Order {order.id} by {self.user_1} ({order.get_order_type_display()})")
     
     def test_order_serializer(self):
-        pass
+        self.request.user = self.user_1
+        serializer = OrderSerializer(data=self.order_1, context={"request": self.request})
+        self.assertTrue(serializer.is_valid(raise_exception=True))
+        serializer.save()
+        ser_data = serializer.data
+        self.assertEqual(ser_data["payment_method"], self.order_1["payment_method"])
+        self.assertEqual(ser_data["status"], "waiting")
+        self.assertEqual(ser_data["total_amount"], (self.cart_1.total_price + self.delivery_schedule_1.delivery_cost))
     
     def test_order_view(self):
-        pass
+        self.client.force_authenticate(user=self.user_2)
+        response = self.client.post(self.url, self.order_2, format="json")
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data["message"], "سفارش شما با موفقیت ثبت شد و آماده پرداخت است.")
+        
+    def test_order_view_with_discount(self):
+        self.client.force_authenticate(user=self.user_2)
+        expected_total_amount = (self.cart_2.total_price + self.delivery_schedule_2.delivery_cost) 
+        expected_discount = expected_total_amount * (self.coupon.discount_percentage / 100)        
+        self.order_2["discount"] = self.coupon.code
+        expected_payable = expected_total_amount - expected_discount
+        response = self.client.post(self.url, self.order_2, format="json")
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data["Order_data"]["total_amount"], expected_total_amount)
+        self.assertEqual(response.data["Order_data"]["discount_applied"], expected_discount)
+        self.assertEqual(response.data["Order_data"]["amount_payable"], expected_payable)
     
+    def test_order_view_invalid_discount(self):
+        self.client.force_authenticate(user=self.user_2)
+        invalid_coupon_code = "INVALIDCOD"
+        self.order_2["discount"] = invalid_coupon_code
+        response = self.client.post(self.url, self.order_2, format="json")
+        print("Full response error:", response.data)
+        self.assertIn("کد تخفیف اشتباه است.", response.data["error"]) 
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
     def test_order_url(self):
         view = resolve("/products/complete_order/")
         self.assertEqual(view.func.cls, OrderAPIView)
     
-    
+    def tearDown(self):
+        CartItem.objects.all().delete()  
+        ShoppingCart.objects.all().delete()  
+        DeliverySchedule.objects.all().delete() 
+        Coupon.objects.all().delete() 
+
+
 #====================================== Order Cancellation Test =========================================
 
 class OrderCancellationTest(APITestCase):
@@ -370,7 +471,12 @@ class OrderCancellationTest(APITestCase):
     def test_order_cancellation_url(self):
         pass
     
-    
+    def tearDown(self):
+        CartItem.objects.all().delete()  
+        ShoppingCart.objects.all().delete()  
+        DeliverySchedule.objects.all().delete() 
+        
+        
 #====================================== Delivery Test ===================================================
 
 class DeliveryTest(APITestCase):

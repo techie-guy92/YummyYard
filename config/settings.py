@@ -9,7 +9,7 @@ https://docs.djangoproject.com/en/5.1/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.1/ref/settings/
 """
-from os import path
+from os import path, makedirs
 from pathlib import Path
 import environ
 from datetime import timedelta
@@ -21,6 +21,12 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 env = environ.Env()
 environ.Env.read_env(path.join(BASE_DIR, '.env'))
+
+
+# Create logs directory if missing
+LOG_DIR = path.join(BASE_DIR, "logs")
+if not path.exists(LOG_DIR):
+    makedirs(LOG_DIR)  
 
 
 # Quick-start development settings - unsuitable for production
@@ -218,6 +224,7 @@ LOGGING = {
             'class': 'logging.FileHandler',
             'filename': 'logs/errors.log',
             'formatter': 'verbose',
+            'encoding': 'utf-8',
         },
         'file_warning': {
             'level': 'WARNING',
@@ -253,6 +260,10 @@ LOGGING = {
             'handlers': ['file_celery'],
             'level': 'DEBUG',
             'propagate': False,
+        },
+        'root': {
+            'handlers': ['file_error'],
+            'level': 'ERROR',
         },
     },
 }

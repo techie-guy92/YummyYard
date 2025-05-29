@@ -654,12 +654,12 @@ class Order(models.Model):
                 raise ValidationError(f"Unexpected error while applying discount: {str(error)}")
 
     def save(self, *args, **kwargs):
-        self.full_clean()
         if not self.order_type:
             if self.online_customer:
                 self.order_type = "online"
             elif self.in_person_customer:
                 self.order_type = "in_person"
+        self.full_clean()
         super().save(*args, **kwargs)
 
     class Meta:

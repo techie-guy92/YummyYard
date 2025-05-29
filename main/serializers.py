@@ -159,7 +159,6 @@ class OrderSerializer(serializers.ModelSerializer):
         discount_code = validated_data.pop("discount", None)
         request = self.context.get("request")
         customer = request.user
-
         validated_data["online_customer"] = customer
         validated_data["order_type"] = "online"
         validated_data["payment_method"] = "online"
@@ -173,6 +172,8 @@ class OrderSerializer(serializers.ModelSerializer):
             if discount_code:
                 try:
                     coupon = Coupon.objects.get(code=discount_code, is_active=True)
+                    # coupon = Coupon.objects.filter(code=discount_code, is_active=True).first()
+                    # coupon = Coupon.objects.filter(code__iexact=discount_code.strip(), is_active=True).first()  
                     if not coupon.is_valid():
                         raise serializers.ValidationError("کد تخفیف دیگر معنبر نیست یا منقضی شده است.")
                     discount_amount = validated_data["total_amount"] * (coupon.discount_percentage / 100)
