@@ -455,7 +455,7 @@ class OrderCancellationTest(APITestCase):
     def setUp(self):
         self.client = APIClient()
         self.crr_datetime = localtime(now())
-        self.five_day_ahead = make_aware(datetime.combine(self.crr_datetime.date() + timedelta(days=4), datetime.min.time()))
+        self.five_day_ahead = self.crr_datetime.date() + timedelta(days=5)
         self.user_1, self.user_2, self.user_3, self.user_4 = create_test_users()
         self.p1, self.p2, self.p3, self.p4, self.p5, self.p6, self.p7, self.p8 = create_test_products()
         self.increment_stock_1 = Warehouse.objects.create(product=self.p1, stock=150)
@@ -559,26 +559,80 @@ class DeliveryTest(APITestCase):
     def setUp(self):
         self.client = APIClient()
         self.url = reverse("complete_delivery")
+        self.crr_datetime = localtime(now())
+        self.five_day_ahead = self.crr_datetime.date() + timedelta(days=5)
         self.user_1, self.user_2, self.user_3, self.user_4 = create_test_users()
         self.p1, self.p2, self.p3, self.p4, self.p5, self.p6, self.p7, self.p8 = create_test_products()
-        self.increment_stock_1 = Warehouse.objects.create(product=self.p1, stock=50)
-        self.increment_stock_2 = Warehouse.objects.create(product=self.p2, stock=50)
-        self.increment_stock_3 = Warehouse.objects.create(product=self.p3, stock=50)
+        self.increment_stock_1 = Warehouse.objects.create(product=self.p1, stock=150)
+        self.increment_stock_2 = Warehouse.objects.create(product=self.p2, stock=150)
+        self.increment_stock_3 = Warehouse.objects.create(product=self.p3, stock=150)
+        self.increment_stock_4 = Warehouse.objects.create(product=self.p4, stock=150)
+        self.cart_1 = ShoppingCart.objects.create(online_customer=self.user_1)
+        self.cart_2 = ShoppingCart.objects.create(online_customer=self.user_2)  
+        self.cart_item_1 = CartItem.objects.create(cart=self.cart_1, product=self.p1, quantity=2)
+        self.cart_item_2 = CartItem.objects.create(cart=self.cart_1, product=self.p2, quantity=3)
+        self.cart_item_3 = CartItem.objects.create(cart=self.cart_2, product=self.p3, quantity=2)
+        self.cart_item_4 = CartItem.objects.create(cart=self.cart_2, product=self.p2, quantity=5)
+        self.cart_1.save()
+        self.cart_2.save()
+        self.delivery_schedule_1 = DeliverySchedule.objects.create(user=self.user_1, shopping_cart=self.cart_1, delivery_method="normal", date=self.five_day_ahead, time="20_22")
+        self.delivery_schedule_2 = DeliverySchedule.objects.create(user=self.user_2, shopping_cart=self.cart_2, delivery_method="fast", date=self.five_day_ahead, time="20_22") 
+        self.order_data_1 = {"online_customer": self.user_1, "shopping_cart": self.cart_1, "delivery_schedule": self.delivery_schedule_1, "payment_method": "online"}
+        self.order_data_2 = {"online_customer": self.user_2, "shopping_cart": self.cart_2, "delivery_schedule": self.delivery_schedule_2, "payment_method": "online"}
+        self.order_1 = Order.objects.create(**self.order_data_1)
+        self.order_2 = Order.objects.create(**self.order_data_2)
+        self.transaction_1 = Transaction.objects.create(user=self.user_1, order=self.order_1, amount=self.order_1.amount_payable, payment_id="341298543212", is_successful=True)
+        self.transaction_invalid = Transaction.objects.create(user=self.user_2, order=self.order_2, amount=self.order_2.amount_payable, payment_id="123456789", is_successful=False)
+        self.delivery_1 = Delivery.objects.filter(order=self.order_1).first()
+        self.transaction_1.refresh_from_db()
+        self.delivery_1.refresh_from_db()
+        self.tracking_code = {"order": self.delivery_1.order.id, "tracking_code": self.delivery_1.tracking_id}
+        self.tracking_code_invalid = {"order": self.delivery_1.order.id, "tracking_code": "INVALID_CODE"}
         
+    def test_transaction_model(self):
+        self.assertEqual(str(self.transaction_1), f"{self.transaction_1.payment_id}")
+    
     def test_delivery_model(self):
-        pass
-    
+        self.assertEqual(str(self.delivery_1), f"Delivery for Order {self.delivery_1.order.id}")
+        self.assertIsNotNone(self.delivery_1)  
+        self.assertEqual(self.delivery_1.status, "pending")  
+
+    def test_failed_transaction_does_not_create_delivery(self):
+        delivery = Delivery.objects.filter(order=self.order_2).first()
+        self.assertIsNone(delivery)  
+
     def test_delivery_serializer(self):
-        pass
-    
+        serializer = DeliverySerializer(instance=self.delivery_1, data=self.tracking_code)  
+        self.assertTrue(serializer.is_valid(raise_exception=True))  
+        serializer.save()
+        ser_data = serializer.data
+        self.assertEqual(ser_data["status"], "delivered")
+
     def test_delivery_view(self):
-        pass
-    
+        self.client.force_authenticate(user=self.user_1)
+        response = self.client.put(self.url, self.tracking_code, format="json")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["message"], "سفارش شما با موفقیت تکمیل شد.")
+        self.assertEqual(response.data["delivery_data"]["status"], "delivered")
+        
+    def test_delivery_view_invalid_code(self):
+        self.client.force_authenticate(user=self.user_1)
+        response = self.client.put(self.url, self.tracking_code_invalid, format="json")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("کد وارد شده صحیح نمی باشد.", str(response.data["tracking_code"][0]))  
+
     def test_delivery_url(self):
         view = resolve("/products/complete_delivery/")
         self.assertEqual(view.func.cls, DeliveryAPIView)
     
-    
+    def tearDown(self):
+        CartItem.objects.all().delete()  
+        ShoppingCart.objects.all().delete()  
+        DeliverySchedule.objects.all().delete() 
+        Transaction.objects.all().delete() 
+        Delivery.objects.all().delete() 
+        
+
 #====================================== UserView Test ===================================================
 
 class UserViewTest(APITestCase):

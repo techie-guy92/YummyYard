@@ -708,7 +708,7 @@ class Transaction(models.Model):
                 raise ValidationError(f"Transaction amount ({self.amount}) does not match the payable amount for Order {self.order.id} ({self.order.amount_payable}).")
         
     def validate_payment(self):
-        if self.is_successful:
+        if self.is_successful and self.order.status not in ["shipped", "successful", "completed", "canceled", "refunded"]:
             self.order.status = "successful"
             self.order.save(update_fields=["status"])
             self.order.refresh_from_db()

@@ -252,26 +252,28 @@ class DeliverySerializer(serializers.ModelSerializer):
     class Meta:
         model = Delivery
         fields = ["order", "tracking_code", "postman", "status", "shipped_at", "delivered_at"]
-        
+
     def update(self, instance, validated_data):
-        if validated_data.get("tracking_code") == instance.tracking_id:
+        with transaction.atomic(): 
             instance.delivered_at = localtime(now())
             instance.status = "delivered"
             instance.order.status = "completed"
             instance.order.save(update_fields=["status"])
             instance.save(update_fields=["delivered_at", "status"])
         return instance
-        
+
     def validate(self, attrs):
-        tracking_code = attrs.get("tracking_code") 
-        instance = getattr(self, "instance", None)  
+        tracking_code = attrs.get("tracking_code")
+        instance = getattr(self, "instance", None)
+        if not tracking_code:
+            raise serializers.ValidationError({"tracking_code": "کد رهگیری مورد نیاز است."})  
         if not instance:
-            raise serializers.ValidationError("سفارش مورد نظر پیدا نشد.")
+            raise serializers.ValidationError({"order": "سفارش مورد نظر پیدا نشد."})  
         if tracking_code != instance.tracking_id:
-            raise serializers.ValidationError("کد وارد شده صحیح نمی باشد.")
+            raise serializers.ValidationError({"tracking_code": "کد وارد شده صحیح نمی باشد."})  
         return attrs
 
-       
+
 #====================================== UserView Serializer ================================================
 
 class UserViewSerializer(serializers.ModelSerializer):
