@@ -454,29 +454,105 @@ class OrderTest(APITestCase):
 class OrderCancellationTest(APITestCase):
     def setUp(self):
         self.client = APIClient()
-        self.order_id = 55
-        self.url = reverse("cancel_order", kwargs={"order_id": self.order_id})
+        self.crr_datetime = localtime(now())
+        self.five_day_ahead = make_aware(datetime.combine(self.crr_datetime.date() + timedelta(days=4), datetime.min.time()))
         self.user_1, self.user_2, self.user_3, self.user_4 = create_test_users()
         self.p1, self.p2, self.p3, self.p4, self.p5, self.p6, self.p7, self.p8 = create_test_products()
-        self.increment_stock_1 = Warehouse.objects.create(product=self.p1, stock=50)
-        self.increment_stock_2 = Warehouse.objects.create(product=self.p2, stock=50)
-        self.increment_stock_3 = Warehouse.objects.create(product=self.p3, stock=50)
+        self.increment_stock_1 = Warehouse.objects.create(product=self.p1, stock=150)
+        self.increment_stock_2 = Warehouse.objects.create(product=self.p2, stock=150)
+        self.increment_stock_3 = Warehouse.objects.create(product=self.p3, stock=150)
+        self.increment_stock_4 = Warehouse.objects.create(product=self.p4, stock=150)
+        self.cart_1 = ShoppingCart.objects.create(online_customer=self.user_1)
+        self.cart_2 = ShoppingCart.objects.create(online_customer=self.user_2)  
+        self.cart_item_1 = CartItem.objects.create(cart=self.cart_1, product=self.p1, quantity=2)
+        self.cart_item_2 = CartItem.objects.create(cart=self.cart_1, product=self.p2, quantity=3)
+        self.cart_item_3 = CartItem.objects.create(cart=self.cart_2, product=self.p3, quantity=2)
+        self.cart_item_4 = CartItem.objects.create(cart=self.cart_2, product=self.p2, quantity=5)
+        self.cart_1.save()
+        self.cart_2.save()
+        self.delivery_schedule_1 = DeliverySchedule.objects.create(user=self.user_1, shopping_cart=self.cart_1, delivery_method="normal", date=self.five_day_ahead, time="20_22")
+        self.delivery_schedule_2 = DeliverySchedule.objects.create(user=self.user_2, shopping_cart=self.cart_2, delivery_method="fast", date=self.five_day_ahead, time="20_22") 
+        self.order_data = {"online_customer": self.user_1, "shopping_cart": self.cart_1, "delivery_schedule": self.delivery_schedule_1, "payment_method": "online"}
+        self.order_1 = Order.objects.create(**self.order_data)
+        self.url = reverse("cancel_order", kwargs={"order_id": self.order_1.id})
         
     def test_order_cancellation_serializer(self):
-        pass
+        serializer = OrderCancellationSerializer(instance=self.order_1)
+        ser_data = serializer.data
+        self.assertEqual(ser_data["status"], self.order_1.status)
+        serializer.update(self.order_1, validated_data={})
+        self.assertEqual(self.order_1.status, "canceled")  
+        self.assertEqual(self.order_1.shopping_cart.status, "abandoned")
+        
+    def test_cannot_cancel_shipped_order(self):
+        self.order_1.status = "shipped"
+        self.order_1.save()
+        serializer = OrderCancellationSerializer(instance=self.order_1)
+        with self.assertRaises(serializers.ValidationError) as error:
+            serializer.update(self.order_1, validated_data={})
+        self.assertEqual(str(error.exception.detail[0]), "سفارش تکمیل شده یا ارسال شده نمیتواند لغو شود.") 
+    
+    # def test_cannot_cancel_close_to_delivery(self):
+    #     self.order_1.delivery_schedule.date = self.crr_datetime.date()
+    #     valid_time_slots = [time[0] for time in DeliverySchedule.TIMES] 
+    #     next_valid_time = next((slot for slot in valid_time_slots if int(slot.split("_")[0]) >= self.crr_datetime.hour + 2), None)  
+    #     if next_valid_time:
+    #         self.order_1.delivery_schedule.time = next_valid_time  
+    #     else:
+    #         raise ValueError("No valid time slots available for testing!")
+    #     self.order_1.delivery_schedule.save()
+    #     serializer = OrderCancellationSerializer(instance=self.order_1)
+    #     with self.assertRaises(serializers.ValidationError) as error:
+    #         serializer.update(self.order_1, validated_data={})
+    #     self.assertEqual(str(error.exception.detail[0]), "لغو سفارش کمتر از دو ساعت به ارسال امکان پذیر نیست.") 
     
     def test_order_cancellation_view(self):
-        pass
+        self.client.force_authenticate(user=self.user_1)
+        response = self.client.put(self.url, format="json")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["message"], "سفارش با موفقیت لغو شد.")
+        
+    # def test_order_cancellation_view_invalid_time(self):
+    #     self.order_1.delivery_schedule.date = self.crr_datetime.date()
+    #     adjusted_hour = self.crr_datetime.hour + 1
+    #     if adjusted_hour % 2 != 0:
+    #         adjusted_hour += 1  
+    #     next_time_slot = adjusted_hour + 2 if adjusted_hour % 2 == 0 else adjusted_hour + 3
+    #     if next_time_slot > 20: 
+    #         next_time_slot = 8
+    #     self.order_1.delivery_schedule.time = f"{adjusted_hour}_{next_time_slot}"
+    #     self.order_1.delivery_schedule.save()
+    #     self.client.force_authenticate(user=self.user_1)
+    #     response = self.client.put(self.url, format="json")
+    #     self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+    #     self.assertIn("لغو سفارش کمتر از دو ساعت به ارسال امکان پذیر نیست.", response.data["error"])
+    
+    # def test_order_cancellation_view_invalid_time(self):
+    #     self.order_1.delivery_schedule.date = self.crr_datetime.date()
+    #     min_valid_hour = max(self.crr_datetime.hour + 4, 8) 
+    #     valid_slots = [8, 10, 12, 14, 16, 18, 20]
+    #     next_valid_slots = [slot for slot in valid_slots if slot >= min_valid_hour]
+    #     selected_hour = next_valid_slots[0] if next_valid_slots else 8  
+    #     next_slot_index = valid_slots.index(selected_hour) + 1
+    #     next_time_slot = valid_slots[next_slot_index] if next_slot_index < len(valid_slots) else 8  
+    #     self.order_1.delivery_schedule.time = f"{selected_hour}_{next_time_slot}"
+    #     self.order_1.delivery_schedule.save()
+    #     self.client.force_authenticate(user=self.user_1)
+    #     response = self.client.put(self.url, format="json")
+    #     print(f"Response status code: {response.status_code}, Response data: {response.data}")  
+    #     self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+    #     self.assertIn("لغو سفارش کمتر از دو ساعت به ارسال امکان پذیر نیست.", response.data["error"])
     
     def test_order_cancellation_url(self):
-        pass
+        view = resolve(f"/products/cancel_order/{self.order_1.id}/")
+        self.assertEqual(view.func.cls, OrderCancellationAPIView)
     
     def tearDown(self):
         CartItem.objects.all().delete()  
         ShoppingCart.objects.all().delete()  
         DeliverySchedule.objects.all().delete() 
-        
-        
+
+    
 #====================================== Delivery Test ===================================================
 
 class DeliveryTest(APITestCase):

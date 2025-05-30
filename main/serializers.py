@@ -209,17 +209,9 @@ class OrderCancellationSerializer(serializers.ModelSerializer):
     class Meta:
         model = Order
         fields = ["status"]
-        read_only_fields = ["status"]
         
     def update(self, instance, validated_data):
-        crr_datetime = localtime(now())
-        crr_date = crr_datetime.date()
-        crr_hour = crr_datetime.hour
-        delivery_hour = int(instance.delivery_schedule.time.split("_")[0])
-        if instance.status in ["shipped", "completed"]:
-            raise serializers.ValidationError("سفارش تکمیل شده یا ارسال شده نمیتواند لغو شود.")
-        if instance.delivery_schedule.date < crr_date or (instance.delivery_schedule.date == crr_date and delivery_hour <= crr_hour + 2):
-            raise serializers.ValidationError("لغو سفارش کمتر از دو ساعت به ارسال امکان پذیر نیست.")
+        validated_data = self.validate(validated_data)  
         instance.status = "canceled"
         instance.shopping_cart.status = "abandoned"
         instance.save(update_fields=["status"])
@@ -227,11 +219,19 @@ class OrderCancellationSerializer(serializers.ModelSerializer):
         return instance
     
     def validate(self, attrs):
+        crr_datetime = localtime(now())
+        crr_date = crr_datetime.date()
+        crr_hour = crr_datetime.hour
         instance = getattr(self, "instance", None)
         if not instance:
             raise serializers.ValidationError("سفارش مورد نظر یافت نشد.")
+        delivery_hour = int(instance.delivery_schedule.time.split("_")[0])
+        if instance.status in ["shipped", "completed"]:
+            raise serializers.ValidationError("سفارش تکمیل شده یا ارسال شده نمیتواند لغو شود.")
+        if instance.delivery_schedule.date < crr_date or (instance.delivery_schedule.date == crr_date and delivery_hour <= crr_hour + 2):
+            raise serializers.ValidationError({"error": "لغو سفارش کمتر از دو ساعت به ارسال امکان پذیر نیست."})  
         return attrs
-    
+
 
 #====================================== Transaction Serializer =============================================
 

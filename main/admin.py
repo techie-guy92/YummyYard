@@ -157,7 +157,7 @@ class DeliveryScheduleAdmin(admin.ModelAdmin):
     list_display = ["id", "customer", "date", "day", "time", "delivery_method", "delivery_cost"]
     list_filter = ["day", "time", "delivery_method"]
     search_fields = ["date", "day", "time"]
-    ordering = ["date", "time"]
+    ordering = ["id", "date", "time"]
     readonly_fields = ["delivery_cost"]
 
     def customer(self, obj):
