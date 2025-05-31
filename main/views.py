@@ -11,6 +11,8 @@ from drf_spectacular.utils import extend_schema
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
 from logging import getLogger
+from django.utils.timezone import localtime, now, make_aware
+from datetime import timedelta, datetime
 from .models import *
 from .serializers import *
 from custom_permission import CheckOwnershipPermission
@@ -267,21 +269,22 @@ class OrderCancellationAPIView(APIView):
             404: "No rrder found.",
             500: "Internal server error."
         }
-    )
+    )        
     def put(self, request, order_id):
         try:
             order = Order.objects.filter(id=order_id, online_customer=request.user).first()
             if not order:
-                return Response({"error": "سفارش مورد نظر یافت نشد و یا شما امکان دستری به آن را ندارید."}, status=status.HTTP_404_NOT_FOUND)
-            serializer = OrderCancellationSerializer(instance=order, data={}, partial=True)
-            if serializer.is_valid():
-                serializer.save()
-                return Response({"message": "سفارش با موفقیت لغو شد."}, status=status.HTTP_200_OK)
-            print(serializer.errors)
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+                return Response({"error": "سفارش مورد نظر یافت نشد و یا شما امکان دسترسی به آن را ندارید."}, status=status.HTTP_404_NOT_FOUND)
+            mocked_time = make_aware(datetime(2025, 6, 1, 18, 1, 0))
+            crr_datetime = localtime(now())
+            serializer = OrderCancellationSerializer(instance=order, data={}, context={"current_time": crr_datetime}, partial=True)
+            if not serializer.is_valid():
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            serializer.save()
+            return Response({"message": "سفارش با موفقیت لغو شد."}, status=status.HTTP_200_OK)
         except Exception as error:
             return Response({"error": f"An unexpected error occurred: {str(error)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-            
+
 
 #====================================== Transaction View =============================================
 

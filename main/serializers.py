@@ -1,7 +1,5 @@
 from rest_framework import serializers
-from rest_framework.views import APIView
 from django.shortcuts import get_object_or_404
-from django.db.models import Q
 from django.utils import timezone
 from .models import *
 from users.models import *
@@ -211,7 +209,9 @@ class OrderCancellationSerializer(serializers.ModelSerializer):
         fields = ["status"]
         
     def update(self, instance, validated_data):
-        validated_data = self.validate(validated_data)  
+        # Without explicitly calling `validate()`, DRF would only validate `validated_data`, not instance attributes like `status` and `delivery_schedule.date` and those checks are crucial for preventing unwanted cancellations.
+        self.validate(validated_data)
+        # self.validate({"status": instance.status})  # Directly validate instance attributes
         instance.status = "canceled"
         instance.shopping_cart.status = "abandoned"
         instance.save(update_fields=["status"])
@@ -219,7 +219,9 @@ class OrderCancellationSerializer(serializers.ModelSerializer):
         return instance
     
     def validate(self, attrs):
-        crr_datetime = localtime(now())
+        crr_datetime = self.context.get("current_time")  
+        if not crr_datetime:  
+            crr_datetime = localtime(now())
         crr_date = crr_datetime.date()
         crr_hour = crr_datetime.hour
         instance = getattr(self, "instance", None)
@@ -322,5 +324,5 @@ class RatingSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("You can only rate this product if you have completed an order for it.")
         return data
 
-        
+     
 #===========================================================================================================
