@@ -15,7 +15,7 @@ from django.utils.timezone import localtime, now, make_aware
 from datetime import timedelta, datetime
 from .models import *
 from .serializers import *
-from custom_permission import CheckOwnershipPermission
+from custom_permission import CheckOwnershipPermission 
 
 
 #====================================== admin View ===================================================
@@ -275,8 +275,8 @@ class OrderCancellationAPIView(APIView):
             order = Order.objects.filter(id=order_id, online_customer=request.user).first()
             if not order:
                 return Response({"error": "سفارش مورد نظر یافت نشد و یا شما امکان دسترسی به آن را ندارید."}, status=status.HTTP_404_NOT_FOUND)
-            mocked_time = make_aware(datetime(2025, 6, 1, 18, 1, 0))
             crr_datetime = localtime(now())
+            mocked_time = make_aware(datetime(2025, 6, 1, 18, 1, 0))
             serializer = OrderCancellationSerializer(instance=order, data={}, context={"current_time": crr_datetime}, partial=True)
             if not serializer.is_valid():
                 return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
