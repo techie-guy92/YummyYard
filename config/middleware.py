@@ -1,4 +1,5 @@
 import threading
+import contextvars
 
 
 #======================================== RequestMiddleware ============================================
@@ -6,7 +7,6 @@ import threading
 _thread_local = threading.local()
 
 class RequestMiddleware:
-    """Middleware to store request globally for use in models."""
     def __init__(self, get_response):
         self.get_response = get_response
 
@@ -16,8 +16,25 @@ class RequestMiddleware:
         return response
 
 def get_request():
-    """Helper function to retrieve the current request object."""
     return getattr(_thread_local, "request", None)
+
+
+_request_var = contextvars.ContextVar("request_var")  
+
+class AsyncRequestMiddleware:
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    async def __call__(self, request):
+        _request_var.set(request)  
+        response = await self.get_response(request)  
+        return response
+
+async def get_async_request():
+    try:
+        return _request_var.get(None) 
+    except LookupError:
+        return None 
 
 
 #=======================================================================================================
