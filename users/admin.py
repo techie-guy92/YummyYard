@@ -1,8 +1,11 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
 from django.http import HttpResponseForbidden
+from django.urls import path
 from .forms import CustomUserForm
 from .models import *
+from .admin_views import print_customers_view
+
 
 #==================================== Custom User Admin =========================================
 
@@ -14,6 +17,7 @@ class CustomUserAdmin(UserAdmin):
     list_search = ("username",)
     list_editable = ()
     ordering = ("id",)
+    change_list_template = "admin/customuser_change_list.html"
     
     def get_list_display(self, request):
         if request.user.is_superuser:
@@ -31,7 +35,6 @@ class CustomUserAdmin(UserAdmin):
         ("Personal Info", {"fields": ("first_name", "last_name", "email",)}),
         ("Authentication", {"fields": ("username", "password",)}),
     )
-    
     
     def get_add_fieldsets(self, request, obj = None):
         add_fieldsets = list(self.add_fieldsets)
@@ -69,7 +72,12 @@ class CustomUserAdmin(UserAdmin):
         if user != request.user and user.is_superuser:
             return HttpResponseForbidden('<h1 style="color:black; text-align:center; margin-top:100px"> شما اجازه مشاهده کردن صفحه دیگر ابر کاربر ها را ندارید </h1>')
         return super().change_view(request, object_id, form_url, extra_context)
-         
+    
+    def get_urls(self):
+        urls = super().get_urls()
+        custom_urls = [path("print-customers/", self.admin_site.admin_view(print_customers_view), name="print_customers"),]
+        return custom_urls + urls
+    
     class Media:
         js = (
             "https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js",
