@@ -1,14 +1,14 @@
-from django import forms
+from django.forms import ModelForm, ValidationError, CharField, PasswordInput, EmailField, EmailInput
 from .models import CustomUser
 from utilities import *
 
 
 #======================================= Custom User Form ====================================
 
-class CustomUserForm(forms.ModelForm):
-    password = forms.CharField(label="Password", widget=forms.PasswordInput(attrs={'placeholder': 'Enter a valid email address'}, render_value=True), validators=[password_validator])
-    re_password = forms.CharField(label="Confirm Password", widget=forms.PasswordInput(attrs={'placeholder': 'Enter a valid email address'}, render_value=True))
-    email = forms.EmailField(label="Email", widget=forms.EmailInput(attrs={'placeholder': 'Enter a valid email address'}), validators=[email_validator])
+class CustomUserForm(ModelForm):
+    password = CharField(label="Password", widget=PasswordInput(attrs={'placeholder': 'Enter a valid password'}, render_value=True), validators=[password_validator])
+    re_password = CharField(label="Password Confirmation", widget=PasswordInput(attrs={'placeholder': 'Re-enter entered password'}, render_value=True))
+    email = EmailField(label="Email", widget=EmailInput(attrs={'placeholder': 'Enter a valid email address'}), validators=[email_validator])
 
     class Meta:
         model = CustomUser
@@ -28,10 +28,10 @@ class CustomUserForm(forms.ModelForm):
         pass_1 = self.cleaned_data.get("password")
         pass_2 = self.cleaned_data.get("re_password")
         if pass_1 and pass_2 and pass_1 != pass_2:
-            raise forms.ValidationError("رمز عبور و تکرار آن یکسان نمی باشد.")
+            raise ValidationError("رمز عبور و تکرار آن یکسان نمی باشد.")
         return pass_2
     
-    def save(self, commit=True):
+    def save(self, commit = True):
         user = super().save(commit=False)
         user.user_type = "user"
         user.set_password(self.cleaned_data["password"])
