@@ -36,7 +36,9 @@ def get_product_price(request, product_id):
 def get_cart_price(request, cart_id):
     try:
         cart = ShoppingCart.objects.get(id=cart_id)
-        return JsonResponse({"total_amount": cart.total_price}) 
+        delivery = DeliverySchedule.objects.filter(shopping_cart=cart_id).first()
+        delivery_cost = delivery.delivery_cost if delivery else 0
+        return JsonResponse({"total_amount": cart.total_price + delivery_cost}) 
     except ShoppingCart.DoesNotExist:
         return JsonResponse({"error": "Shopping cart not found"}, status=404)
     except Exception as error:

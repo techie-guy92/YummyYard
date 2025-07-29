@@ -186,6 +186,7 @@ class OrderAdmin(admin.ModelAdmin):
     search_fields = ["online_customer", "in_person_customer", "payment_method"]
     ordering = ["created_at"]
     exclude = ["status", "description", "order_type"]
+    readonly_fields = ["total_amount"]
     
     def customer(self, obj):
         return obj.customer()

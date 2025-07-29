@@ -21,7 +21,7 @@
                             console.error("Invalid quantity:", quantity);
                             continue;
                         }
-                        const response = await fetch(`/main/get_product_price/${productId}/`);
+                        const response = await fetch(`/products/get_product_price/${productId}/`);
                         const data = await response.json();
 
                         if (data.error) {

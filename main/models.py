@@ -21,7 +21,7 @@ logger = getLogger(__name__)
 
 def upload_to(instance, filename):
     file_name, ext = splitext(filename)
-    new_filename = f"{uuid4()}{ext}"
+    new_filename = f"{instance}{ext}"
     
     if isinstance(instance, Category):
         return f"images/categories/{slugify(instance.name, allow_unicode=True)}/{new_filename}"
@@ -60,7 +60,7 @@ class Category(models.Model):
     description = models.TextField(null=True, blank=True, verbose_name="Description")
     image = models.ImageField(upload_to=upload_to, null=True, blank=True, verbose_name="Image")
     created_at = models.DateTimeField(auto_now_add=True, editable=False, verbose_name="Created At")
-    updated_at = models.DateTimeField(auto_now=True, editable=False, verbose_name="Updated At")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="Updated At")
 
     def __str__(self):
         return f"{self.name}"
@@ -124,7 +124,7 @@ class Product(models.Model):
     description = models.TextField(null=True, blank=True, verbose_name="Description")
     image = models.ImageField(upload_to=upload_to, null=True, blank=True, verbose_name="Image")
     created_at = models.DateTimeField(auto_now_add=True, editable=False, verbose_name="Created At")
-    updated_at = models.DateTimeField(auto_now=True, editable=False, verbose_name="Updated At")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="Updated At")
     
     def __str__(self):
         return f"{self.name}"
@@ -160,6 +160,9 @@ class Gallery(models.Model):
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name="Gallery_product", verbose_name="Product")
     image = models.ImageField(upload_to=upload_to, verbose_name="Image")
     
+    def __str__(self):
+        return f"{self.product}"
+    
     class Meta:
         verbose_name = "Gallery"
         verbose_name_plural = "Galleries"
@@ -192,7 +195,7 @@ class Warehouse(models.Model):
     is_available = models.BooleanField(default=True, editable=False, verbose_name="Is Available") 
     price = models.IntegerField(default=0, verbose_name="Cost Price")
     created_at = models.DateTimeField(auto_now_add=True, editable=False, verbose_name="Created At")
-    updated_at = models.DateTimeField(auto_now=True, editable=False, verbose_name="Updated At")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="Updated At")
     
     def __str__(self):
         return f"{self.product} - {self.stock}"
@@ -347,7 +350,8 @@ class ShoppingCart(models.Model):
                     product=item.product,
                     warehouse_type="output",
                     stock=item.quantity,
-                    price=item.product.price)
+                    price=item.product.price
+                )
     
     def mark_as_processed(self):
         self.status = "processed"
@@ -481,7 +485,7 @@ class DeliverySchedule(models.Model):
     time = models.CharField(max_length=10, choices=TIMES, verbose_name="Time")
     delivery_cost = models.PositiveIntegerField(default=0, verbose_name="Delivery Cost")
     created_at = models.DateTimeField(auto_now_add=True, editable=False, verbose_name="Created At")
-    updated_at = models.DateTimeField(auto_now=True, editable=False, verbose_name="Updated At")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="Updated At")
 
     def __str__(self):
         return f"{self.id} - {self.date} ({self.day}) {self.time}"
@@ -602,14 +606,13 @@ class Order(models.Model):
     status = models.CharField(max_length=20, choices=STATUS_TYPES, default="on_hold", verbose_name="Status")
     description = models.TextField(null=True, blank=True, verbose_name="Description")
     created_at = models.DateTimeField(auto_now_add=True, editable=False, verbose_name="Created At")
-    updated_at = models.DateTimeField(auto_now=True, editable=False, verbose_name="Updated At")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="Updated At")
     
-    def __str__(self):
-        customer = self.online_customer if self.online_customer else self.in_person_customer
-        return f"Order {self.id} by {customer} ({self.get_order_type_display()})" if customer else f"Order {self.id} ({self.get_order_type_display()})"
-
     def customer(self):
         return self.online_customer if self.online_customer else self.in_person_customer
+    
+    def __str__(self):
+        return f"Order {self.id} by {self.customer()} ({self.get_order_type_display()})" if self.customer() else f"Order {self.id} ({self.get_order_type_display()})"
 
     def clean(self):
         self.validate_customer()
@@ -627,7 +630,7 @@ class Order(models.Model):
             if not self.shopping_cart:
                 raise ValidationError("No ShoppingCart is linked to this Order.")
             cart_price = self.shopping_cart.total_price
-            delivery_cost = self.delivery_schedule.delivery_cost
+            delivery_cost = self.delivery_schedule.delivery_cost if self.delivery_schedule else 0
             self.total_amount = cart_price + delivery_cost
             if not self.discount_applied:
                 self.amount_payable = self.total_amount
@@ -753,8 +756,8 @@ class Delivery(models.Model):
     status = models.CharField(max_length=20, choices=STATUS_DELIVERY, default="pending", verbose_name="Status Delivery")
     tracking_id = models.CharField(max_length=20, unique=True, blank=True, verbose_name="Tracking Number")
     postman = models.CharField(max_length=20, null=True, blank=True, verbose_name="Postman Name")
-    shipped_at = models.DateTimeField(null=True, blank=True, editable=False, verbose_name="Shipped At")
-    delivered_at = models.DateTimeField(null=True, blank=True, editable=False, verbose_name="Delivered At")
+    shipped_at = models.DateTimeField(null=True, blank=True, verbose_name="Shipped At")
+    delivered_at = models.DateTimeField(null=True, blank=True, verbose_name="Delivered At")
 
     def __str__(self):
         return f"Delivery for Order {self.order.id}"
@@ -782,7 +785,7 @@ class UserView(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="UserView_user", verbose_name="User")
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name="UserView_product", verbose_name="Product")
     view_count = models.PositiveIntegerField(default=1, verbose_name="View Count")  
-    last_seen = models.DateTimeField(auto_now_add=True, editable=False, verbose_name="Last Seen")
+    last_seen = models.DateTimeField(auto_now_add=True, verbose_name="Last Seen")
     
     def __str__(self):
         return f"{self.user} viewed {self.product.name} {self.view_count} times" if self.user else f"Anonymous viewed {self.product.name} {self.view_count} times"
@@ -815,7 +818,7 @@ class Rating(models.Model):
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name="Rating_product", verbose_name="Product")
     rating = models.IntegerField(validators=[MinValueValidator(1), MaxValueValidator(5)], verbose_name="Rating")
     review = models.TextField(null=True, blank=True, verbose_name="Review")
-    created_at = models.DateTimeField(auto_now_add=True, editable=False, verbose_name="Created At")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Created At")
 
     def __str__(self):
         return f"Rating of {self.rating} for {self.product.name} by {self.user.username}"
