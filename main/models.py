@@ -718,7 +718,7 @@ class Transaction(models.Model):
             self.order.refresh_from_db()
             with transaction.atomic():
                 delivery, created = Delivery.objects.get_or_create(order=self.order, defaults={
-                    "tracking_id": f"{self.order.id}-{uuid4().hex[:5].upper()}", 
+                    "tracking_id": f"{self.order.id}-{uuid4().hex[:7].upper()}", 
                     "status": "pending"
                     })
                 if created:
