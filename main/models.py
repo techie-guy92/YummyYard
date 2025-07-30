@@ -191,14 +191,14 @@ class Warehouse(models.Model):
     
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name="Warehouse_product", verbose_name="Product")
     warehouse_type = models.CharField(max_length=10, choices=WAREHOUSE_TYPE, default="input", verbose_name="Warehouse Type")
-    stock = models.PositiveIntegerField(default=0, verbose_name="Stock")  
+    stock = models.PositiveIntegerField(default=0, verbose_name="Quantity")  
     is_available = models.BooleanField(default=True, editable=False, verbose_name="Is Available") 
     price = models.IntegerField(default=0, verbose_name="Cost Price")
     created_at = models.DateTimeField(auto_now_add=True, editable=False, verbose_name="Created At")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="Updated At")
     
     def __str__(self):
-        return f"{self.product} - {self.stock}"
+        return f"{self.product} - {self.total_stock(product=self.product)}"
         
     @staticmethod
     def total_stock(product):

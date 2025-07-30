@@ -57,7 +57,7 @@ class GalleryAdmin(admin.ModelAdmin):
 
 @admin.register(Warehouse)
 class WarehouseAdmin(admin.ModelAdmin):
-    list_display = ["id", "product", "price", "warehouse_type", "stock", "is_available", "total_stock", "created_at", "updated_at"]
+    list_display = ["id", "product", "total_stock", "is_available", "price", "warehouse_type", "stock", "created_at", "updated_at"]
     list_filter = ["warehouse_type"]
     search_fields = ["product", "warehouse_type"]
     ordering = ["id"]
