@@ -707,6 +707,7 @@ class Transaction(models.Model):
         self.validate_payment()
         
     def validate_amount(self):
+        self.amount = self.order.amount_payable
         if self.amount != self.order.amount_payable:
                 raise ValidationError(f"Transaction amount ({self.amount}) does not match the payable amount for Order {self.order.id} ({self.order.amount_payable}).")
         

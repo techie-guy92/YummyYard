@@ -45,6 +45,14 @@ def get_cart_price(request, cart_id):
         return JsonResponse({"error": str(error)}, status=500)
 
 
+def get_amount_payable(request, order_id):
+    try:
+      order = Order.objects.get(id=order_id)
+      return JsonResponse({"amount_payable": order.amount_payable})
+    except Exception as error:
+      return JsonResponse({"error": str(error)}, status=404)
+  
+  
 #====================================== Gategory View ================================================
 
 class CategoryModelViewSet(viewsets.ModelViewSet):

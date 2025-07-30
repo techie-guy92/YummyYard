@@ -2,6 +2,7 @@ from django.contrib import admin
 from django.contrib.admin import SimpleListFilter
 from django.db.models import Q
 from .models import *
+from uuid import uuid4
 
 
 #====================================== Category Admin ================================================
@@ -211,8 +212,23 @@ class TransactionAdmin(admin.ModelAdmin):
     list_display = ["id", "user", "order", "amount", "is_successful", "payment_id", "created_at"]
     search_fields = ["user", "order"]
     ordering = ["order"]
-
-
+    exclude = ["payment_id"]
+    readonly_fields = ["amount"]
+    
+    def save_model(self, request, obj, form, change):
+        try:
+            obj.payment_id = uuid4().hex[:10].lower()
+            super().save_model(request, obj, form, change)
+        except ValidationError as error:
+            self.message_user(request, f"Error: {error}", level="error")
+    
+    class Media:
+        js = (
+            "https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js",
+            "js/admin_transaction.js",
+        )
+        
+        
 #====================================== Delivery Admin ================================================
 
 @admin.register(Delivery)
