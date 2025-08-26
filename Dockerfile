@@ -1,6 +1,6 @@
 # Dockerfile
 
-FROM python:3.9-slim
+FROM python:3.12-slim
 
 LABEL maintainer="soheil.dalirii@gmail.com"
 
@@ -16,4 +16,4 @@ COPY . /code/
 EXPOSE 8000
 
 # CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
-CMD ["gunicorn", "--bind", "0.0.0.0:8000", "config.wsgi:application"]
+CMD ["gunicorn", "config.wsgi:application", "--workers=4", "--bind=0.0.0.0:8000"]

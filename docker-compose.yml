@@ -1,7 +1,7 @@
 services:
   postgres:
     container_name: postgres
-    image: postgres:13
+    image: postgres:15.4
     environment:
       - POSTGRES_DB=${DB_NAME}
       - POSTGRES_USER=${DB_USER}
@@ -16,7 +16,7 @@ services:
       
   redis:
     container_name: redis
-    image: redis:6.2
+    image: redis:7.2
     networks:
       - main
     ports:
@@ -25,7 +25,7 @@ services:
       
   rabbitmq:
     container_name: rabbitmq
-    image: rabbitmq:3.8-management
+    image: rabbitmq:3.12-management
     networks:
       - main
     ports:
@@ -46,10 +46,10 @@ services:
     networks:
       - main
     restart: on-failure
-  
+
   app:
     build: .
-    command: sh -c "python manage.py migrate && gunicorn --bind 0.0.0.0:8000 config.wsgi:application"
+    command: sh -c "python manage.py migrate && gunicorn config.wsgi:application --workers 4 --bind 0.0.0.0:8000"
     container_name: app
     volumes: 
       - .:/code/
