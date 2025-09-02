@@ -11,9 +11,17 @@ services:
       - rabbitmq
     ports:
       - "8000:8000"
+    restart: always
+    networks:
+      - main
     volumes:
       - .:/app
-    restart: always
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
 
   db:
     image: postgres:15.4
@@ -25,6 +33,8 @@ services:
     ports:
       - "5433:5432"
     restart: always
+    networks:
+      - main
     volumes:
       - yummy-yard_pgdata:/var/lib/postgresql/data
 
@@ -34,20 +44,23 @@ services:
     ports:
       - "6379:6379"
     restart: always
+    networks:
+      - main
 
   rabbitmq:
     image: rabbitmq:3.12-management
     container_name: ${PROJECT_NAME}-rabbitmq-broker
-    environment:
-      URL_BROKER: ${URL_BROKER}
     ports:
       - "5672:5672"     
       - "15672:15672"   
     restart: always
+    networks:
+      - main
 
   celery:
     build:
       context: .
+      dockerfile: Dockerfile
     container_name: ${PROJECT_NAME}-celery
     command: celery -A config.celery_config worker --loglevel=info
     env_file:
@@ -56,10 +69,13 @@ services:
       - web
       - rabbitmq
     restart: always
+    networks:
+      - main
 
   beat:
     build:
       context: .
+      dockerfile: Dockerfile
     container_name: ${PROJECT_NAME}-beat
     command: celery -A config.celery_config beat --loglevel=info
     env_file:
@@ -68,6 +84,11 @@ services:
       - web
       - rabbitmq
     restart: always
+    networks:
+      - main
+
+networks:
+  main:
 
 volumes:
   yummy-yard_pgdata:

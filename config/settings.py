@@ -38,6 +38,14 @@ SECRET_KEY = env.str('SECRET_KEY')
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = env.bool('DEBUG')
 
+# SECURE_SSL_REDIRECT = True
+# SESSION_COOKIE_SECURE = True
+# CSRF_COOKIE_SECURE = True
+# SECURE_HSTS_SECONDS = 3600
+# SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+# SECURE_HSTS_PRELOAD = True
+
+
 ALLOWED_HOSTS = env.list('ALLOWED_HOSTS_Django')
 
 AUTHENTICATION_BACKENDS = [
@@ -86,8 +94,8 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'config.middleware.RequestMiddleware'
-    'whitenoise.middleware.WhiteNoiseMiddleware'
+    'config.middleware.RequestMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     # 'allauth.account.middleware.AccountMiddleware',
 ]
 
@@ -183,6 +191,9 @@ AUTH_USER_MODEL = 'users.CustomUser'
 
 #============================= Third Parties =================================
 
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+
+
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
         "rest_framework_simplejwt.authentication.JWTAuthentication",
@@ -196,6 +207,7 @@ REST_FRAMEWORK = {
     "DEFAULT_FILTER_BACKENDS": [
         "rest_framework.filters.SearchFilter",
     ],
+    # "SERVE_PERMISSIONS": ["rest_framework.permissions.IsAdminUser"]
 }
 
 
@@ -333,6 +345,19 @@ CELERY_BEAT_SCHEDULE = {
         'schedule': crontab(minute='*/1'),  
     },
 }
+
+
+# CACHES = {
+#     "default": {
+#         "BACKEND": "django_redis.cache.RedisCache",
+#         "LOCATION": "redis://redis:6379/1",
+#         "OPTIONS": {
+#             "CLIENT_CLASS": "django_redis.client.DefaultClient",
+#         }
+#     }
+# }
+
+# CACHE_TTL = 60 * 15  # 15 minutes
 
 
 # SOCIALACCOUNT_PROVIDERS = {
