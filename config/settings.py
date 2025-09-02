@@ -20,7 +20,7 @@ from celery.schedules import crontab
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 env = environ.Env()
-environ.Env.read_env(path.join(BASE_DIR, '.env'))
+env.read_env(path.join(BASE_DIR, '.env'))
 
 
 # Create logs directory if missing
@@ -33,12 +33,12 @@ if not path.exists(LOG_DIR):
 # See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = env('SECRET_KEY')
+SECRET_KEY = env.str('SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = env.bool('DEBUG')
 
-ALLOWED_HOSTS = ['127.0.0.1', 'localhost', 'testserver',]
+ALLOWED_HOSTS = env.list('ALLOWED_HOSTS_Django')
 
 AUTHENTICATION_BACKENDS = [
     'django.contrib.auth.backends.ModelBackend',
@@ -87,6 +87,7 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'config.middleware.RequestMiddleware'
+    'whitenoise.middleware.WhiteNoiseMiddleware'
     # 'allauth.account.middleware.AccountMiddleware',
 ]
 
@@ -118,12 +119,12 @@ DATABASES = {
     'default': {
         # 'ENGINE': 'django.db.backends.sqlite3',
         # 'NAME': BASE_DIR / 'db.sqlite3',
-        'ENGINE': env('ENGINE_NAME'),
-        'NAME': env('DB_NAME'),
-        'HOST':  env('DB_HOST'),
-        'PORT':  env('DB_PORT'),
-        'USER':  env('DB_USER'),
-        'PASSWORD': env('DB_PASSWORD'),
+        'ENGINE': env.str('ENGINE_NAME'),
+        'NAME': env.str('DB_NAME'),
+        'HOST':  env.str('DB_HOST'),
+        'PORT':  env.str('DB_PORT'),
+        'USER':  env.str('DB_USER'),
+        'PASSWORD': env.str('DB_PASSWORD'),
     }
 }
 
@@ -164,6 +165,7 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 STATICFILES_DIRS = (path.join(BASE_DIR, 'static/'),)
+STATIC_ROOT = path.join(BASE_DIR, 'staticfiles')
 
 MEDIA_URL = 'media/'
 MEDIA_ROOT = path.join(BASE_DIR, 'media/')
@@ -271,8 +273,8 @@ LOGGING = {
 
 
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(days=int(env('ACCESS_TOKEN'))),
-    'REFRESH_TOKEN_LIFETIME': timedelta(days=int(env('REFRESH_TOKEN'))),
+    'ACCESS_TOKEN_LIFETIME': timedelta(days=int(env.str('ACCESS_TOKEN'))),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=int(env.str('REFRESH_TOKEN'))),
     'ROTATE_REFRESH_TOKENS': False,
     'BLACKLIST_AFTER_ROTATION': True,
     'ALGORITHM': 'HS256',
@@ -313,7 +315,7 @@ SPECTACULAR_SETTINGS = {
 # CACHE_TTL = 60 * 15 
 
 
-CELERY_BROKER_URL = env('URL_BROKER')  
+CELERY_BROKER_URL = env.str('URL_BROKER')  
 CELERY_RESULT_BACKEND = 'django-db'  
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'

@@ -1,91 +1,73 @@
 services:
-  postgres:
-    container_name: postgres
-    image: postgres:15.4
-    environment:
-      - POSTGRES_DB=${DB_NAME}
-      - POSTGRES_USER=${DB_USER}
-      - POSTGRES_PASSWORD=${DB_PASSWORD}
-    networks:
-      - main
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ${PROJECT_NAME}-web
+    env_file:
+      - .env
+    depends_on:
+      - db
+      - rabbitmq
     ports:
-      - "5432:5432"
+      - "8000:8000"
+    volumes:
+      - .:/app
+    restart: always
+
+  db:
+    image: postgres:15.4
+    container_name: ${PROJECT_NAME}-postgres-db
+    environment:
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    ports:
+      - "5433:5432"
     restart: always
     volumes:
-      - postgres_data:/var/lib/postgresql/data/
-      
+      - yummy-yard_pgdata:/var/lib/postgresql/data
+
   redis:
-    container_name: redis
     image: redis:7.2
-    networks:
-      - main
+    container_name: ${PROJECT_NAME}-redis-cache
     ports:
       - "6379:6379"
     restart: always
-      
+
   rabbitmq:
-    container_name: rabbitmq
     image: rabbitmq:3.12-management
-    networks:
-      - main
-    ports:
-      - "5672:5672"
-    restart: always
-      
-  celery_worker:
-    container_name: celery_worker
-    command: "celery -A config.celery_config worker --loglevel=info"
-    depends_on:
-      - app
-      - postgres
-      - rabbitmq
-      - redis
-    build: .
+    container_name: ${PROJECT_NAME}-rabbitmq-broker
     environment:
-      - C_FORCE_ROOT=true
-    networks:
-      - main
-    restart: on-failure
-
-  app:
-    build: .
-    command: sh -c "python manage.py migrate && gunicorn config.wsgi:application --workers 4 --bind 0.0.0.0:8000"
-    container_name: app
-    volumes: 
-      - .:/code/
-    environment:
-      - SECRET_KEY=${SECRET_KEY}
-      - DEBUG=${DEBUG}
-      - DB_NAME=${DB_NAME}
-      - DB_USER=${DB_USER}
-      - DB_PASSWORD=${DB_PASSWORD}
-      - DB_HOST=${DB_HOST}
-      - DB_PORT=${DB_PORT}
-      - EMAIL_HOST=${EMAIL_HOST}
-      - EMAIL_HOST_USER=${EMAIL_HOST_USER}
-      - EMAIL_HOST_PASSWORD=${EMAIL_HOST_PASSWORD}
-      - ACCESS_TOKEN=${ACCESS_TOKEN}
-      - REFRESH_TOKEN=${REFRESH_TOKEN}
-      - URL_BROKER=${URL_BROKER}
-    depends_on:
-      - postgres
-      - rabbitmq
-      - redis
-    expose:
-      - 8000
+      URL_BROKER: ${URL_BROKER}
     ports:
-      - "8000:8000"
-    networks:
-      - main
+      - "5672:5672"     
+      - "15672:15672"   
     restart: always
 
-networks:
-  main:
-  
+  celery:
+    build:
+      context: .
+    container_name: ${PROJECT_NAME}-celery
+    command: celery -A config.celery_config worker --loglevel=info
+    env_file:
+      - .env
+    depends_on:
+      - web
+      - rabbitmq
+    restart: always
+
+  beat:
+    build:
+      context: .
+    container_name: ${PROJECT_NAME}-beat
+    command: celery -A config.celery_config beat --loglevel=info
+    env_file:
+      - .env
+    depends_on:
+      - web
+      - rabbitmq
+    restart: always
+
 volumes:
-  postgres_data:
-    driver: local
-    driver_opts:
-      type: "none"
-      o: "bind"
-      device: ${ROOT}
+  yummy-yard_pgdata:

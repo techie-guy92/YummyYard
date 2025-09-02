@@ -1,19 +1,27 @@
-# Dockerfile
-
 FROM python:3.12-slim
 
 LABEL maintainer="soheil.dalirii@gmail.com"
 
-WORKDIR /code
+ENV PYTHONDONTWRITEBYTECODE=1  
+ENV PYTHONUNBUFFERED=1          
 
-COPY requirements.txt /code/
+WORKDIR /app
 
-RUN pip install -U pip && \
-    pip install -r requirements.txt
+RUN apt-get update && apt-get install -y \
+    build-essential \          
+    libpq-dev \                 
+    && rm -rf /var/lib/apt/lists/*
 
-COPY . /code/
+COPY requirements.txt .
+RUN pip install --upgrade pip && pip install -r requirements.txt
+
+COPY . .
+COPY .env .env  
+
+RUN python manage.py collectstatic --noinput
+
+RUN mkdir -p logs
 
 EXPOSE 8000
 
-# CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
-CMD ["gunicorn", "config.wsgi:application", "--workers=4", "--bind=0.0.0.0:8000"]
+CMD ["sh", "-c", "${DJANGO_CMD:-gunicorn config.wsgi:application --bind 0.0.0.0:8000}"]
