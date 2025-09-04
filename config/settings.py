@@ -21,6 +21,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 env = environ.Env()
 env.read_env(path.join(BASE_DIR, '.env'))
+# env.read_env(env.str("ENV_PATH", default=path.join(BASE_DIR, ".env")))
 
 
 # Create logs directory if missing
@@ -46,7 +47,7 @@ DEBUG = env.bool('DEBUG')
 # SECURE_HSTS_PRELOAD = True
 
 
-ALLOWED_HOSTS = env.list('ALLOWED_HOSTS_Django')
+ALLOWED_HOSTS = env.list('ALLOWED_HOSTS')
 
 AUTHENTICATION_BACKENDS = [
     'django.contrib.auth.backends.ModelBackend',
@@ -334,11 +335,12 @@ CELERY_RESULT_SERIALIZER = 'json'
 CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TIMEZONE = 'Asia/Tehran'
 CELERY_ENABLE_UTC = True
+CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
 
 CELERY_BEAT_SCHEDULE = {
     'check-premium-subscriptions-every-five-minute': {
         'task': 'users.tasks.check_premium_subscriptions',
-        'schedule': crontab(minute='*/5'),  
+        'schedule': crontab(minute='*/1'),  
     },
     'check_coupon_expiration-every-minute': {
         'task': 'main.tasks.check_coupon_expiration',

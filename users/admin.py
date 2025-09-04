@@ -17,7 +17,7 @@ class CustomUserAdmin(UserAdmin):
     list_search = ("username",)
     list_editable = ()
     ordering = ("id",)
-    change_list_template = "admin/customuser_change_list.html"
+    # change_list_template = "admin/customuser_change_list.html"
     
     def get_list_display(self, request):
         if request.user.is_superuser:
@@ -73,10 +73,10 @@ class CustomUserAdmin(UserAdmin):
             return HttpResponseForbidden('<h1 style="color:black; text-align:center; margin-top:100px"> شما اجازه مشاهده کردن صفحه دیگر ابر کاربر ها را ندارید </h1>')
         return super().change_view(request, object_id, form_url, extra_context)
     
-    def get_urls(self):
-        urls = super().get_urls()
-        custom_urls = [path("print-customers/", self.admin_site.admin_view(print_customers_view), name="print_customers"),]
-        return custom_urls + urls
+    # def get_urls(self):
+    #     urls = super().get_urls()
+    #     custom_urls = [path("print-customers/", self.admin_site.admin_view(print_customers_view), name="print_customers"),]
+    #     return custom_urls + urls
     
     class Media:
         js = (

@@ -7,21 +7,22 @@ ENV PYTHONUNBUFFERED=1
 
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y curl \
-    build-essential \          
-    libpq-dev \                
+RUN apt-get update && apt-get install -y \
+    curl \
+    build-essential \
+    libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
-RUN pip install --upgrade pip && pip install -r requirements.txt
+RUN pip install --upgrade pip && pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-RUN python manage.py collectstatic --noinput
+# Create non-root user and assign ownership
+RUN adduser --disabled-password --gecos '' celeryuser && \
+    mkdir -p /app/logs && \
+    chown -R celeryuser /app
 
-RUN mkdir -p logs
+USER celeryuser
 
 EXPOSE 8000
-
-ENTRYPOINT ["gunicorn", "config.wsgi:application"]
-CMD ["--bind", "0.0.0.0:8000"]
