@@ -25,7 +25,7 @@ services:
 
   db:
     image: postgres:15.4
-    container_name: ${PROJECT_NAME}-postgres-db
+    container_name: ${PROJECT_NAME}-db
     environment:
       POSTGRES_DB: ${DB_NAME}
       POSTGRES_USER: ${DB_USER}
@@ -36,27 +36,27 @@ services:
     networks:
       - main
     volumes:
-      - yummy-yard_pgdata:/var/lib/postgresql/data
+      - YummyYard_pgdata:/var/lib/postgresql/data
 
   redis:
     image: redis:7.2
-    container_name: ${PROJECT_NAME}-redis-cache
+    container_name: ${PROJECT_NAME}-cache
     restart: always
     networks:
       - main
 
   rabbitmq:
     image: rabbitmq:3.12-management
-    container_name: ${PROJECT_NAME}-rabbitmq-broker
+    container_name: ${PROJECT_NAME}-broker
+    environment:
+      RABBITMQ_DEFAULT_USER: techie-guy92
+      RABBITMQ_DEFAULT_PASS: Soheil0014
     ports:
       - "5672:5672"
       - "15672:15672"
     restart: always
     networks:
       - main
-    environment:
-      RABBITMQ_DEFAULT_USER: techie-guy92
-      RABBITMQ_DEFAULT_PASS: Soheil0014
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
 
@@ -128,5 +128,5 @@ networks:
   main:
 
 volumes:
-  yummy-yard_pgdata:
+  YummyYard_pgdata:
   rabbitmq_data:

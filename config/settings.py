@@ -9,7 +9,7 @@ https://docs.djangoproject.com/en/5.1/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.1/ref/settings/
 """
-from os import path, makedirs
+
 from pathlib import Path
 import environ
 from datetime import timedelta
@@ -20,41 +20,33 @@ from celery.schedules import crontab
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 env = environ.Env()
-env.read_env(path.join(BASE_DIR, '.env'))
-# env.read_env(env.str("ENV_PATH", default=path.join(BASE_DIR, ".env")))
+env.read_env(BASE_DIR /'.env')
+# env.read_env(env.str("ENV_PATH", default=BASE_DIR / ".env"))
 
 
-# Create logs directory if missing
-LOG_DIR = path.join(BASE_DIR, "logs")
-if not path.exists(LOG_DIR):
-    makedirs(LOG_DIR)  
+LOG_DIR = BASE_DIR / "logs"
+if not LOG_DIR.exists():
+    LOG_DIR.mkdir(parents=True)
 
 
-# Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
-
-# SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = env.str('SECRET_KEY')
 
-# SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = env.bool('DEBUG')
 
-# SECURE_SSL_REDIRECT = True
-# SESSION_COOKIE_SECURE = True
-# CSRF_COOKIE_SECURE = True
-# SECURE_HSTS_SECONDS = 3600
-# SECURE_HSTS_INCLUDE_SUBDOMAINS = True
-# SECURE_HSTS_PRELOAD = True
-
-
 ALLOWED_HOSTS = env.list('ALLOWED_HOSTS')
+SECURE_SSL_REDIRECT = env.bool('SECURE_SSL_REDIRECT')
+SESSION_COOKIE_SECURE = env.bool('SESSION_COOKIE_SECURE')
+CSRF_COOKIE_SECURE = env.bool('CSRF_COOKIE_SECURE')
+SECURE_HSTS_SECONDS = env.int('SECURE_HSTS_SECONDS')
+SECURE_HSTS_INCLUDE_SUBDOMAINS = env.bool('SECURE_HSTS_INCLUDE_SUBDOMAINS')
+SECURE_HSTS_PRELOAD = env.bool('SECURE_HSTS_PRELOAD')
+
 
 AUTHENTICATION_BACKENDS = [
     'django.contrib.auth.backends.ModelBackend',
     # 'allauth.account.auth_backends.AuthenticationBackend',
 ]
 
-# Application definition
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -85,7 +77,6 @@ INSTALLED_APPS = [
     
 ]
 
-# SITE_ID = 1
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -100,12 +91,14 @@ MIDDLEWARE = [
     # 'allauth.account.middleware.AccountMiddleware',
 ]
 
+
 ROOT_URLCONF = 'config.urls'
+
 
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [path.join(BASE_DIR, 'templates')],
+        'DIRS': [BASE_DIR / 'templates'],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -118,11 +111,9 @@ TEMPLATES = [
     },
 ]
 
+
 WSGI_APPLICATION = 'config.wsgi.application'
 
-
-# Database
-# https://docs.djangoproject.com/en/5.1/ref/settings/#databases
 
 DATABASES = {
     'default': {
@@ -157,15 +148,10 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 
-# Internationalization
-# https://docs.djangoproject.com/en/5.1/topics/i18n/
 
 LANGUAGE_CODE = 'en-us'
-
 TIME_ZONE = 'Asia/Tehran'
-
 USE_I18N = True
-
 USE_TZ = True
 
 
@@ -173,11 +159,11 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/5.1/howto/static-files/
 
 STATIC_URL = 'static/'
-STATICFILES_DIRS = (path.join(BASE_DIR, 'static/'),)
-STATIC_ROOT = path.join(BASE_DIR, 'staticfiles')
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+STATICFILES_DIRS = [BASE_DIR / 'static']
 
 MEDIA_URL = 'media/'
-MEDIA_ROOT = path.join(BASE_DIR, 'media/')
+MEDIA_ROOT = BASE_DIR / 'media/'
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
@@ -213,11 +199,11 @@ REST_FRAMEWORK = {
 
 
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = env('EMAIL_HOST')
-EMAIL_PORT = 587
-EMAIL_HOST_USER = env('EMAIL_HOST_USER')
-EMAIL_HOST_PASSWORD = env('EMAIL_HOST_PASSWORD')
-EMAIL_USE_TLS = True
+EMAIL_HOST = env.str('EMAIL_HOST')
+EMAIL_PORT = env.int('EMAIL_PORT')
+EMAIL_HOST_USER = env.str('EMAIL_HOST_USER')
+EMAIL_HOST_PASSWORD = env.str('EMAIL_HOST_PASSWORD')
+EMAIL_USE_TLS = env.bool('EMAIL_USE_TLS')
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 
 
@@ -237,28 +223,43 @@ LOGGING = {
     'handlers': {
         'file_error': {
             'level': 'ERROR',
-            'class': 'logging.FileHandler',
-            'filename': 'logs/errors.log',
+            'class': 'logging.handlers.TimedRotatingFileHandler',
+            'filename': str(BASE_DIR / 'logs' / 'errors.log'),
+            'when': 'D',  
+            'interval': 1,
+            'backupCount': 7, 
             'formatter': 'verbose',
             'encoding': 'utf-8',
         },
         'file_warning': {
             'level': 'WARNING',
-            'class': 'logging.FileHandler',
-            'filename': 'logs/warning.log',
+            'class': 'logging.handlers.TimedRotatingFileHandler',
+            'filename': str(BASE_DIR / 'logs' / 'warning.log'),
+            'when': 'D',
+            'interval': 1,
+            'backupCount': 7,
             'formatter': 'verbose',
+            'encoding': 'utf-8',
         },
         'file_debug': {
             'level': 'DEBUG',
-            'class': 'logging.FileHandler',
-            'filename': 'logs/debug.log',
+            'class': 'logging.handlers.TimedRotatingFileHandler',
+            'filename': str(BASE_DIR / 'logs' / 'debug.log'),
+            'when': 'D',
+            'interval': 1,
+            'backupCount': 7,
             'formatter': 'verbose',
+            'encoding': 'utf-8',
         },
         'file_celery': {
             'level': 'DEBUG',
-            'class': 'logging.FileHandler',
-            'filename': 'logs/celery.log',
+            'class': 'logging.handlers.TimedRotatingFileHandler',
+            'filename': str(BASE_DIR / 'logs' / 'celery.log'),
+            'when': 'D',
+            'interval': 1,
+            'backupCount': 7,
             'formatter': 'verbose',
+            'encoding': 'utf-8',
         },
         'console': {
             'level': 'INFO',
@@ -288,8 +289,8 @@ LOGGING = {
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(days=int(env.str('ACCESS_TOKEN'))),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=int(env.str('REFRESH_TOKEN'))),
-    'ROTATE_REFRESH_TOKENS': False,
-    'BLACKLIST_AFTER_ROTATION': True,
+    'ROTATE_REFRESH_TOKENS': env.bool('ROTATE_REFRESH_TOKENS'),
+    'BLACKLIST_AFTER_ROTATION': env.bool('BLACKLIST_AFTER_ROTATION'),
     'ALGORITHM': 'HS256',
     'SIGNING_KEY': SECRET_KEY,
     'VERIFYING_KEY': None,
@@ -308,24 +309,6 @@ SPECTACULAR_SETTINGS = {
     "VERSION" : "1.0.0",
     "SERVE_INCLUDE_SCHEMA" : False,
 }
-
-
-# CELERY_BROKER_URL = 'redis://redis:6379/0'
-# CELERY_RESULT_BACKEND = 'redis://redis:6379/0'
-
-# CACHES = {
-#     "default": {
-#         "BACKEND": "django_redis.cache.RedisCache",
-#         "LOCATION": "redis://redis:6379/1",
-#         "OPTIONS": {
-#             "CLIENT_CLASS": "django_redis.client.DefaultClient",
-#         }
-#     }
-# }
-
-# # Optional: set up cache timeouts and other cache settings
-# # Cache time to live (in seconds)
-# CACHE_TTL = 60 * 15 
 
 
 CELERY_BROKER_URL = env.str('URL_BROKER')  
@@ -349,10 +332,13 @@ CELERY_BEAT_SCHEDULE = {
 }
 
 
+SESSION_ENGINE = "django.contrib.sessions.backends.cache"
+SESSION_CACHE_ALIAS = "default"
+
 CACHES = {
     "default": {
         "BACKEND": "django_redis.cache.RedisCache",
-        "LOCATION": "redis://redis:6379/1",
+        "LOCATION": env.str('REDIS_URL'),
         "OPTIONS": {
             "CLIENT_CLASS": "django_redis.client.DefaultClient",
         }
