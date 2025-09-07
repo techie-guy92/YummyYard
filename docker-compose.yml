@@ -44,6 +44,11 @@ services:
     restart: always
     networks:
       - main
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
 
   rabbitmq:
     image: rabbitmq:3.12-management
@@ -77,6 +82,8 @@ services:
     restart: always
     networks:
       - main
+    volumes:
+      - celerybeat_data:/app/celerybeat-schedule
     healthcheck:
       test: ["CMD-SHELL", "pgrep -f 'celery worker' || exit 0"]
       interval: 30s
@@ -100,13 +107,13 @@ services:
     restart: always
     networks:
       - main
+    volumes:
+      - celerybeat_data:/app/celerybeat-schedule
     healthcheck:
       test: ["CMD-SHELL", "pgrep -f 'celery beat' || exit 0"]
       interval: 30s
       timeout: 10s
       retries: 5
-    volumes:
-    - ./celerybeat-schedule:/app/celerybeat-schedule
 
   flower:
     build:
@@ -121,8 +128,14 @@ services:
       - .env
     depends_on:
       - rabbitmq
+    restart: always
     networks:
       - main
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5555"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
 
 networks:
   main:
@@ -130,3 +143,4 @@ networks:
 volumes:
   YummyYard_pgdata:
   rabbitmq_data:
+  celerybeat_data:
