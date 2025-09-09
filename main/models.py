@@ -39,19 +39,11 @@ class Category(models.Model):
     """
     Represents a hierarchical product category in the system.
 
-    Attributes:
-        name (str): The name of the category.
-        parent (Category, optional): A reference to the parent category, allowing nested categorization.
-        slug (str): A unique, SEO-friendly identifier for the category used in URLs.
-        description (str, optional): A textual description providing additional information about the category.
-        image (ImageField, optional): An image representing the category.
-        created_at (datetime): The timestamp when the category was first added.
-        updated_at (datetime): The timestamp when the category was last modified.
-
     Methods:
         validate_parent(): Ensures a category cannot be its own parent.
         get_all_children(): Recursively retrieves all subcategories of the current category.
         save(): Automatically validates data and generates a unique slug for the category before saving.
+        
     """
     
     name = models.CharField(max_length=100, verbose_name="Category")
@@ -70,7 +62,7 @@ class Category(models.Model):
           
     def validate_parent(self):
         if self.parent and self.parent.id == self.id:
-            raise ValidationError("Category cannot be its own parent.")
+            raise ValidationError("دسته نمی‌تواند والد خودش باشد.")
         
     def get_all_children(self):
         children = []
@@ -103,18 +95,9 @@ class Product(models.Model):
     """
     Represents a product available for sale in the marketplace.
 
-    Attributes:
-        name (str): The name of the product.
-        category (Category): The category to which the product belongs.
-        slug (str): A unique, SEO-friendly identifier for the product used in URLs.
-        price (int): The selling price of the product.
-        description (str, optional): A detailed description of the product, providing additional information.
-        image (ImageField, optional): An image representing the product.
-        created_at (datetime): The timestamp when the product was initially added.
-        updated_at (datetime): The timestamp when the product's details were last modified.
-
     Methods:
         save(): Generates a unique slug for the product based on its name to ensure URL uniqueness.
+        
     """
     
     name = models.CharField(max_length=250, verbose_name="Product") 
@@ -151,10 +134,7 @@ class Product(models.Model):
 class Gallery(models.Model):
     """
     Represents additional images for a product.
-
-    Attributes:
-        product (Product): The product associated with the gallery.
-        image (ImageField): An image for the product.
+    
     """
     
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name="Gallery_product", verbose_name="Product")
@@ -168,6 +148,33 @@ class Gallery(models.Model):
         verbose_name_plural = "Galleries"
 
 
+#====================================== Wishlist Model ================================================
+
+class Wishlist(models.Model):
+    """
+    Represents a user's wishlist, allowing users to save favorite products for future reference.
+
+    Methods:
+        get_product_price(): Returns the price of the product in the wishlist.
+        
+    """
+    
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="Wishlist_user", verbose_name="User")
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name="Wishlist_product", verbose_name="Product")
+   
+    def __str__(self):
+        return f"Wishlist of {self.user.username}"
+
+    def get_product_price(self):
+        return self.product.price
+    
+    class Meta:
+        verbose_name = "Wishlist"
+        verbose_name_plural = "Wishlists"
+        indexes = [models.Index(fields=["product"])]
+        constraints = [models.UniqueConstraint(fields=["user", "product"], name="unique_wishlist_item")]
+        
+        
 #====================================== Warehouse Model ===============================================
 
 class Warehouse(models.Model):
@@ -185,9 +192,10 @@ class Warehouse(models.Model):
 
     Methods:
         total_stock(product): Calculates the total stock for a given product by aggregating input, output, and defective stock levels.
+    
     """
     
-    WAREHOUSE_TYPE = [("input", "Input"), ("output", "Output"), ("defective", "Defective"), ("sent_back", "Sent Back")]
+    WAREHOUSE_TYPE = [("input", "ورپدی"), ("output", "خروجی"), ("defective", "مرجوعی"), ("sent_back", "مرجوع-شده")]
     
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name="Warehouse_product", verbose_name="Product")
     warehouse_type = models.CharField(max_length=10, choices=WAREHOUSE_TYPE, default="input", verbose_name="Warehouse Type")
@@ -234,6 +242,7 @@ class Coupon(models.Model):
         is_expired(): Checks if the coupon has passed its expiration date.
         is_valid(): Determines if the coupon is still usable based on its active status, expiration date, and usage limit.
         save(): Automatically generates a coupon code if not provided before saving the instance.
+        
     """
     
     code = models.CharField(max_length=10, blank=True, verbose_name="Code")
@@ -264,36 +273,6 @@ class Coupon(models.Model):
         verbose_name_plural = "Coupons"
         indexes = [models.Index(fields=["is_active"]), models.Index(fields=["max_usage"]), models.Index(fields=["usage_count"]), models.Index(fields=["valid_from"]), models.Index(fields=["valid_to"]),]
         
-        
-#====================================== Wishlist Model ================================================
-
-class Wishlist(models.Model):
-    """
-    Represents a user's wishlist, allowing users to save favorite products for future reference.
-
-    Attributes:
-        user (User): The user who owns the wishlist entry.
-        product (Product): The product added to the wishlist.
-
-    Methods:
-        get_product_price(): Returns the price of the product in the wishlist.
-    """
-    
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="Wishlist_user", verbose_name="User")
-    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name="Wishlist_product", verbose_name="Product")
-   
-    def __str__(self):
-        return f"Wishlist of {self.user.username}"
-
-    def get_product_price(self):
-        return self.product.price
-    
-    class Meta:
-        verbose_name = "Wishlist"
-        verbose_name_plural = "Wishlists"
-        indexes = [models.Index(fields=["product"])]
-        constraints = [models.UniqueConstraint(fields=["user", "product"], name="unique_wishlist_item")]
-        
 
 #====================================== ShoppingCart Model ============================================
 
@@ -315,9 +294,10 @@ class ShoppingCart(models.Model):
         place_order(): Converts the cart items into a warehouse stock record when an order is placed.
         clear_cart(): Removes all items from the cart and resets the total price.
         save(): Validates data and ensures the total price is updated after modifications.
+        
     """
     
-    STATUS_TYPES = [("active", "Active"), ("processed", "Processed"), ("abandoned", "Abandoned")]
+    STATUS_TYPES = [("active", "فعال"), ("processed", "در-حال-پردازش"), ("abandoned", "لغو-شده")]
     
     online_customer = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, blank=True, null=True, related_name="ShoppingCart_online_customers", verbose_name="Online Customer")
     in_person_customer = models.ForeignKey(InPersonCustomer, on_delete=models.CASCADE, blank=True, null=True, related_name="ShoppingCart_in_person_customers", verbose_name="In-Person Customer")
@@ -336,9 +316,9 @@ class ShoppingCart(models.Model):
         
     def validate_customer(self):
         if not self.online_customer and not self.in_person_customer:
-            raise ValidationError("A shopping cart must have either an online or in-person customer.")
+            raise ValidationError("سبد خرید حتما باید دارای کابر آنلاین یا کاربر حضوری باشد.")
         if self.online_customer and self.in_person_customer:
-            raise ValidationError("A shopping cart cannot have both an online and in-person customer.")
+            raise ValidationError("سبد خرید نمیتواند هم کاربر آنلاین داشته باشد و هم کاربر حضوری.")
 
     def calculate_total_price(self):
         return sum(item.grand_total for item in CartItem.objects.filter(cart=self))
@@ -401,8 +381,10 @@ class CartItem(models.Model):
         validate_stock(): Confirms the requested quantity does not exceed available stock.
         validate_grand_total(): Updates the `grand_total` field based on the product price and quantity.
         save(): Ensures data integrity before storing the item in the cart.
+        
     """
-    STATUS_TYPES = [("active", "Active"), ("processed", "Processed")]
+    
+    STATUS_TYPES = [("active", "فعال"), ("processed", "در-حال-پردازش")]
     
     cart = models.ForeignKey(ShoppingCart, on_delete=models.CASCADE, related_name="CartItem_cart", verbose_name="Cart")
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name="CartItem_product", verbose_name="Product")
@@ -423,12 +405,12 @@ class CartItem(models.Model):
     
     def validate_quantity(self):
         if self.quantity <= 0:
-            raise ValidationError("Quantity must be greater than zero.")
+            raise ValidationError("تعداد باید بیشتر از صفر باشد.")
     
     def validate_stock(self):
         total_stock = Warehouse.total_stock(product=self.product) 
         if self.quantity > total_stock:
-            raise ValidationError(f"Not enough stock for {self.product.name}. Requested: {self.quantity}, Available: {total_stock}")
+            raise ValidationError(f"موجودی ناکافی برای {self.product.name}. تعداد درخواستی: {self.quantity}, موجودی: {total_stock}")
 
     def validate_grand_total(self):
         self.grand_total = self.get_product_price() * self.quantity
@@ -469,10 +451,11 @@ class DeliverySchedule(models.Model):
         validate_delivery_slot(): Enforces capacity restrictions for different delivery methods.
         calculate_delivery_cost(): Determines the delivery fee based on the method selected.
         save(): Cleans, formats, and updates the delivery schedule before saving it.
+        
     """
 
     TIMES = [("8_10", "8 - 10"), ("10_12", "10 - 12"), ("12_14", "12 - 14"), ("14_16", "14 - 16"), ("16_18", "16 - 18"), ("18_20", "18 - 20"), ("20_22", "20 - 22")]
-    DELIVERY_TYPES = [("normal", "Normal Shipping"), ("fast", "Fast Shipping"), ("postal", "Postal Delivery")]
+    DELIVERY_TYPES = [("normal", "ارسال-عادی"), ("fast", "ارسال-سریع"), ("postal", "پست")]
     MAX_DAYS_AHEAD = 7
     MAX_CAPACITY_DELIVERY_NORMAL = 5
     MAX_CAPACITY_DELIVERY_FAST = 3  
@@ -501,9 +484,9 @@ class DeliverySchedule(models.Model):
     def validate_order(self):
         try:
             if not self.user:
-                raise ValidationError("User is required.")
+                raise ValidationError("انتخاب کاربر ضرروری است.")
             if self.user and self.shopping_cart and self.user != self.shopping_cart.online_customer:
-                raise ValidationError("User and ShoppingCart's online_customer must be the same.")
+                raise ValidationError("کاربر و سبد خرید باید یکی باشند.")
         except Exception as error:
             raise ValidationError(f"An error occurred while validating the order: {str(error)}")
     
@@ -514,23 +497,23 @@ class DeliverySchedule(models.Model):
         crr_date = crr_datetime.date()
         crr_hour = crr_datetime.hour
         if self.date < crr_date:
-            raise ValidationError("Delivery cannot be scheduled in the past. Please select a future date.")
+            raise ValidationError(f"بازه انتخابی نمیتواند در گذشتع باشد و باید از امروز تا {self.MAX_DAYS_AHEAD} روز آینده باشد.")
         if (self.date - crr_date).days > self.MAX_DAYS_AHEAD:
-            raise ValidationError(f"Delivery cannot be scheduled more than {self.MAX_DAYS_AHEAD} days from today.")
+            raise ValidationError(f"بازه زمانی انتخابی باید تا {self.MAX_DAYS_AHEAD} باشد.")
         if self.date == crr_date:
             start_hour = int(self.time.split("_")[0])
             if start_hour <= crr_hour + 4:
-                raise ValidationError(f"The selected timeframe ({self.time}) is unavailable. Please select a timeframe starting after {crr_hour + 4}:00. If no later timeframes are available today, please choose a delivery slot for tomorrow.")
+                raise ValidationError(f"بازه انتخابی ({self.time}) موجود نیست. بازه انتخابی از شروع میشود {crr_hour + 4}:00. در صورت عدم وجود بازه زمانی دلخواه در امروز بازه دلخواه را برای روزهای آتی انتخاب کنید.")
                 
     def validate_delivery_slot(self):
         if self.delivery_method == "fast":
             total_booked_fast = DeliverySchedule.objects.filter(date=self.date, time=self.time, delivery_method="fast").count()
             if total_booked_fast >= self.MAX_CAPACITY_DELIVERY_FAST:
-                raise ValidationError("Fast delivery slot is fully booked for this timeframe. Please select other timeframes.")
+                raise ValidationError("ارسال سریع برای این بازه زمانی تکمیل است. لطفا بازه های دیگر را برسی بفرمایید.")
         elif self.delivery_method == "normal":
             total_booked_normal = DeliverySchedule.objects.filter(date=self.date, time=self.time, delivery_method="normal").count()
             if total_booked_normal >= self.MAX_CAPACITY_DELIVERY_NORMAL:
-                raise ValidationError("Normal delivery slot is fully booked for this timeframe. Please select other timeframes.")
+                raise ValidationError("ارسال عادی برای این بازه زمانی تکمیل است. لطفا بازه های دیگر را برسی بفرمایید.")
     
     # def validate_delivery_slot(self):
     #     total_booked = (DeliverySchedule.objects.filter(date=self.date, time=self.time).values("delivery_method").annotate(delivery_count=Count("delivery_method")))
@@ -587,11 +570,12 @@ class Order(models.Model):
         validate_price(): Calculates total price and enforces validation rules on amount payable.
         validate_discount(): Ensures coupon validity and verifies applied discount accuracy.
         save(): Cleans data and determines the order type before saving.
+        
     """
     
-    ORDER_TYPE = [("in_person", "In-Person"), ("online", "Online")]
-    PAYMENT_METHOD = [("cash", "Cash"), ("credit_card", "Credit-Card"), ("online", "Online")]
-    STATUS_TYPES = [("on_hold", "On Hold"), ("waiting", "Waiting for Payment"), ("successful", "Successful Payment"), ("failed", "Failed Payment"), ("shipped", "Shipped"), ("completed", "Completed Order"), ("canceled", "Canceled Order"), ("refunded", "Refunded Payment")]
+    ORDER_TYPE = [("in_person", "حضوری"), ("online", "آنلاین")]
+    PAYMENT_METHOD = [("cash", "نقد"), ("credit_card", "کارت-بانکی"), ("online", "درگاه")]
+    STATUS_TYPES = [("on_hold", "On Hold"), ("waiting", "در-انتظار-پرداخت"), ("successful", "پرداخت-موفق"), ("failed", "پرداخت-ناموفق"), ("shipped", "ارسال-شده"), ("completed", "سفارش-تکمیل-شده"), ("canceled", "سفارش-لغو-شده"), ("refunded", "بازپرداخت-شده")]
     
     online_customer = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, blank=True, null=True, related_name="Order_online_customers", verbose_name="Online Customer")
     in_person_customer = models.ForeignKey(InPersonCustomer, on_delete=models.CASCADE, blank=True, null=True, related_name="Order_in_person_customers", verbose_name="In-Person Customer")
@@ -621,36 +605,36 @@ class Order(models.Model):
     
     def validate_customer(self):
         if not self.online_customer and not self.in_person_customer:
-            raise ValidationError("An order must have either an online or in-person customer.")
+            raise ValidationError("سبد خرید حتما باید دارای کابر آنلاین یا کاربر حضوری باشد.")
         if self.online_customer and self.in_person_customer:
-            raise ValidationError("An order cannot have both an online and in-person customer.")
+            raise ValidationError("سبد خرید نمیتواند هم کاربر آنلاین داشته باشد و هم کاربر حضوری.")
     
     def validate_price(self):
         try:
             if not self.shopping_cart:
-                raise ValidationError("No ShoppingCart is linked to this Order.")
+                raise ValidationError("سبد خریدی انتخاب نشده است.")
             cart_price = self.shopping_cart.total_price
             delivery_cost = self.delivery_schedule.delivery_cost if self.delivery_schedule else 0
             self.total_amount = cart_price + delivery_cost
             if not self.discount_applied:
                 self.amount_payable = self.total_amount
             if self.amount_payable <= 0:
-                raise ValidationError("amount_payable cannot be zero or negative.")
+                raise ValidationError("مبلغ قابل پرداخت نمی تواند صفر یا منفی باشد.")
         except ShoppingCart.DoesNotExist:
-            raise ValidationError("The linked ShoppingCart does not exist in the database.")
+            raise ValidationError("سبد خرید انتخابی موجود نیست.")
         except Exception as error:
             raise ValidationError(f"An error occurred while validating the price: {str(error)}")
 
     def validate_discount(self):
         if self.discount_applied:
             if not self.coupon:
-                raise ValidationError("No valid coupon is linked to this order.")
+                raise ValidationError("کد تخفیف یافت نشد.")
             try:
                 if not self.coupon.is_valid():
-                    raise ValidationError("This coupon is no longer valid or has expired.")
+                    raise ValidationError("این کد تخفیف معتبر نیست و یا منقضی شده است.")
                 expected_discount = (self.total_amount * self.coupon.discount_percentage) / 100
                 if self.discount_applied != expected_discount:
-                    raise ValidationError("The applied discount does not match the expected discount.")
+                    raise ValidationError("میزان تخفیف با میزان تخفیف مورد انتظار یکسان نمی باشد.")
             except ValidationError as error:
                 raise ValidationError(f"Validation error while applying discount: {str(error)}")
             except Exception as error:
@@ -690,6 +674,7 @@ class Transaction(models.Model):
         validate_amount(): Ensures the transaction amount matches the expected order payable amount.
         validate_payment(): Updates the order status and creates a delivery entry upon successful payment.
         save(): Validates and processes the transaction before saving it to the database.
+        
     """
     
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="Transaction_user", verbose_name="User")
@@ -709,7 +694,7 @@ class Transaction(models.Model):
     def validate_amount(self):
         self.amount = self.order.amount_payable
         if self.amount != self.order.amount_payable:
-                raise ValidationError(f"Transaction amount ({self.amount}) does not match the payable amount for Order {self.order.id} ({self.order.amount_payable}).")
+                raise ValidationError(f"مبلغ قابل پرداخت ({self.amount}) با سفارش {self.order.id} و مبلغ ({self.order.amount_payable}) یکسان نمی باشد.")
         
     def validate_payment(self):
         if self.is_successful and self.order.status not in ["shipped", "successful", "completed", "canceled", "refunded"]:
@@ -749,9 +734,10 @@ class Delivery(models.Model):
         postman (str, optional): The name of the delivery person handling the shipment.
         shipped_at (datetime, optional): The timestamp when the order was shipped.
         delivered_at (datetime, optional): The timestamp when the order was successfully delivered.
+        
     """
     
-    STATUS_DELIVERY = [("pending", "Pending"), ("shipped", "Shipped"), ("delivered", "Delivered")]
+    STATUS_DELIVERY = [("pending", "در-انتظار-ارسال"), ("shipped", "ارسال-شده"), ("delivered", "تحویل-شده")]
     
     order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name="Delivery_order", verbose_name="Order")
     status = models.CharField(max_length=20, choices=STATUS_DELIVERY, default="pending", verbose_name="Status Delivery")
@@ -781,6 +767,7 @@ class UserView(models.Model):
         product (Product): The product that was accessed.
         view_count (int): The total number of times the user has viewed the product.
         last_seen (datetime): The timestamp of the most recent view event.
+        
     """
     
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="UserView_user", verbose_name="User")
@@ -813,6 +800,7 @@ class Rating(models.Model):
         rating (int): The rating given by the user, restricted to a scale of 1-5.
         review (str, optional): An optional review text describing the user's experience.
         created_at (datetime): The timestamp when the rating was recorded.
+        
     """
     
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="Rating_user", verbose_name="User")
@@ -849,6 +837,7 @@ class Notification(models.Model):
         related_object (GenericForeignKey): A generic reference to the related object (e.g., Order, Product).
         is_read (bool): Whether the notification has been read by the user.
         created_at (datetime): The timestamp when the notification was created.
+        
     """
     
     TYPES = [("order", "Order Update"), ("promotion", "Promotion"), ("system", "System Alert")]

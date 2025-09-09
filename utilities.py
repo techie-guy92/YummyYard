@@ -1,5 +1,8 @@
 from django.core.validators import RegexValidator
 from django.core.mail import EmailMultiAlternatives
+from kavenegar import KavenegarAPI, APIException, HTTPException
+import logging
+import environ
 from django.conf import settings
 from re import compile
 from random import choice
@@ -9,9 +12,11 @@ from users_constant import *
 from products_constant import *
 
 
-"""
-Module for utility functions and reusable components.
-"""
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+env = environ.Env()
+env.read_env()
 
 #======================================= Needed Methods =====================================
 
@@ -21,6 +26,19 @@ emailRe = compile(r"^[\w\.-]+@[a-zA-Z\d\.-]+\.[a-zA-Z]{2,}$")
 email_validator = RegexValidator(regex=emailRe, message="ایمیل معتبر نیست.", code="invalid_email")
 
 
+# ==========================================================
+
+def code_generator(count):
+    """
+    Generate a random code of specified length.
+    """
+    
+    chars = list(ascii_letters + digits)
+    code = "".join([choice(chars) for _ in range(count)])
+    return code
+
+
+# ==========================================================
 
 def email_sender(subject, message, HTML_Content, to):
     """
@@ -31,19 +49,63 @@ def email_sender(subject, message, HTML_Content, to):
     message = EmailMultiAlternatives(subject, message, sender, to)
     message.attach_alternative(HTML_Content, "text/html")
     message.send()
-
-
-
-def code_generator(count):
-    """
-    Generate a random code of specified length.
-    """
     
-    chars = list(ascii_letters + digits)
-    code = "".join([choice(chars) for _ in range(count)])
-    return code
-         
 
+# ==========================================================
+
+# Example of Kavenegar's response
+"""{
+  "return": {
+    "status": 200,
+    "message": "Message sent successfully"
+  },
+  "entries": [
+    {
+      "messageid": "123456789",
+      "status": 1,
+      "statustext": "Sent",
+      "sender": "10004346",
+      "receptor": "09123456789",
+      "date": 1630000000
+    }
+  ]
+}
+"""
+
+def message_sender(phone_number, retries=2):
+    api_key = env.str("KAVENEGAR_API_KEY", default=None)
+    sender_number = env.str("KAVENEGAR_SENDER", default=None)
+
+    if not api_key or not sender_number:
+        logger.error("Missing Kavenegar API key or sender number in environment.")
+        return None
+
+    verify_code = code_generator(5)
+    params = {
+        "sender": sender_number,
+        "receptor": phone_number,
+        "message": f"کد تایید اعتبارسنجی: {verify_code}"
+    }
+
+    for attempt in range(1, retries + 1):
+        try:
+            api = KavenegarAPI(api_key, timeout=20)
+            response = api.sms_send(params)
+
+            status = response.get("return", {}).get("status")
+            message_id = response.get("entries", [{}])[0].get("messageid")
+
+            logger.info(f"SMS sent to {phone_number}. Status: {status}, Message ID: {message_id}, Code: {verify_code}")
+            return verify_code
+
+        except (APIException, HTTPException) as error:
+            logger.warning(f"Attempt {attempt} failed to send SMS: {error}", exc_info=True)
+
+    logger.error(f"All {retries} attempts to send SMS to {phone_number} failed.")
+    return None
+
+
+# ==========================================================
 
 def replace_dash_to_space(title):
     """
@@ -53,7 +115,8 @@ def replace_dash_to_space(title):
     new_title = "".join([eliminator.replace(" ", "-") for eliminator in title])
     return new_title.lower()
     
-
+    
+# ==========================================================
 
 User = get_user_model()
     

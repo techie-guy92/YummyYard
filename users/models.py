@@ -22,22 +22,10 @@ def upload_to(instance, filename):
 class CustomUserManager(BaseUserManager):
     """
     Custom manager for creating regular and super users.
+    
     """
     
     def create_user(self, username, first_name, last_name, email, password = None):
-        """
-        Creates and saves a regular user with the given details.
-
-        Parameters:
-        username (str): The username of the user
-        first_name (str): The first name of the user
-        last_name (str): The last name of the user
-        email (str): The email address of the user
-        password (str, optional): The password of the user
-        
-        Returns:
-        CustomUser: The created user object
-        """
         if not email:
             raise ValueError("وارد کردن ایمیل ضروری است.")
         
@@ -54,19 +42,6 @@ class CustomUserManager(BaseUserManager):
         return user
     
     def create_superuser(self, username, first_name, last_name, email, password = None):
-        """
-        Creates and saves a superuser with the given details.
-
-        Parameters:
-        username (str): The username of the user
-        first_name (str): The first name of the user
-        last_name (str): The last name of the user
-        email (str): The email address of the user
-        password (str, optional): The password of the user
-
-        Returns:
-        CustomUser: The created superuser object
-        """
         user = self.create_user(
             username = username,
             first_name = first_name, 
@@ -101,6 +76,7 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     is_superuser (bool): Indicates if the user is a superuser
     joined_at (datetime): The date and time when the user joined
     updated_at (datetime): The date and time when the user was last updated
+    
     """
     
     USER_TYPE = [("backend","BackEnd"), ("frontend","FrontEnd"), ("admin","Admin"), ("premium","Premium"), ("user","User")]
@@ -116,17 +92,8 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     joined_at = models.DateTimeField(auto_now_add=True, editable=False, verbose_name="Joined At")
     updated_at = models.DateTimeField(auto_now=True, editable=False, verbose_name="Updated At")
 
-    # groups = models.ManyToManyField(Group, related_name="customuser_set", blank=True, verbose_name="Groups")
-    # user_permissions = models.ManyToManyField(Permission, related_name="customuser_permissions_set", blank=True, verbose_name="User Permissions")
-
     @property
     def is_staff(self):
-        """
-        Indicates if the user is staff (admin).
-
-        Returns:
-        bool: True if the user is admin, False otherwise
-        """
         return self.is_admin
     
     def __str__(self):
@@ -150,14 +117,7 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
 class UserProfile(models.Model):
     """
     Model for storing additional user profile information.
-
-    Attributes:
-    user (CustomUser): The user associated with the profile
-    phone (str): The phone number of the user
-    gender (str): The gender of the user
-    address (str, optional): The address of the user
-    bio (str, optional): The bio of the user
-    picture (ImageField, optional): The profile picture of the user
+    
     """
     
     GENDER_TYPE = [("male","Male"), ("female","Female"), ("other","Other")]
@@ -184,6 +144,11 @@ class UserProfile(models.Model):
 #====================================== InPersonCustomer Model ========================================
 
 class InPersonCustomer(models.Model):
+    """
+    Model for placing orders for in-person customers.
+    
+    """
+    
     first_name = models.CharField(max_length=30, verbose_name="First Name")
     last_name = models.CharField(max_length=30, verbose_name="Last Nmae")
     phone = models.CharField(max_length=20, unique=True, verbose_name="Phone Number")
@@ -212,11 +177,10 @@ class InPersonCustomer(models.Model):
 class PremiumSubscription(models.Model):
     """
     Model for storing premium subscription details of a user.
-
-    Attributes:
-    user (CustomUser): The user associated with the premium subscription
-    start_date (date): The start date of the subscription
-    expiry_date (date): The expiry date of the subscription
+    
+    Methods: 
+        is_expired(): Checks if the subscription has expired. Returns True if the subscription has expired, False otherwise.
+        
     """
     
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="PremiumSubscription_user", verbose_name="User")
@@ -227,12 +191,6 @@ class PremiumSubscription(models.Model):
         return f"{self.user.username}"
 
     def is_expired(self):
-        """
-        Checks if the subscription has expired.
-
-        Returns:
-        bool: True if the subscription has expired, False otherwise
-        """
         return self.expiry_date < localtime(now())
    
     class Meta:
@@ -250,13 +208,10 @@ class PremiumSubscription(models.Model):
 class Payment(models.Model):
     """
     Model for storing payment details of a user.
-
-    Attributes:
-    user (CustomUser): The user associated with the payment
-    amount (DecimalField): The payment amount
-    payment_id (str, optional): The payment ID
-    is_successful (bool): Indicates whether the payment was completed successfully
-    payment_date (datetime): The date and time of the payment
+    
+    Methods:
+        process_payment(): Processes the payment and updates the user's premium subscription.
+        
     """
     
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="Payment_user", verbose_name="User")
@@ -269,12 +224,6 @@ class Payment(models.Model):
         return f"Payment {self.payment_id} for {self.user.username}"
     
     def process_payment(self):
-        """
-        Processes the payment and updates the user's premium subscription.
-
-        Returns:
-        None
-        """
         current_date = localtime(now())
         extended_date = current_date + timedelta(days=90)
         
