@@ -81,6 +81,8 @@ class Category(models.Model):
                 unique_slug = f"{base_slug}-{num}"
                 num += 1
             self.slug = unique_slug
+        from django.core.files.storage import default_storage
+        print("Using storage backend:", default_storage.__class__)
         super().save(*args, **kwargs)
         
     class Meta:
