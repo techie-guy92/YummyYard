@@ -69,7 +69,7 @@ INSTALLED_APPS = [
     'django_celery_results',
     'django_celery_beat',
     'django_extensions',
-    # 'storages'
+    'storages'
     # 'allauth',
     # 'allauth.account',
     # 'allauth.socialaccount',
@@ -124,8 +124,8 @@ DATABASES = {
         'NAME': env.str('DB_NAME'),
         'HOST':  env.str('DB_HOST'),
         'PORT':  env.str('DB_PORT'),
-        'USER':  env.str('DB_USER'),
-        'PASSWORD': env.str('DB_PASSWORD'),
+        'USER':  env.str('USERNAME'),
+        'PASSWORD': env.str('PASSWORD'),
     }
 }
 
@@ -163,18 +163,18 @@ STATIC_URL = 'static/'
 STATICFILES_DIRS = [BASE_DIR / 'static']
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
-MEDIA_URL = 'media/'
-MEDIA_ROOT = BASE_DIR / 'media/'
+# MEDIA_URL = 'media/'
+# MEDIA_ROOT = BASE_DIR / 'media/'
 
 
-# DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
+DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
 
-# AWS_ACCESS_KEY_ID = env.str('AWS_ACCESS_KEY_ID')
-# AWS_SECRET_ACCESS_KEY = env.str('AWS_SECRET_ACCESS_KEY')
-# AWS_S3_ENDPOINT_URL = 'https://s3.ir-thr-at1.arvanstorage.ir'
-# AWS_STORAGE_BUCKET_NAME = 'yummy-yard'
-# MEDIA_URL = 'https://yummy-yard.s3.ir-thr-at1.arvanstorage.ir/'
-# AWS_S3_FILE_OVERWRITE = False
+AWS_ACCESS_KEY_ID = env.str('AWS_ACCESS_KEY_ID')
+AWS_SECRET_ACCESS_KEY = env.str('AWS_SECRET_ACCESS_KEY')
+AWS_S3_ENDPOINT_URL = 'https://s3.ir-thr-at1.arvanstorage.ir'
+AWS_STORAGE_BUCKET_NAME = 'yummy-yard'
+MEDIA_URL = 'https://yummy-yard.s3.ir-thr-at1.arvanstorage.ir/'
+AWS_S3_FILE_OVERWRITE = False
 
 
 # Default primary key field type

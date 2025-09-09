@@ -21,8 +21,8 @@ logger = getLogger(__name__)
 
 def upload_to(instance, filename):
     file_name, ext = splitext(filename)
-    new_filename = f"{instance}{ext}"
-    
+    new_filename = f"{slugify(instance.name, allow_unicode=True)}{ext}"
+
     if isinstance(instance, Category):
         return f"images/categories/{slugify(instance.name, allow_unicode=True)}/{new_filename}"
     elif isinstance(instance, Product):
