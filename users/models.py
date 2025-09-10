@@ -3,11 +3,15 @@ from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, Permis
 from django.utils.timezone import now, localtime
 from datetime import timedelta
 from django.conf import settings
+from config.storages import ArvanCloudStorage
 from os.path import splitext
 from uuid import uuid4
 
 
 #======================================= Needed Method ================================================
+
+Arvan_storage = ArvanCloudStorage()
+
 
 def upload_to(instance, filename):
     file_name, ext = splitext(filename)
@@ -126,7 +130,7 @@ class UserProfile(models.Model):
     gender = models.CharField(max_length=10, choices=GENDER_TYPE, default="other", verbose_name="Gender")
     address = models.TextField(null=True, blank=True, verbose_name="Address")
     bio = models.TextField(null=True, blank=True, verbose_name="Bio")
-    picture = models.ImageField(upload_to=upload_to, null=True, blank=True, verbose_name="Picture")
+    picture = models.ImageField(upload_to=upload_to, storage=Arvan_storage, null=True, blank=True, verbose_name="Picture")
     
     def __str__(self):
         return f"{self.user.username} - {self.phone}"

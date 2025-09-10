@@ -4,6 +4,7 @@ from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
+from config.storages import ArvanCloudStorage
 from logging import getLogger
 from django.utils.timezone import now, localtime
 from django.conf import settings
@@ -17,6 +18,8 @@ from users.models import InPersonCustomer
 #======================================= Needed Method ================================================
 
 logger = getLogger(__name__)
+
+Arvan_storage = ArvanCloudStorage()
 
 
 def upload_to(instance, filename):
@@ -50,7 +53,7 @@ class Category(models.Model):
     parent = models.ForeignKey("Category", on_delete=models.CASCADE, related_name="Category_parent", null=True, blank=True, verbose_name="Parent")
     slug = models.SlugField(unique=True, editable=False, verbose_name="Slug")
     description = models.TextField(null=True, blank=True, verbose_name="Description")
-    image = models.ImageField(upload_to=upload_to, null=True, blank=True, verbose_name="Image")
+    image = models.ImageField(upload_to=upload_to, storage=Arvan_storage, null=True, blank=True, verbose_name="Image")
     created_at = models.DateTimeField(auto_now_add=True, editable=False, verbose_name="Created At")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="Updated At")
 
@@ -81,8 +84,6 @@ class Category(models.Model):
                 unique_slug = f"{base_slug}-{num}"
                 num += 1
             self.slug = unique_slug
-        from django.core.files.storage import default_storage
-        print("Using storage backend:", default_storage.__class__)
         super().save(*args, **kwargs)
         
     class Meta:
@@ -107,7 +108,7 @@ class Product(models.Model):
     slug = models.SlugField(unique=True, editable=False, verbose_name="Slug")
     price = models.PositiveIntegerField(default=0, verbose_name="Price")
     description = models.TextField(null=True, blank=True, verbose_name="Description")
-    image = models.ImageField(upload_to=upload_to, null=True, blank=True, verbose_name="Image")
+    image = models.ImageField(upload_to=upload_to, storage=Arvan_storage, null=True, blank=True, verbose_name="Image")
     created_at = models.DateTimeField(auto_now_add=True, editable=False, verbose_name="Created At")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="Updated At")
     
@@ -140,7 +141,7 @@ class Gallery(models.Model):
     """
     
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name="Gallery_product", verbose_name="Product")
-    image = models.ImageField(upload_to=upload_to, verbose_name="Image")
+    image = models.ImageField(upload_to=upload_to, storage=Arvan_storage, verbose_name="Image")
     
     def __str__(self):
         return f"{self.product}"

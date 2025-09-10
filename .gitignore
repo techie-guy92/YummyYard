@@ -4,6 +4,10 @@ __pycache__/
 settings.json
 templates/
 
+# Ignore media
+/media/
+/images/
+
 # Ignore sql files
 backup.sql
 
