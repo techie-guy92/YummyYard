@@ -324,41 +324,55 @@ SPECTACULAR_SETTINGS = {
 }
 
 
-CELERY_BROKER_URL = env.str('URL_BROKER')  
-CELERY_RESULT_BACKEND = 'django-db'  
+# Celery Configuration
+CELERY_BROKER_URL = env.str('URL_BROKER')
+CELERY_RESULT_BACKEND = env.str('REDIS_CELERY_RESULTS')
+# CELERY_RESULT_BACKEND = 'django-db'
+CELERY_RESULT_EXPIRES = 3600  
+
+# Serialization
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_ACCEPT_CONTENT = ['json']
+
+# Time & Connection
 CELERY_TIMEZONE = 'Asia/Tehran'
 CELERY_ENABLE_UTC = True
-CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
+CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
+CELERY_BROKER_HEARTBEAT = 0
 
+# Task Settings
+CELERY_TASK_ACKS_LATE = True
+CELERY_TASK_REJECT_ON_WORKER_LOST = True
+CELERY_TASK_TIME_LIMIT = 300
+
+# Beat
+CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
 CELERY_BEAT_SCHEDULE = {
     'check-premium-subscriptions-every-five-minute': {
         'task': 'users.tasks.check_premium_subscriptions',
-        'schedule': crontab(minute='*/1'),  
+        'schedule': crontab(minute='*/5'),
     },
     'check_coupon_expiration-every-minute': {
         'task': 'main.tasks.check_coupon_expiration',
-        'schedule': crontab(minute='*/1'),  
+        'schedule': crontab(minute='*/1'),
     },
 }
 
-
-SESSION_ENGINE = "django.contrib.sessions.backends.cache"
-SESSION_CACHE_ALIAS = "default"
-
+# Django Cache & Sessions
 CACHES = {
     "default": {
         "BACKEND": "django_redis.cache.RedisCache",
-        "LOCATION": env.str('REDIS_URL'),
+        "LOCATION": env.str('REDIS_DJANGO_CACHE'),
         "OPTIONS": {
             "CLIENT_CLASS": "django_redis.client.DefaultClient",
         }
     }
 }
 
-CACHE_TTL = 60 * 15  
+SESSION_ENGINE = "django.contrib.sessions.backends.cache"
+SESSION_CACHE_ALIAS = "default"
+CACHE_TTL = 60 * 15 
 
 
 # SOCIALACCOUNT_PROVIDERS = {

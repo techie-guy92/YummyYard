@@ -3,6 +3,7 @@ __pycache__/
 *.py[cod]
 settings.json
 templates/
+storage_utils.py
 
 # Ignore media
 /media/
