@@ -13,6 +13,6 @@ app.config_from_object("django.conf:settings", namespace="CELERY")
 
 app.autodiscover_tasks(lambda: settings.INSTALLED_APPS)
 
-app.conf.update(
-    broker_connection_retry_on_startup=True,
-)
+# app.conf.update(
+    # broker_connection_retry_on_startup=True,
+# )
