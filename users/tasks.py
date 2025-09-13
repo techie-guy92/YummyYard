@@ -4,6 +4,7 @@ from django.core.cache import cache
 import logging
 import time
 from .models import *
+from config.storages import Bucket
 
 
 # Start the Celery worker
@@ -45,6 +46,42 @@ def check_premium_subscriptions():
     except Exception as error:
         logger.error(f"Error in check_premium_subscriptions: {error}", exc_info=True)
       
+
+#==================================== ArvanCloud Celery =================================================
+
+@shared_task(bind=True, max_retries=3)
+def fetch_all_files(self):
+    try:
+        bucket = Bucket()
+        return bucket.get_files()
+    except Exception as error:
+        logger.error(f"Failed to fetch files: {error}")
+        self.retry(exc=error, countdown=60)
+        
+        
+@shared_task(bind=True, max_retries=3)  
+def remove_file(self, key):
+    try:
+        bucket = Bucket()
+        result = bucket.delete_file(key)
+        logger.info(f"Deleted file: {key}")
+        return result
+    except Exception as error:
+        logger.error(f"Failed to delete {key}: {error}")
+        self.retry(exc=error, countdown=30)
+
+
+@shared_task(bind=True, max_retries=3)
+def download_obj(self, key, local_path=None):
+    try:
+        bucket = Bucket()
+        path = bucket.download_file(key, local_path)
+        logger.info(f"Downloaded {key} to {path}")
+        return path
+    except Exception as error:
+        logger.error(f"Failed to download {key}: {error}")
+        self.retry(exc=error, countdown=45)
+
 
 #========================================================================================================
 

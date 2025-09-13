@@ -9,16 +9,20 @@ from rest_framework_simplejwt.tokens import AccessToken, RefreshToken
 from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
 from drf_spectacular.utils import extend_schema
 from django.contrib.auth import authenticate
+from django.http import FileResponse
+from celery.result import AsyncResult
 from logging import getLogger
+import os
 from .models import *
 from .serializers import *
+from .tasks import fetch_all_files, remove_file, download_obj
 from utilities import email_sender
 from custom_permission import CheckOwnershipPermission
 
 
 #======================================== email senders ==============================================
 
-logger = getLogger("email-senders")
+logger = getLogger(__name__)
 
 
 def confirm_email_address(user):
@@ -383,5 +387,121 @@ class FetchUsersModelViewSet(viewsets.ModelViewSet):
     search_fields = ["id", "username", "first_name", "last_name"]
     lookup_field = "username"
     
+
+#======================================= ArvanCloud View =============================================
+
+class BucketFilesView(APIView):
+    """View to list all files in bucket (Admin only)"""
+    permission_classes = [IsAdminUser]
     
+    def get(self, request):
+        # Trigger async task and return task ID
+        task = fetch_all_files.delay()
+        return Response({
+            'task_id': task.id,
+            'message': 'File listing task started. Use task ID to check results.'
+        }, status=status.HTTP_202_ACCEPTED)
+    
+    def get_task_result(self, request, task_id):
+        """Check result of a file listing task"""
+        
+        result = AsyncResult(task_id)
+        
+        if result.ready():
+            if result.successful():
+                # Serialize the file data
+                serializer = FileInfoSerializer(result.result, many=True)
+                return Response(serializer.data)
+            else:
+                return Response(
+                    {'error': str(result.result)},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
+        return Response(
+            {'status': 'Task is still processing'},
+            status=status.HTTP_202_ACCEPTED
+        )
+
+
+class FileDeleteView(APIView):
+    """View to delete files from bucket (Admin only)"""
+    permission_classes = [IsAdminUser]
+    
+    def post(self, request):
+        serializer = FileOperationSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
+        key = serializer.validated_data['key']
+        task = remove_file.delay(key)
+        
+        return Response({
+            'task_id': task.id,
+            'message': f'Delete task started for file: {key}'
+        }, status=status.HTTP_202_ACCEPTED)
+
+
+class BulkDeleteView(APIView):
+    """View for bulk file deletion (Admin only)"""
+    permission_classes = [IsAdminUser]
+    
+    def post(self, request):
+        serializer = BulkOperationSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
+        keys = serializer.validated_data['keys']
+        task_ids = []
+        
+        for key in keys:
+            task = remove_file.delay(key)
+            task_ids.append(task.id)
+        
+        return Response({
+            'task_ids': task_ids,
+            'message': f'Started deletion of {len(keys)} files'
+        }, status=status.HTTP_202_ACCEPTED)
+
+
+class FileDownloadView(APIView):
+    """View to download files from bucket (Admin only)"""
+    permission_classes = [IsAdminUser]
+    
+    def post(self, request):
+        serializer = FileOperationSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
+        key = serializer.validated_data['key']
+        local_path = serializer.validated_data.get('local_path')
+        
+        task = download_obj.delay(key, local_path)
+        
+        return Response({
+            'task_id': task.id,
+            'message': f'Download task started for file: {key}'
+        }, status=status.HTTP_202_ACCEPTED)
+    
+    def get_download(self, request, task_id):
+        """Retrieve downloaded file"""
+        result = AsyncResult(task_id)
+        
+        if result.ready() and result.successful():
+            file_path = result.result
+            if os.path.exists(file_path):
+                return FileResponse(
+                    open(file_path, 'rb'),
+                    as_attachment=True,
+                    filename=os.path.basename(file_path)
+                )
+            return Response(
+                {'error': 'File not found after download'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        return Response(
+            {'status': 'Download still in progress'},
+            status=status.HTTP_202_ACCEPTED
+        )
+        
 #=====================================================================================================

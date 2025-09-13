@@ -177,7 +177,8 @@ AWS_S3_CUSTOM_DOMAIN = f'{AWS_STORAGE_BUCKET_NAME}.s3.ir-thr-at1.arvanstorage.ir
 AWS_S3_FILE_OVERWRITE = False
 AWS_QUERYSTRING_AUTH = False  
 AWS_DEFAULT_ACL = 'public-read'  
-       
+AWS_LOCAL_STORAGE = f'{BASE_DIR}/aws/'
+
 MEDIA_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/'
 
 

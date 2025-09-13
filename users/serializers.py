@@ -234,4 +234,22 @@ class FetchUsersSerializer(serializers.ModelSerializer):
         fields = "__all__"
 
 
+#======================================= ArvanCloud Serializer =====================================
+
+class FileOperationSerializer(serializers.Serializer):
+    key = serializers.CharField(max_length=500, required=True)
+    local_path = serializers.CharField(max_length=500, required=False, allow_null=True)
+
+
+class BulkOperationSerializer(serializers.Serializer):
+    keys = serializers.ListField(child=serializers.CharField(max_length=500),required=True)
+
+
+class FileInfoSerializer(serializers.Serializer):
+    Key = serializers.CharField(source="Key")
+    Size = serializers.IntegerField(source="Size")
+    LastModified = serializers.DateTimeField(source="LastModified")
+    ETag = serializers.CharField(source="ETag")
+    
+    
 #===================================================================================================
