@@ -29,37 +29,48 @@ class CustomUserManager(BaseUserManager):
     
     """
     
-    def create_user(self, username, first_name, last_name, email, password = None):
+    def create_user(self, username, first_name, last_name, email, password=None, **extra_fields):
         if not email:
             raise ValueError("وارد کردن ایمیل ضروری است.")
+        if not username:
+            raise ValueError("وارد کردن نام کاربری ضروری است.")
+        if not first_name:
+            raise ValueError("وارد کردن نام ضروری است.")
+        if not last_name:
+            raise ValueError("وارد کردن نام خانوادگی ضروری است.")
         
+        email = self.normalize_email(email)
         user = self.model(
-            username = username,
-            first_name = first_name.capitalize(),
-            last_name = last_name.capitalize(),
-            email = self.normalize_email(email)
+            username=username,
+            first_name=first_name.capitalize(),
+            last_name=last_name.capitalize(),
+            email=email,
+            **extra_fields
         )
         
         user.set_password(password)
-        user.user_type = "user"
         user.save(using=self._db)
         return user
     
-    def create_superuser(self, username, first_name, last_name, email, password = None):
-        user = self.create_user(
-            username = username,
-            first_name = first_name, 
-            last_name = last_name,
-            email = email,
-            password = password 
-        )
+    def create_superuser(self, username, first_name, last_name, email, password=None, **extra_fields):
+        extra_fields.setdefault("is_active", True)
+        extra_fields.setdefault("is_admin", True)
+        extra_fields.setdefault("is_superuser", True)
+        extra_fields.setdefault("user_type", "backend")
         
-        user.is_active = True
-        user.is_admin = True
-        user.is_superuser = True
-        user.user_type = "backend"
-        user.save(using=self._db)
-        return user
+        if extra_fields.get("is_admin") is not True:
+            raise ValueError("Superuser must have is_admin=True.")
+        if extra_fields.get("is_superuser") is not True:
+            raise ValueError("Superuser must have is_superuser=True.")
+        
+        return self.create_user(
+            username=username,
+            first_name=first_name, 
+            last_name=last_name,
+            email=email,
+            password=password,
+            **extra_fields
+        )
 
 
 #======================================= CustomUser Model =============================================
@@ -214,7 +225,7 @@ class Payment(models.Model):
     Model for storing payment details of a user.
     
     Methods:
-        process_payment(): Processes the payment and updates the user's premium subscription.
+        process_payment(): Processes the payment and updates the user"s premium subscription.
         
     """
     
