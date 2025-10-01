@@ -26,7 +26,6 @@ def upload_to(instance, filename):
 class CustomUserManager(BaseUserManager):
     """
     Custom manager for creating regular and super users.
-    
     """
     
     def create_user(self, username, first_name, last_name, email, password=None, **extra_fields):
@@ -64,7 +63,7 @@ class CustomUserManager(BaseUserManager):
             raise ValueError("Superuser must have is_superuser=True.")
         
         return self.create_user(
-            username=username,
+            username=username, 
             first_name=first_name, 
             last_name=last_name,
             email=email,
@@ -91,7 +90,6 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     is_superuser (bool): Indicates if the user is a superuser
     joined_at (datetime): The date and time when the user joined
     updated_at (datetime): The date and time when the user was last updated
-    
     """
     
     USER_TYPE = [("backend","BackEnd"), ("frontend","FrontEnd"), ("admin","Admin"), ("premium","Premium"), ("user","User")]
@@ -132,7 +130,6 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
 class UserProfile(models.Model):
     """
     Model for storing additional user profile information.
-    
     """
     
     GENDER_TYPE = [("male","Male"), ("female","Female"), ("other","Other")]
@@ -161,7 +158,6 @@ class UserProfile(models.Model):
 class InPersonCustomer(models.Model):
     """
     Model for placing orders for in-person customers.
-    
     """
     
     first_name = models.CharField(max_length=30, verbose_name="First Name")
@@ -195,7 +191,6 @@ class PremiumSubscription(models.Model):
     
     Methods: 
         is_expired(): Checks if the subscription has expired. Returns True if the subscription has expired, False otherwise.
-        
     """
     
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="PremiumSubscription_user", verbose_name="User")
@@ -207,7 +202,7 @@ class PremiumSubscription(models.Model):
 
     def is_expired(self):
         return self.expiry_date < localtime(now())
-   
+     
     class Meta:
         verbose_name = "PremiumSubscription"
         verbose_name_plural = "PremiumSubscriptions"
@@ -226,7 +221,6 @@ class Payment(models.Model):
     
     Methods:
         process_payment(): Processes the payment and updates the user"s premium subscription.
-        
     """
     
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="Payment_user", verbose_name="User")

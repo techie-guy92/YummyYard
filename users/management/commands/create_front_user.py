@@ -50,3 +50,10 @@ class Command(BaseCommand):
         
     
 # ===================================================================
+
+# python manage.py create_front_user \
+#   --username omid_hashemi \
+#   --first_name omid \
+#   --last_name hashemi \
+#   --email omid@gmail.com \
+#   --password asdf9090

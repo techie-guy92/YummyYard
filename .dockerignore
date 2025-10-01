@@ -7,3 +7,6 @@ __pycache__/
 logs/
 /media/
 /images/
+storage_utils.py
+celery_definition.txt
+webhook.py

@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from uuid import UUID
 from .models import *
 from utilities import *
 
@@ -20,21 +21,12 @@ class CustomUserSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = CustomUser
-        fields = ["username", "first_name", "last_name", "email", "password", "re_password", "is_admin", "is_superuser"]
+        # fields = ["username", "first_name", "last_name", "email", "password", "re_password", "is_admin", "is_superuser"]
+        fields = ["username", "first_name", "last_name", "email", "password", "re_password"]
         
-    def create(self, validated_data):
-        """
-        Creates a new CustomUser instance.
-
-        Parameters:
-        validated_data (dict): The validated data containing user details
-
-        Returns:
-        CustomUser: The created user instance
-        """
-        
-        is_admin = validated_data.pop("is_admin", False)        
-        is_superuser = validated_data.pop("is_superuser", False)        
+    def create(self, validated_data):        
+        # is_admin = validated_data.pop("is_admin", False)        
+        # is_superuser = validated_data.pop("is_superuser", False)        
         password = validated_data.pop("password", None)
         if not password:
             raise serializers.ValidationError({"password": "وارد کردن رمز عبور ضروری است."})
@@ -46,24 +38,14 @@ class CustomUserSerializer(serializers.ModelSerializer):
             email = validated_data["email"],
             password = password,
         )
-        user.is_admin = is_admin
-        user.is_superuser = is_superuser
-        if is_admin and is_superuser:
-            user.user_type = "frontend"
+        # user.is_admin = is_admin
+        # user.is_superuser = is_superuser
+        # if is_admin and is_superuser:
+        #     user.user_type = "frontend"
         user.save()
         return user
     
-    def validate(self, attrs):
-        """
-        Validates the passwords and ensures they match.
-
-        Parameters:
-        attrs (dict): The attributes to validate
-
-        Returns:
-        dict: The validated attributes
-        """
-        
+    def validate(self, attrs):        
         if attrs["password"] != attrs["re_password"]:
             raise serializers.ValidationError("رمز عبور و تکرار آن یکسان نمی باشد.")
         return attrs
@@ -237,19 +219,56 @@ class FetchUsersSerializer(serializers.ModelSerializer):
 #======================================= ArvanCloud Serializer =====================================
 
 class FileOperationSerializer(serializers.Serializer):
+    """
+    Serializer for single file operations on the ArvanCloud bucket.
+
+    Used to validate input for tasks such as deleting or downloading a file.
+    - `key`: Required. The unique path of the file in the bucket.
+    - `local_path`: Optional. Local destination path for downloaded files.
+    """
+    
     key = serializers.CharField(max_length=500, required=True)
     local_path = serializers.CharField(max_length=500, required=False, allow_null=True)
 
 
+# ====================================
+
 class BulkOperationSerializer(serializers.Serializer):
+    """
+    Serializer for bulk file operations on the ArvanCloud bucket.
+
+    Used to validate a list of file keys for batch deletion.
+    - `keys`: Required. A list of file paths to be deleted from the bucket.
+    """
+    
     keys = serializers.ListField(child=serializers.CharField(max_length=500),required=True)
 
 
+# ====================================
+
 class FileInfoSerializer(serializers.Serializer):
-    Key = serializers.CharField(source="Key")
-    Size = serializers.IntegerField(source="Size")
-    LastModified = serializers.DateTimeField(source="LastModified")
-    ETag = serializers.CharField(source="ETag")
+    """
+    Serializer for representing metadata of files stored in the ArvanCloud bucket.
+
+    Used to format the output of file listing tasks.
+    - `Key`: The file's path in the bucket.
+    - `Size`: File size in bytes.
+    - `LastModified`: Timestamp of last modification.
+    - `ETag`: Entity tag used for cache validation and versioning.
+    """
+    
+    Key = serializers.CharField()
+    Size = serializers.IntegerField()
+    LastModified = serializers.DateTimeField()
+    ETag = serializers.CharField()
+    StorageClass = serializers.CharField(required=False)  
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        for key, value in data.items():
+            if isinstance(value, UUID):
+                data[key] = str(value)
+        return data
     
     
 #===================================================================================================

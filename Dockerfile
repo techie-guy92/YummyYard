@@ -20,8 +20,9 @@ COPY . .
 
 # Create non-root user and assign ownership
 RUN adduser --disabled-password --gecos '' celeryuser && \
-    mkdir -p /app/logs && \
-    chown -R celeryuser /app
+    mkdir -p /app/logs /app/aws && \
+    chown -R celeryuser:celeryuser /app && \
+    chmod -R 755 /app/aws  
 
 USER celeryuser
 

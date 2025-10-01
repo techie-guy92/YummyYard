@@ -7,11 +7,12 @@ from rest_framework.pagination import PageNumberPagination
 from rest_framework.filters import SearchFilter
 from rest_framework_simplejwt.tokens import AccessToken, RefreshToken
 from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
-from drf_spectacular.utils import extend_schema
+from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiTypes
 from django.contrib.auth import authenticate
-from django.http import FileResponse
+from django.http import FileResponse, HttpResponse
 from celery.result import AsyncResult
 from logging import getLogger
+from django.urls import reverse
 import os
 from .models import *
 from .serializers import *
@@ -27,21 +28,19 @@ logger = getLogger(__name__)
 
 def confirm_email_address(user):
     """
-    Send a verification email to the user's email address.
-
-    Parameters:
-    user (CustomUser): The user to send the verification email to
+    Send a verification email to the user"s email address.
     """
     
     try:
         token = RefreshToken.for_user(user).access_token
-        domain = "127.0.0.1:8000"
+        # domain = "127.0.0.1:8000"
+        domain = settings.FRONTEND_DOMAIN
         verification_link = f"http://{domain}/users/verify-email?token={str(token)}"
-        subject = "Verify your email"
-        message = f"Click on the link to verify your email: {verification_link}"
-        html_content = f"""<p>Hello dear {user.first_name} {user.last_name},
-        <br><br>Please click on the link below to verify your email address:
-        <br><a href='{verification_link}'>Verify Email</a><br><br>Thank you!</p>"""
+        subject = "تاییدیه ایمیل"
+        message = f"روی کلیک کنید تا ایمیل شما تایید شود: {verification_link}"
+        html_content = f"""<p>درود {user.first_name} {user.last_name} جان,
+        <br><br>لطفا روی کلیک زیر کنید تا ایمیل شما تایید شود:
+        <br><a href="{verification_link}">تایید ایمیل</a><br><br>ممنون!</p>"""
         email_sender(subject, message, html_content, [user.email])
     except Exception as error:
         logger.error(f"Failed to send verification email to {user.email}: {error}")
@@ -50,21 +49,19 @@ def confirm_email_address(user):
 
 def reset_password_email(user):
     """
-    Send a password reset email to the user's email address.
-
-    Parameters:
-    user (CustomUser): The user to send the password reset email to
+    Send a password reset email to the user"s email address.
     """
     
     try:
         token = AccessToken.for_user(user)
-        domain = "127.0.0.1:8000"
+        # domain = "127.0.0.1:8000"
+        domain = settings.FRONTEND_DOMAIN
         verification_link = f"http://{domain}/users/set-new-password?token={str(token)}"
         subject = "Password Reset Request"
-        message = f"Click on the link to reset your password: {verification_link}"
-        html_content = f"""<p>Hello dear {user.first_name} {user.last_name},
-        <br><br>Please click on the link below to reset your password:
-        <br><a href='{verification_link}'>Reset Password</a><br><br>Thank you!</p>"""
+        message = f"روی لینک کلیک کنید تا رمز خود را بازیابی کنید: {verification_link}"
+        html_content = f"""<p>درورد {user.first_name} {user.last_name} جان,
+        <br><br>روی لینک زیر کلیک کنید تا رمز خود را بازیابی کنید:
+        <br><a href="{verification_link}">بازیابی رمز عبور</a><br><br>ممنون!</p>"""
         email_sender(subject, message, html_content, [user.email])
     except Exception as error:
         logger.error(f"Failed to send verification email to {user.email}: {error}")
@@ -74,24 +71,26 @@ def reset_password_email(user):
 #======================================== Sign Up View ===============================================
 
 class SignUpAPIView(APIView):
-    """
-    API view for handling user registration requests.
-    """
     
     @extend_schema(
         request=CustomUserSerializer,
-        responses={201: "User registered successfully", 409: "Username or email already exists", 400: "Invalid data"}
+        responses={
+            201: "User registered successfully",
+            409: "Username or email already exists",
+            400: "Invalid data"
+        },
+        summary="API view for handling user registration requests.",
+        parameters=[
+            OpenApiParameter(name="username", type=OpenApiTypes.STR, required=True, description="Unique username for the new user account."),
+            OpenApiParameter(name="first_name", type=OpenApiTypes.STR, required=True, description="User's first name."),
+            OpenApiParameter(name="last_name", type=OpenApiTypes.STR, required=True, description="User's last name."),
+            OpenApiParameter(name="email", type=OpenApiTypes.STR, required=True, description="Valid and unique email address for account verification."),
+            OpenApiParameter(name="password", type=OpenApiTypes.STR, required=True, description="Password for the new account."),
+            OpenApiParameter(name="re_password", type=OpenApiTypes.STR, required=True, description="Password confirmation to ensure accuracy."),
+        ],
     )
+
     def post(self, request: Request):
-        """
-        Handle POST requests for user registration.
-
-        Parameters:
-        request (Request): The request object containing user registration data
-
-        Returns:
-        Response: The response object with appropriate status and message
-        """
         username = request.data.get("username")
         email = request.data.get("email")
         if CustomUser.objects.filter(username=username).exists():
@@ -110,31 +109,27 @@ class SignUpAPIView(APIView):
 #======================================= Resend Verification Email View ==============================
 
 class ResendVerificationEmailAPIView(APIView):
-    """
-    API view for resending verification email to the user.
-    """
-    
+
     @extend_schema(
         request=None,
-        responses={200: "Verification email resent", 404: "Username not found"}
+        responses={
+            200: "Verification email resent",
+            404: "Username not found"
+        },
+        summary="API view for resending verification email to the user.",
+        parameters=[
+            OpenApiParameter(name="username", type=OpenApiTypes.STR, required=True, description="Unique username for the new user account."),
+            ],
     )
+    
     def post(self, request: Request):
-        """
-        Handle POST requests to resend verification email.
-
-        Parameters:
-        request (Request): The request object containing the username
-
-        Returns:
-        Response: The response object with appropriate status and message
-        """
         try:
             username = request.data.get("username")
             user = CustomUser.objects.get(username=username)
             if user.is_active:
                 return Response({"message": "ایمیل شما قبلا تایید شده است."}, status=status.HTTP_200_OK)
             confirm_email_address(user)
-            return Response({"message": "ایمیل تایید دوباره ارسال شد."}, status=status.HTTP_200_OK)
+            return Response({"message": "ایمیل تایید دوباره برای شما ارسال شد."}, status=status.HTTP_200_OK)
         except CustomUser.DoesNotExist:
             return Response({"error": "نام کاربری مورد نظر یافت نشد."}, status=status.HTTP_404_NOT_FOUND)
       
@@ -142,24 +137,19 @@ class ResendVerificationEmailAPIView(APIView):
 #======================================= Verify Email View ===========================================
 
 class VerifyEmailAPIView(APIView):
-    """
-    API view for verifying user's email using the token provided.
-    """
-    
+
     @extend_schema(
         request=None,
-        responses={200: "Email verified successfully", 202: "User already verified", 400: "Invalid or expired token", 404: "User not found"}
+        responses={
+            200: "Email verified successfully", 
+            202: "User already verified", 
+            400: "Invalid or expired token", 
+            404: "User not found"
+        },
+        summary="API view for verifying user's email using the token provided.",
     )
+    
     def get(self, request: Request):
-        """
-        Handle GET requests to verify user's email.
-
-        Parameters:
-        request (Request): The request object containing the token
-
-        Returns:
-        Response: The response object with appropriate status and message
-        """
         try:
             token = request.GET.get("token")
             payload = AccessToken(token).payload
@@ -184,24 +174,21 @@ class VerifyEmailAPIView(APIView):
 #======================================= Login View ==================================================
 
 class LoginAPIView(APIView):
-    """
-    API view for authenticating a user and returning a token.
-    """
-    
+
     @extend_schema(
         request=LoginSerializer,
-        responses={200: "Successful login, token returned", 400: "Invalid credentials or data"}
+        responses={
+            200: "Successful login, token returned", 
+            400: "Invalid credentials or data"
+        },
+        summary="API view for authenticating a user and returning a token.",
+        parameters=[
+            OpenApiParameter(name="username", type=OpenApiTypes.STR, required=True, description="Unique username for the new user account."),
+            OpenApiParameter(name="password", type=OpenApiTypes.STR, required=True, description="Password for the new account."),
+        ],
     )
+    
     def post(self, request: Request):
-        """
-        Handle POST requests for user login.
-
-        Parameters:
-        request (Request): The request object containing login credentials
-
-        Returns:
-        Response: The response object with the token if successful, otherwise an error message
-        """
         serializer = LoginSerializer(data=request.data)
         if serializer.is_valid():
             username = serializer.validated_data["username"]
@@ -217,26 +204,30 @@ class LoginAPIView(APIView):
 #======================================= User Profile View ===========================================
 
 class UserProfileAPIView(APIView):
-    """
-    API view for adding additional information to a user's account.
-    """
-    
-    permission_classes = [IsAuthenticated]
-    
+
     @extend_schema(
         request=UserProfileSerializer,
-        responses={201: "User data added successfully", 400: "Invalid data"}
+        responses={
+            201: "User profile created successfully.",
+            400: "Invalid input data. Check required fields and formats."
+        },
+        summary="Create or update a user's profile with additional personal information.",
+        description=(
+            "This endpoint allows authenticated users to submit or update their profile details, "
+            "including phone number, gender, address, bio, and profile picture. "
+            "The request must include a valid phone number and gender. "
+            "Optional fields such as address, bio, and picture can be provided to enrich the user's profile."
+        ),
+        parameters=[
+            OpenApiParameter(name="phone", type=OpenApiTypes.STR, required=True, description="User's unique phone number. Must not be associated with another account."),
+            OpenApiParameter(name="gender", type=OpenApiTypes.STR, required=True, description="Gender identity of the user. Accepted values: 'male', 'female', 'other'."),
+            OpenApiParameter(name="address", type=OpenApiTypes.STR, required=False, description="Optional physical address for the user."),
+            OpenApiParameter(name="bio", type=OpenApiTypes.STR, required=False, description="Optional short biography or personal description."),
+            OpenApiParameter(name="picture", type=OpenApiTypes.BINARY, required=False, description="Optional profile image. Must be a valid image file."),
+        ],
     )
+
     def post(self, request: Request):
-        """
-        Handle POST requests to add additional user information.
-
-        Parameters:
-        request (Request): The request object containing user profile data
-
-        Returns:
-        Response: The response object with appropriate status and message
-        """
         data = request.data.copy()
         data["user"] = request.user.id
         serializer = UserProfileSerializer(data=data)
@@ -249,29 +240,32 @@ class UserProfileAPIView(APIView):
 #======================================= Update User View ============================================
 
 class UpdateUserAPIView(APIView):
-    """
-    API view for handling user information update requests.
 
-    Attributes:
-    permission_classes (list): List of permissions required for this view, including CheckOwnershipPermission to ensure the requesting user is the same as the user being updated.
-    """
-    
     permission_classes = [CheckOwnershipPermission]
     
     @extend_schema(
         request=UpdateUserSerializer,
-        responses={201: "User data updated successfully", 400: "Invalid data"}
+        responses={
+            201: "User information updated successfully.",
+            400: "Invalid input data. Check required fields and formats."
+        },
+        summary="Update user account information.",
+        description=(
+            "This endpoint allows authenticated users to update their account details. "
+            "All fields are optional and will only be updated if provided. "
+            "Password updates require both 'password' and 're_password' fields to match. "
+            "Email must be unique and valid. Partial updates are supported."
+        ),
+        parameters=[
+            OpenApiParameter(name="first_name", type=OpenApiTypes.STR, required=False, description="User's first name. Optional."),
+            OpenApiParameter(name="last_name", type=OpenApiTypes.STR, required=False, description="User's last name. Optional."),
+            OpenApiParameter(name="email", type=OpenApiTypes.STR, required=False, description="New email address. Must be valid and not already in use."),
+            OpenApiParameter(name="password", type=OpenApiTypes.STR, required=False, description="New password. Must be confirmed using 're_password'."),
+            OpenApiParameter(name="re_password", type=OpenApiTypes.STR, required=False,description="Password confirmation. Must match 'password'."),
+        ],
     )
+    
     def put(self, request: Request):
-        """
-        Handle user information update requests.
-
-        Parameters:
-        request (Request): The request object containing user data
-
-        Returns:
-        Response: The response object indicating success or failure
-        """
         user = request.user
         self.check_object_permissions(request, user)
         serializer = UpdateUserSerializer(data=request.data, instance=user, partial=True)
@@ -284,27 +278,26 @@ class UpdateUserAPIView(APIView):
 #======================================= Forget Password View ========================================
 
 class PasswordResetAPIView(APIView):
-    """
-    API view for handling password reset requests.
 
-    Attributes:
-    @extend_schema: Schema information for request and response
-    """
-    
     @extend_schema(
         request=PasswordResetSerializer,
-        responses={200: "Password reset email sent", 400: "Invalid data", 404: "Email not found"}
+        responses={
+            200: "Password reset email sent successfully.",
+            400: "Invalid input data. Check email format.",
+            404: "No user found with the provided email address."
+        },
+        summary="API view for requesting a password reset email.",
+        description=(
+            "This endpoint allows users to initiate a password reset by submitting their registered email address. "
+            "If the email exists in the system, a password reset link will be sent to that address. "
+            "Otherwise, a 404 error is returned. Email format is validated."
+        ),
+        parameters=[
+            OpenApiParameter(name="email", type=OpenApiTypes.STR, required=True, description="Registered email address of the user requesting a password reset. Must be a valid format."),
+        ],
     )
+    
     def post(self, request: Request):
-        """
-        Handle password reset email requests.
-
-        Parameters:
-        request (Request): The request object containing user email
-
-        Returns:
-        Response: The response object indicating success or failure
-        """
         serializer = PasswordResetSerializer(data=request.data)
         if serializer.is_valid():
             email = serializer.validated_data["email"]
@@ -318,27 +311,27 @@ class PasswordResetAPIView(APIView):
 
 
 class SetNewPasswordAPIView(APIView):
-    """
-    API view for setting a new password using a token.
 
-    Attributes:
-    @extend_schema: Schema information for request and response
-    """
-    
     @extend_schema(
         request=SetNewPasswordSerializer,
-        responses={201: "Password changed successfully", 400: "Invalid data or token", 404: "User not found"}
+        responses={
+            201: "Password changed successfully.",
+            400: "Invalid token or input data.",
+            404: "User associated with the token was not found."
+        },
+        summary="API view for setting a new password using a reset token.",
+        description=(
+            "This endpoint allows users to set a new password using a valid token received via email. "
+            "The token must be valid and not expired. If the token is valid, the user's password is updated. "
+            "Both 'password' and 'token' fields are required. Token validation errors are handled explicitly."
+        ),
+         parameters=[
+            OpenApiParameter(name="password", type=OpenApiTypes.STR, required=True, description="New password. Must be confirmed using 're_password'."),
+            OpenApiParameter(name="re_password", type=OpenApiTypes.STR, required=True,description="Password confirmation. Must match 'password'."),
+        ],
     )
     def post(self, request: Request):
-        """
-        Verify user's email using the token provided and set a new password.
 
-        Parameters:
-        request (Request): The request object containing new password and token
-
-        Returns:
-        Response: The response object indicating success or failure
-        """
         serializer = SetNewPasswordSerializer(data=request.data)
         if serializer.is_valid():
             try:
@@ -368,15 +361,6 @@ class SetNewPasswordAPIView(APIView):
 class FetchUsersModelViewSet(viewsets.ModelViewSet):
     """
     ViewSet for fetching CustomUser instances with pagination and filtering.
-
-    Attributes:
-    permission_classes (list): List of permissions required for this view
-    queryset (QuerySet): The queryset of CustomUser objects
-    serializer_class (Serializer): The serializer class to use
-    pagination_class (Pagination): The pagination class to use
-    filter_backends (list): List of filter backends to use
-    search_fields (list): List of fields to search
-    lookup_field (str): The field to use for lookups
     """
     
     permission_classes = [IsAdminUser]
@@ -391,40 +375,98 @@ class FetchUsersModelViewSet(viewsets.ModelViewSet):
 #======================================= ArvanCloud View =============================================
 
 class BucketFilesView(APIView):
-    """View to list all files in bucket (Admin only)"""
+    """
+    Triggers async task for listing all files in ArvanCloud bucket (Admin only)
+    Returns immediately with task ID for polling results.
+    """
+    
     permission_classes = [IsAdminUser]
     
     def get(self, request):
-        # Trigger async task and return task ID
-        task = fetch_all_files.delay()
-        return Response({
-            'task_id': task.id,
-            'message': 'File listing task started. Use task ID to check results.'
-        }, status=status.HTTP_202_ACCEPTED)
+        logger.info("[BucketFilesView] Starting fetch_all_files task")
+        try:
+            task = fetch_all_files.apply_async()  
+            logger.info(f"[BucketFilesView] Task sent to Celery with ID: {task.id}")
+            return Response({
+                "task_id": task.id,
+                "status": "STARTED",
+                "message": "File listing task started. Use task ID to check results.",
+                "check_url": request.build_absolute_uri(
+                reverse("bucket-files-result", kwargs={"task_id": task.id})
+            ) 
+            }, status=status.HTTP_202_ACCEPTED)
+        except Exception as error:
+            logger.error(f"[BucketFilesView] Failed to send task to Celery: {error}", exc_info=True)
+            return Response({
+                "error": "Failed to start file listing task",
+                "details": str(error)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            
+            
+# ====================================
+
+class BucketResultView(APIView):
+    """
+    Checks the result of a previously triggered file listing task (Admin only)
+    Supports polling for async task results.
+    """
     
-    def get_task_result(self, request, task_id):
-        """Check result of a file listing task"""
+    permission_classes = [IsAdminUser]
+    
+    def get(self, request, task_id):
+        task_id = str(task_id)
         
+        if not task_id: 
+            return Response({"error": "Task ID is required"}, status=status.HTTP_400_BAD_REQUEST)
+            
         result = AsyncResult(task_id)
+        
+        logger.info(f"[BucketResultView] Checking task result: {task_id}")
         
         if result.ready():
             if result.successful():
-                # Serialize the file data
-                serializer = FileInfoSerializer(result.result, many=True)
-                return Response(serializer.data)
+                try:
+                    serializer = FileInfoSerializer(result.result, many=True)
+                    logger.info(f"[BucketResultView] Task {task_id} completed successfully.")
+                    return Response({
+                        "status": "SUCCESS",
+                        "task_id": task_id,
+                        "files": serializer.data,
+                        "count": len(result.result)
+                    }, status=status.HTTP_200_OK)
+                    
+                except Exception as error:
+                    logger.error(f"[BucketResultView] Serialization error for task {task_id}: {error}")
+                    return Response({
+                        "status": "ERROR",
+                        "task_id": task_id,
+                        "error": "Data format error",
+                        "raw_result": str(result.result)[:500]  
+                    }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+                    
             else:
-                return Response(
-                    {'error': str(result.result)},
-                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
-                )
-        return Response(
-            {'status': 'Task is still processing'},
-            status=status.HTTP_202_ACCEPTED
-        )
+                logger.error(f"[BucketResultView] Task {task_id} failed: {result.result}")
+                return Response({
+                    "status": "FAILURE",
+                    "task_id": task_id,
+                    "error": str(result.result),
+                    "traceback": result.traceback if hasattr(result, "traceback") else None
+                }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+                
+        logger.info(f"[BucketResultView] Task {task_id} still processing.")
+        return Response({
+            "status": "PENDING",
+            "task_id": task_id,
+            "message": "Task is still processing. Please check back later.",
+            "suggested_retry": 2000  
+        }, status=status.HTTP_202_ACCEPTED)
 
+
+# ====================================
 
 class FileDeleteView(APIView):
-    """View to delete files from bucket (Admin only)"""
+    """Deletes a file from bucket (Admin only)"""
+    
     permission_classes = [IsAdminUser]
     
     def post(self, request):
@@ -432,17 +474,24 @@ class FileDeleteView(APIView):
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         
-        key = serializer.validated_data['key']
+        key = serializer.validated_data["key"]
         task = remove_file.delay(key)
         
         return Response({
-            'task_id': task.id,
-            'message': f'Delete task started for file: {key}'
+            "task_id": task.id,
+            "status": "STARTED",
+            "message": f"Delete task started for file: {key}",
+            "check_url": request.build_absolute_uri(
+                reverse("file-delete-result", kwargs={"task_id": task.id})  
+            )
         }, status=status.HTTP_202_ACCEPTED)
 
 
+# ====================================
+
 class BulkDeleteView(APIView):
-    """View for bulk file deletion (Admin only)"""
+    """Delets bulk filed (Admin only)"""
+    
     permission_classes = [IsAdminUser]
     
     def post(self, request):
@@ -450,21 +499,77 @@ class BulkDeleteView(APIView):
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         
-        keys = serializer.validated_data['keys']
-        task_ids = []
+        keys = serializer.validated_data["keys"]
         
+        if len(keys) > 100: 
+            return Response(
+                {"error": "Maximum 100 files allowed in bulk operation"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        task_ids = []
         for key in keys:
             task = remove_file.delay(key)
-            task_ids.append(task.id)
+            task_ids.append({
+                "key": key,
+                "task_id": task.id,
+                "status_url": request.build_absolute_uri(
+                    reverse("file-delete-result", kwargs={"task_id": task.id})
+                )
+            })
         
         return Response({
-            'task_ids': task_ids,
-            'message': f'Started deletion of {len(keys)} files'
+            "operations": task_ids,
+            "total_files": len(keys),
+            "message": f"Started deletion of {len(keys)} files"
         }, status=status.HTTP_202_ACCEPTED)
 
 
+# ====================================
+
+class FileDeleteResultView(APIView):
+    """Checks the result of a file deletion task (Admin only)"""
+    
+    permission_classes = [IsAdminUser]
+    
+    def get(self, request, task_id):
+        task_id = str(task_id)
+        result = AsyncResult(task_id)
+        
+        logger.info(f"[FileDeleteResultView] Checking task result: {task_id}")
+        
+        if result.ready():
+            if result.successful():
+                logger.info(f"[FileDeleteResultView] Task {task_id} completed successfully.")
+                return Response({
+                    "status": "SUCCESS",
+                    "task_id": task_id,
+                    "message": "File deleted successfully",
+                    "result": result.result  
+                }, status=status.HTTP_200_OK)
+                
+            else:
+                logger.error(f"[FileDeleteResultView] Task {task_id} failed: {result.result}")
+                return Response({
+                    "status": "FAILURE", 
+                    "task_id": task_id,
+                    "error": str(result.result),
+                    "traceback": result.traceback
+                }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+                
+        logger.info(f"[FileDeleteResultView] Task {task_id} still processing.")
+        return Response({
+            "status": "PENDING",
+            "task_id": task_id,
+            "message": "Delete operation still in progress"
+        }, status=status.HTTP_202_ACCEPTED)
+
+
+# ====================================
+
 class FileDownloadView(APIView):
-    """View to download files from bucket (Admin only)"""
+    """Downloads files from bucket (Admin only)"""
+    
     permission_classes = [IsAdminUser]
     
     def post(self, request):
@@ -472,36 +577,74 @@ class FileDownloadView(APIView):
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         
-        key = serializer.validated_data['key']
-        local_path = serializer.validated_data.get('local_path')
+        key = serializer.validated_data["key"]
+        local_path = serializer.validated_data.get("local_path")
+        
+        if not local_path:
+            filename = os.path.basename(key)
+            local_path = os.path.join("/app/shared_downloads/", filename)
+        elif local_path.endswith("/"):
+            filename = os.path.basename(key)
+            local_path = os.path.join(local_path, filename)
         
         task = download_obj.delay(key, local_path)
-        
+    
         return Response({
-            'task_id': task.id,
-            'message': f'Download task started for file: {key}'
+            "task_id": task.id,
+            "status": "STARTED",
+            "message": f"Download task started for file: {key}",
+            "check_url": request.build_absolute_uri(
+                reverse("file-download-result", kwargs={"task_id": task.id})
+            )
         }, status=status.HTTP_202_ACCEPTED)
     
-    def get_download(self, request, task_id):
-        """Retrieve downloaded file"""
-        result = AsyncResult(task_id)
+
+# ====================================
+
+class FileDownloadResultView(APIView):
+    """Retrieves downloaded files (Admin only)"""
+    
+    permission_classes = [IsAdminUser]
+    
+    def get(self, request, task_id):
+        result = AsyncResult(str(task_id))  
         
-        if result.ready() and result.successful():
-            file_path = result.result
-            if os.path.exists(file_path):
-                return FileResponse(
-                    open(file_path, 'rb'),
-                    as_attachment=True,
-                    filename=os.path.basename(file_path)
+        if result.ready():
+            if result.successful():
+                file_path = result.result
+                if os.path.exists(file_path):
+                    try:
+                        with open(file_path, "rb") as file:
+                            file_content = file.read()
+                        
+                        response = HttpResponse(file_content)
+                        response["Content-Type"] = "image/jpeg"
+                        response["Content-Disposition"] = f"attachment; filename='{os.path.basename(file_path)}'"
+                        
+                        os.remove(file_path)
+                        return response
+                        
+                    except Exception as error:
+                        logger.error(f"File download failed: {error}")
+                        return Response(
+                            {"error": "File download failed"},
+                            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                        )
+                return Response(
+                    {"error": "File not found after download"},
+                    status=status.HTTP_404_NOT_FOUND
                 )
-            return Response(
-                {'error': 'File not found after download'},
-                status=status.HTTP_404_NOT_FOUND
-            )
+            else:
+                return Response({
+                    "status": "FAILED",
+                    "error": str(result.result),
+                    "traceback": result.traceback
+                }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
-        return Response(
-            {'status': 'Download still in progress'},
-            status=status.HTTP_202_ACCEPTED
-        )
+        return Response({
+            "status": "PENDING",
+            "message": "Download still in progress"
+        }, status=status.HTTP_202_ACCEPTED)
         
+      
 #=====================================================================================================

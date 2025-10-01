@@ -1,9 +1,10 @@
 from django.urls import path, re_path, include
 from rest_framework.routers import DefaultRouter
 from .views import (
-    SignUpAPIView, ResendVerificationEmailAPIView, VerifyEmailAPIView, LoginAPIView,UserProfileAPIView, 
+    SignUpAPIView, ResendVerificationEmailAPIView, VerifyEmailAPIView, LoginAPIView, UserProfileAPIView, 
     UpdateUserAPIView, FetchUsersModelViewSet, PasswordResetAPIView, SetNewPasswordAPIView,
-    BucketFilesView, FileDownloadView, BulkDeleteView, FileDeleteView,
+    BucketFilesView, BucketResultView, FileDeleteView, BulkDeleteView, FileDeleteResultView, 
+    FileDownloadView, FileDownloadResultView,
 )
 
 router = DefaultRouter()
@@ -21,11 +22,12 @@ urlpatterns = [
     path("set-new-password/", SetNewPasswordAPIView.as_view(), name="set-new-password"),
     # ArvanCloud
     path("admin/bucket/files/", BucketFilesView.as_view(), name="bucket-files"),
-    path("admin/bucket/files/<str:task_id>/", BucketFilesView.as_view(), name="bucket-files-result"),
+    path("admin/bucket/result/<str:task_id>/", BucketResultView.as_view(), name="bucket-files-result"),
     path("admin/bucket/delete/", FileDeleteView.as_view(), name="file-delete"),
     path("admin/bucket/delete/bulk/", BulkDeleteView.as_view(), name="bulk-delete"),
+    path("admin/bucket/delete/result/<str:task_id>/", FileDeleteResultView.as_view(), name="file-delete-result"),
     path("admin/bucket/download/", FileDownloadView.as_view(), name="file-download"),
-    path("admin/bucket/download/<str:task_id>/", FileDownloadView.as_view(), name="file-download-result"),
+    path("admin/bucket/download/<str:task_id>/", FileDownloadResultView.as_view(), name="file-download-result"),
 ]   
 
 urlpatterns += router.urls

@@ -32,12 +32,22 @@ class Bucket:
     def get_files(self):
         try:
             res = self.connection.list_objects_v2(Bucket=settings.AWS_STORAGE_BUCKET_NAME)
-            return res.get("Contents", [])
+            contents = res.get("Contents", [])
+            
+            return [
+                {
+                    "Key": str(obj["Key"]),
+                    "Size": obj["Size"],
+                    "LastModified": obj["LastModified"].isoformat() if "LastModified" in obj else None,
+                    "ETag": str(obj["ETag"]),
+                    "StorageClass": obj.get("StorageClass", "STANDARD")
+                }
+                for obj in contents
+            ]
         except ClientError as error:
             logger.error(f"Error listing files: {error}")
             return []
-    
-    
+
     def delete_file(self, key):
         try:
             return self.connection.delete_object(Bucket=settings.AWS_STORAGE_BUCKET_NAME, Key=key)
@@ -50,23 +60,28 @@ class Bucket:
         try:
             if not local_path:
                 local_path = os.path.join(settings.AWS_LOCAL_STORAGE, key)
-                
-            os.makedirs(os.path.dirname(local_path), exist_ok=True)
             
-            with open(local_path, "wb") as file:
+            # Check if local_path is a directory (ends with slash or is existing directory)
+            if local_path.endswith("/") or os.path.isdir(local_path):
+                # If it's a directory, create the full file path
+                filename = os.path.basename(key)
+                local_file_path = os.path.join(local_path, filename)
+            else:
+                # Assume it's already a full file path
+                local_file_path = local_path
+            
+            # Ensure the directory exists (THIS LINE SHOULD STAY)
+            directory = os.path.dirname(local_file_path)
+            os.makedirs(directory, exist_ok=True, mode=0o755) 
+            
+            # Download the file (THIS LINE SHOULD STAY)
+            with open(local_file_path, "wb") as file:
                 self.connection.download_fileobj(settings.AWS_STORAGE_BUCKET_NAME, key, file)
-            return local_path
+            
+            return local_file_path
         except ClientError as error:
             logger.error(f"Error downloading file {key}: {error}")
             return None
-    
-    
-    def file_exists(self, key):
-        try:
-            self.connection.head_object(Bucket=settings.AWS_STORAGE_BUCKET_NAME, Key=key)
-            return True
-        except ClientError:
-            return False
     
     
     def get_file_url(self, key, expires=3600):

@@ -8,12 +8,12 @@ from config.storages import Bucket
 
 
 # Start the Celery worker
-# on Windows: celery -A config.celery_config worker --pool=solo --loglevel=info
-# on Linux:   celery -A config.celery_config worker --loglevel=info
-# on Linux:   celery -A config.celery_config worker --pool=solo --loglevel=info -B
+# on Windows: celery -A config worker --pool=solo --loglevel=info
+# on Linux:   celery -A config worker --loglevel=info
+# on Linux:   celery -A config worker --pool=solo --loglevel=info -B
 
 # Start Celery beat
-# celery -A config.celery_config beat --loglevel=info
+# celery -A config beat --loglevel=info
 
 
 #==================================== UpdateSubscription Celery =========================================
@@ -22,6 +22,7 @@ logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger("user-task")
 
 
+# rate_limit allows task to run at most 10 times per minute
 @shared_task(rate_limit="10/m") 
 def check_premium_subscriptions():
     start_time = time.time()
@@ -52,13 +53,24 @@ def check_premium_subscriptions():
 @shared_task(bind=True, max_retries=3)
 def fetch_all_files(self):
     try:
+        logger.info("fetch_all_files task started")
         bucket = Bucket()
-        return bucket.get_files()
+        logger.info("Bucket instance created")
+        
+        files = bucket.get_files()
+        logger.info(f"Fetched {len(files)} files from bucket")
+        
+        if files:
+            for i, file_info in enumerate(files[:3]):  
+                logger.info(f"File {i}: {file_info}")
+                for key, value in file_info.items():
+                    logger.info(f"  {key}: {value} (type: {type(value)})")
+        return files
     except Exception as error:
-        logger.error(f"Failed to fetch files: {error}")
+        logger.error(f"Failed to fetch files: {error}", exc_info=True)
         self.retry(exc=error, countdown=60)
-        
-        
+
+
 @shared_task(bind=True, max_retries=3)  
 def remove_file(self, key):
     try:

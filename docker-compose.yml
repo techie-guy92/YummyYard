@@ -18,6 +18,7 @@ services:
       - main
     volumes:
       - .:/app
+      - shared_downloads:/app/shared_downloads 
     command: ["sh", "-c", "python manage.py migrate && python manage.py collectstatic --noinput && gunicorn config.wsgi:application --bind 0.0.0.0:8000 --timeout 120 --workers 3 --worker-class sync"]
     healthcheck:
       test: ["CMD-SHELL", "curl --silent --fail http://127.0.0.1:8000/admin/ || exit 1"]
@@ -73,7 +74,7 @@ services:
       dockerfile: Dockerfile
     container_name: ${PROJECT_NAME}-celery
     entrypoint: ["celery"]
-    command: ["-A", "config.celery_config", "worker", "--loglevel=info"]
+    command: ["-A", "config", "worker", "--loglevel=info"]
     env_file:
       - .env
     environment:
@@ -88,6 +89,7 @@ services:
       - main
     volumes:
       - celerybeat_data:/app/celerybeat-schedule
+      - shared_downloads:/app/shared_downloads
     healthcheck:
       test: ["CMD-SHELL", "pgrep -f 'celery worker' || exit 0"]
       interval: 30s
@@ -100,7 +102,7 @@ services:
       dockerfile: Dockerfile
     container_name: ${PROJECT_NAME}-beat
     entrypoint: ["celery"]
-    command: ["-A", "config.celery_config", "beat", "--loglevel=info"]
+    command: ["-A", "config", "beat", "--loglevel=info"]
     env_file:
       - .env
     environment:
@@ -127,7 +129,7 @@ services:
       dockerfile: Dockerfile
     container_name: ${PROJECT_NAME}-flower
     entrypoint: ["celery"]
-    command: ["-A", "config.celery_config", "flower", "--port=5555"]
+    command: ["-A", "config", "flower", "--port=5555"]
     ports:
       - "5555:5555"
     env_file:
@@ -152,3 +154,4 @@ volumes:
   YummyYard_pgdata:
   rabbitmq_data:
   celerybeat_data:
+  shared_downloads:
