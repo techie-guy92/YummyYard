@@ -29,7 +29,7 @@ urlpatterns = [
     # Third-party integrations
     path("api-auth/", include("rest_framework.urls")),
     # path("accounts/", include("allauth.urls")),
-    path("api-schema/", SpectacularAPIView.as_view(), name="schema"),
+    path("api-download-schema/", SpectacularAPIView.as_view(), name="schema"),
     path("api-documents/", SpectacularSwaggerView.as_view(url_name="schema"), name="swagger-ui"),
 ]
 
