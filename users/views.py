@@ -26,11 +26,16 @@ from custom_permission import CheckOwnershipPermission
 logger = getLogger(__name__)
 
 
+def generate_access_token(user):
+    "Generate a short-lived access token for stateless verification links."
+    return AccessToken.for_user(user)
+
+
 def confirm_email_address(user):
     "Send a verification email to the user's email address."
     
     try:
-        token = RefreshToken.for_user(user).access_token
+        token = generate_access_token(user)
         domain = settings.FRONTEND_DOMAIN
         verification_link = f"http://{domain}/users/verify-email?token={str(token)}"
         subject = "تاییدیه ایمیل"
@@ -48,7 +53,7 @@ def reset_password_email(user):
     "Send a password reset email to the user's email address."
     
     try:
-        token = AccessToken.for_user(user)
+        token = generate_access_token(user)
         domain = settings.FRONTEND_DOMAIN
         verification_link = f"http://{domain}/users/set-new-password?token={str(token)}"
         subject = "Password Reset Request"
@@ -60,7 +65,7 @@ def reset_password_email(user):
     except Exception as error:
         logger.error(f"Failed to send verification email to {user.email}: {error}")
         raise
-    
+
 
 #======================================== Sign Up View ===============================================
 
@@ -206,12 +211,14 @@ class LoginAPIView(APIView):
             password = serializer.validated_data["password"]
             user = authenticate(username=username, password=password)
             if user is not None:
-                token = RefreshToken.for_user(user).access_token
-                return Response({"token": str(token)}, status=status.HTTP_200_OK)
+                # token = RefreshToken.for_user(user).access_token
+                refresh = RefreshToken.for_user(user)
+                access = refresh.access_token
+                return Response({"access": str(access), "refresh": str(refresh)}, status=status.HTTP_200_OK)
             return Response({"error": "نام کاربری و یا رمز عبور اشتباه است."}, status=status.HTTP_400_BAD_REQUEST)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
             
-            
+
 #======================================= User Profile View ===========================================
 
 class UserProfileAPIView(APIView):
