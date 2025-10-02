@@ -302,7 +302,7 @@ LOGGING = {
 
 
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(days=int(env.str('ACCESS_TOKEN'))),
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=int(env.str('ACCESS_TOKEN'))),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=int(env.str('REFRESH_TOKEN'))),
     'ROTATE_REFRESH_TOKENS': env.bool('ROTATE_REFRESH_TOKENS'),
     'BLACKLIST_AFTER_ROTATION': env.bool('BLACKLIST_AFTER_ROTATION'),

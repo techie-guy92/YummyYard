@@ -121,7 +121,7 @@ class ResendVerificationEmailAPIView(APIView):
         ),
         parameters=[
             OpenApiParameter(name="username", type=OpenApiTypes.STR, required=True, description="Unique username for the new user account."),
-            ],
+        ],
     )
     
     def post(self, request: Request):
@@ -153,7 +153,7 @@ class VerifyEmailAPIView(APIView):
             "Verifies the user's email address using a token provided via query parameters. " 
             "Activates the user account if the token is valid and the user is not already verified. "
             "Handles token errors and missing users gracefully."
-            ),
+        ),
     )
     
     def get(self, request: Request):
