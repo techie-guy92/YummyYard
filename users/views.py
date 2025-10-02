@@ -27,20 +27,17 @@ logger = getLogger(__name__)
 
 
 def confirm_email_address(user):
-    """
-    Send a verification email to the user"s email address.
-    """
+    "Send a verification email to the user's email address."
     
     try:
         token = RefreshToken.for_user(user).access_token
-        # domain = "127.0.0.1:8000"
         domain = settings.FRONTEND_DOMAIN
         verification_link = f"http://{domain}/users/verify-email?token={str(token)}"
         subject = "تاییدیه ایمیل"
-        message = f"روی کلیک کنید تا ایمیل شما تایید شود: {verification_link}"
-        html_content = f"""<p>درود {user.first_name} {user.last_name} جان,
-        <br><br>لطفا روی کلیک زیر کنید تا ایمیل شما تایید شود:
-        <br><a href="{verification_link}">تایید ایمیل</a><br><br>ممنون!</p>"""
+        message = f"روی لینک زیر کلیک کنید تا ایمیل شما تایید شود: {verification_link}"
+        html_content = f"""<p>درود<br>{user.first_name} {user.last_name} عزیز,
+        <br><br>لطفا روی لینک زیر کلیک کنید تا ایمیل شما تایید شود:
+        <br><a href="{verification_link}">تایید ایمیل</a><br><br>ممنون</p>"""
         email_sender(subject, message, html_content, [user.email])
     except Exception as error:
         logger.error(f"Failed to send verification email to {user.email}: {error}")
@@ -48,20 +45,17 @@ def confirm_email_address(user):
     
 
 def reset_password_email(user):
-    """
-    Send a password reset email to the user"s email address.
-    """
+    "Send a password reset email to the user's email address."
     
     try:
         token = AccessToken.for_user(user)
-        # domain = "127.0.0.1:8000"
         domain = settings.FRONTEND_DOMAIN
         verification_link = f"http://{domain}/users/set-new-password?token={str(token)}"
         subject = "Password Reset Request"
         message = f"روی لینک کلیک کنید تا رمز خود را بازیابی کنید: {verification_link}"
-        html_content = f"""<p>درورد {user.first_name} {user.last_name} جان,
+        html_content = f"""<p>درود<br>{user.first_name} {user.last_name} عزیز,
         <br><br>روی لینک زیر کلیک کنید تا رمز خود را بازیابی کنید:
-        <br><a href="{verification_link}">بازیابی رمز عبور</a><br><br>ممنون!</p>"""
+        <br><a href="{verification_link}">بازیابی رمز عبور</a><br><br>ممنون</p>"""
         email_sender(subject, message, html_content, [user.email])
     except Exception as error:
         logger.error(f"Failed to send verification email to {user.email}: {error}")
@@ -80,6 +74,10 @@ class SignUpAPIView(APIView):
             400: "Invalid data"
         },
         summary="API view for handling user registration requests.",
+        description=(
+            "Handles user registration by validating input data and creating a new user account. "
+            "Ensures the uniqueness of username and email, and triggers an email verification process upon successful registration."
+        ),
         parameters=[
             OpenApiParameter(name="username", type=OpenApiTypes.STR, required=True, description="Unique username for the new user account."),
             OpenApiParameter(name="first_name", type=OpenApiTypes.STR, required=True, description="User's first name."),
@@ -117,6 +115,10 @@ class ResendVerificationEmailAPIView(APIView):
             404: "Username not found"
         },
         summary="API view for resending verification email to the user.",
+        description=(
+            "Allows users to request a resend of the verification email if their account has not yet been activated. " 
+            "Validates the existence of the username and checks activation status before resending the email."
+        ),
         parameters=[
             OpenApiParameter(name="username", type=OpenApiTypes.STR, required=True, description="Unique username for the new user account."),
             ],
@@ -147,6 +149,11 @@ class VerifyEmailAPIView(APIView):
             404: "User not found"
         },
         summary="API view for verifying user's email using the token provided.",
+        description=(
+            "Verifies the user's email address using a token provided via query parameters. " 
+            "Activates the user account if the token is valid and the user is not already verified. "
+            "Handles token errors and missing users gracefully."
+            ),
     )
     
     def get(self, request: Request):
@@ -182,6 +189,10 @@ class LoginAPIView(APIView):
             400: "Invalid credentials or data"
         },
         summary="API view for authenticating a user and returning a token.",
+        description=(
+            "Authenticates user credentials and returns a JWT access token upon successful login. "
+            "Validates input data and handles incorrect credentials or malformed requests with appropriate error responses."
+            ),
         parameters=[
             OpenApiParameter(name="username", type=OpenApiTypes.STR, required=True, description="Unique username for the new user account."),
             OpenApiParameter(name="password", type=OpenApiTypes.STR, required=True, description="Password for the new account."),
@@ -359,9 +370,7 @@ class SetNewPasswordAPIView(APIView):
 #======================================= Fetch Users View ============================================
 
 class FetchUsersModelViewSet(viewsets.ModelViewSet):
-    """
-    ViewSet for fetching CustomUser instances with pagination and filtering.
-    """
+    "ViewSet for fetching CustomUser instances with pagination and filtering."
     
     permission_classes = [IsAdminUser]
     queryset = CustomUser.objects.all().order_by("id")
@@ -372,16 +381,28 @@ class FetchUsersModelViewSet(viewsets.ModelViewSet):
     lookup_field = "username"
     
 
+#=====================================================================================================
 #======================================= ArvanCloud View =============================================
+#=====================================================================================================
 
 class BucketFilesView(APIView):
-    """
-    Triggers async task for listing all files in ArvanCloud bucket (Admin only)
-    Returns immediately with task ID for polling results.
-    """
     
     permission_classes = [IsAdminUser]
     
+    @extend_schema(
+        request=None,
+        responses={
+            202: "Async task started successfully; task ID returned for polling",
+            500: "Failed to dispatch task to Celery"
+        },
+        summary="Admin-only API view to trigger async file listing from ArvanCloud bucket.",
+        description=(
+            "Initiates a Celery task to asynchronously list all files stored in the ArvanCloud bucket. "
+            "Only accessible to admin users. "
+            "Returns immediately with a task ID and a polling URL to check task status and retrieve results once available.",
+        ),
+    )
+        
     def get(self, request):
         logger.info("[BucketFilesView] Starting fetch_all_files task")
         try:
@@ -406,13 +427,30 @@ class BucketFilesView(APIView):
 # ====================================
 
 class BucketResultView(APIView):
-    """
-    Checks the result of a previously triggered file listing task (Admin only)
-    Supports polling for async task results.
-    """
     
     permission_classes = [IsAdminUser]
     
+    @extend_schema(
+        request=None,
+        responses={
+            200: "Task completed successfully; file list returned",
+            202: "Task still processing; retry suggested",
+            400: "Missing or invalid task ID",
+            500: "Task failed or result serialization error"
+        },
+        summary="Admin-only API view to poll results of async file listing task.",
+        description=(
+            "Checks the status and result of a previously triggered asynchronous file listing task in ArvanCloud. "
+            "Accepts a task ID and returns one of the following: the completed file list, a pending status with retry suggestion, "
+            "or error details if the task failed or result format is invalid. "
+            "Only accessible to admin users.",
+        
+        ),
+        parameters=[
+            OpenApiParameter(name="task_id", type=OpenApiTypes.STR, required=True, description="Unique ID of the Celery task to poll for results.")
+        ]
+    )
+
     def get(self, request, task_id):
         task_id = str(task_id)
         
@@ -465,10 +503,22 @@ class BucketResultView(APIView):
 # ====================================
 
 class FileDeleteView(APIView):
-    """Deletes a file from bucket (Admin only)"""
     
     permission_classes = [IsAdminUser]
     
+    @extend_schema(
+        request=FileOperationSerializer,
+        responses={
+            202: "Delete task started successfully; task ID returned",
+            400: "Invalid input data"
+        },
+        summary="Admin-only API view to delete a single file from the bucket.",
+        description=(
+            "Triggers an asynchronous Celery task to delete a specific file from the bucket. "
+            "Accepts a file key and returns immediately with a task ID and polling URL to check deletion status.",
+        )
+    )
+
     def post(self, request):
         serializer = FileOperationSerializer(data=request.data)
         if not serializer.is_valid():
@@ -490,10 +540,22 @@ class FileDeleteView(APIView):
 # ====================================
 
 class BulkDeleteView(APIView):
-    """Delets bulk filed (Admin only)"""
     
     permission_classes = [IsAdminUser]
     
+    @extend_schema(
+        request=BulkOperationSerializer,
+        responses={
+            202: "Bulk delete tasks started successfully; task IDs returned",
+            400: "Invalid input or too many files"
+        },
+        summary="Admin-only API view to delete multiple files from the bucket.",
+        description=(
+            "Initiates asynchronous deletion tasks for up to 100 files in a single request. "
+            "Accepts a list of file keys and returns a list of task IDs and polling URLs for each file deletion operation.",
+        )
+    )
+
     def post(self, request):
         serializer = BulkOperationSerializer(data=request.data)
         if not serializer.is_valid():
@@ -528,9 +590,25 @@ class BulkDeleteView(APIView):
 # ====================================
 
 class FileDeleteResultView(APIView):
-    """Checks the result of a file deletion task (Admin only)"""
     
     permission_classes = [IsAdminUser]
+    
+    @extend_schema(
+        request=None,
+        responses={
+            200: "File deleted successfully",
+            202: "Delete task still processing",
+            500: "Task failed or encountered an error"
+        },
+        summary="Admin-only API view to check the result of a file deletion task.",
+        description=(
+            "Polls the status of a previously triggered file deletion task using its task ID. "
+            "Returns success, failure, or pending status along with relevant details or error tracebacks.",
+        ),
+        parameters=[
+            OpenApiParameter(name="task_id", type=OpenApiTypes.STR, required=True, description="Unique ID of the Celery task to poll for deletion result.")
+        ]
+    )
     
     def get(self, request, task_id):
         task_id = str(task_id)
@@ -568,10 +646,22 @@ class FileDeleteResultView(APIView):
 # ====================================
 
 class FileDownloadView(APIView):
-    """Downloads files from bucket (Admin only)"""
     
     permission_classes = [IsAdminUser]
     
+    @extend_schema(
+        request=FileOperationSerializer,
+        responses={
+            202: "Download task started successfully; task ID returned",
+            400: "Invalid input data"
+        },
+        summary="Admin-only API view to initiate file download from bucket.",
+        description=(
+            "Triggers an asynchronous Celery task to download a file from the bucket to a specified local path. "
+            "If no path is provided, a default location is used. Returns a task ID and polling URL to check download status.",
+        )
+    )
+
     def post(self, request):
         serializer = FileOperationSerializer(data=request.data)
         if not serializer.is_valid():
@@ -602,10 +692,28 @@ class FileDownloadView(APIView):
 # ====================================
 
 class FileDownloadResultView(APIView):
-    """Retrieves downloaded files (Admin only)"""
     
     permission_classes = [IsAdminUser]
     
+    @extend_schema(
+        request=None,
+        responses={
+            200: "File downloaded successfully and returned as attachment",
+            202: "Download task still processing",
+            404: "Downloaded file not found",
+            500: "Task failed or file retrieval error"
+        },
+        summary="Admin-only API view to retrieve the result of a file download task.",
+        description=(
+            "Polls the status of a previously triggered file download task using its task ID. "
+            "If successful, returns the downloaded file as an attachment. "
+            "Handles pending, failed, or missing file scenarios with appropriate responses.",
+        ),
+        parameters=[
+            OpenApiParameter(name="task_id", type=OpenApiTypes.STR, required=True, description="Unique ID of the Celery task to poll for download result.")
+        ]
+    )
+
     def get(self, request, task_id):
         result = AsyncResult(str(task_id))  
         
