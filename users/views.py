@@ -9,11 +9,14 @@ from rest_framework_simplejwt.tokens import AccessToken, RefreshToken
 from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
 from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiTypes
 from django.contrib.auth import authenticate
+from django.core.cache import cache
 from django.http import FileResponse, HttpResponse
 from celery.result import AsyncResult
 from logging import getLogger
 from django.urls import reverse
 import os
+import json
+import uuid
 from .models import *
 from .serializers import *
 from .tasks import fetch_all_files, remove_file, download_obj
@@ -24,6 +27,27 @@ from custom_permission import CheckOwnershipPermission
 #======================================== email senders ==============================================
 
 logger = getLogger(__name__)
+
+
+def store_pending_user(data: dict):
+    "Generate a UUID-based token and store user registration data in Redis for 15 minutes."
+    
+    token = f"pending-user:{uuid.uuid4()}"
+    cache.set(token, json.dumps(data), timeout=settings.CACHE_TTL)
+    return token
+
+
+def send_verification_email(user_data: dict, token: str):
+    "Send a verification email containing a tokenized link to the user's email address."
+    
+    domain = settings.FRONTEND_DOMAIN
+    verification_link = f"http://{domain}/users/verify-email?token={token}"
+    subject = "تاییدیه ایمیل"
+    message = f"روی لینک کلیک کنید تا ایمیل شما تایید شود: {verification_link}"
+    html_content = f"""<p>درود<br>{user_data['first_name']} {user_data['last_name']} عزیز,
+    <br><br>لطفا روی لینک زیر کلیک کنید تا ایمیل شما تایید شود:
+    <br><a href="{verification_link}">تایید ایمیل</a><br><br>ممنون</p>"""
+    email_sender(subject, message, html_content, [user_data["email"]])
 
 
 def generate_access_token(user):
@@ -69,19 +93,21 @@ def reset_password_email(user):
 
 #======================================== Sign Up View ===============================================
 
+# Redis-first strategy
 class SignUpAPIView(APIView):
     
     @extend_schema(
         request=CustomUserSerializer,
         responses={
-            201: "User registered successfully",
+            201: "Verification email sent successfully",
             409: "Username or email already exists",
-            400: "Invalid data"
+            400: "Invalid registration data"
         },
-        summary="API view for handling user registration requests.",
+        summary="Register a new user and send verification email.",
         description=(
-            "Handles user registration by validating input data and creating a new user account. "
-            "Ensures the uniqueness of username and email, and triggers an email verification process upon successful registration."
+            "Temporarily stores user registration data in Redis and sends a verification email. "
+            "User data is persisted to the database only after successful email verification. "
+            "Ensures username and email uniqueness before proceeding."
         ),
         parameters=[
             OpenApiParameter(name="username", type=OpenApiTypes.STR, required=True, description="Unique username for the new user account."),
@@ -92,7 +118,7 @@ class SignUpAPIView(APIView):
             OpenApiParameter(name="re_password", type=OpenApiTypes.STR, required=True, description="Password confirmation to ensure accuracy."),
         ],
     )
-
+    
     def post(self, request: Request):
         username = request.data.get("username")
         email = request.data.get("email")
@@ -100,89 +126,170 @@ class SignUpAPIView(APIView):
             return Response({"error": "این نام کاربری وحود دارد، نام کاربری دیگری انتخاب کنید."}, status=status.HTTP_409_CONFLICT)
         if CustomUser.objects.filter(email=email).exists():
             return Response({"error": "ایمل مورد نظر قبلا ثبت نام کرده است."}, status=status.HTTP_409_CONFLICT)
-
+        
         serializer = CustomUserSerializer(data=request.data)
         if serializer.is_valid():
-            user = serializer.save()
-            confirm_email_address(user)
-            return Response({"message": "اطلاعات شما ثبت شد، برای تکمیل فرایند ثبت نام به ایمیل خود بروید و ایمیل خود را تایید کنید."}, status=status.HTTP_201_CREATED)
+            token = store_pending_user(serializer.validated_data)
+            send_verification_email(serializer.validated_data, token)
+            return Response({"message": "لینک تایید به ایمیل شما ارسال شد."}, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-        
+
+
+# DB strategy
+# class SignUpAPIView(APIView):
+    
+#     @extend_schema(
+#         request=CustomUserSerializer,
+#         responses={
+#             201: "User registered successfully",
+#             409: "Username or email already exists",
+#             400: "Invalid data"
+#         },
+#         summary="API view for handling user registration requests.",
+#         description=(
+#             "Handles user registration by validating input data and creating a new user account. "
+#             "Ensures the uniqueness of username and email, and triggers an email verification process upon successful registration."
+#         ),
+#         parameters=[
+#             OpenApiParameter(name="username", type=OpenApiTypes.STR, required=True, description="Unique username for the new user account."),
+#             OpenApiParameter(name="first_name", type=OpenApiTypes.STR, required=True, description="User's first name."),
+#             OpenApiParameter(name="last_name", type=OpenApiTypes.STR, required=True, description="User's last name."),
+#             OpenApiParameter(name="email", type=OpenApiTypes.STR, required=True, description="Valid and unique email address for account verification."),
+#             OpenApiParameter(name="password", type=OpenApiTypes.STR, required=True, description="Password for the new account."),
+#             OpenApiParameter(name="re_password", type=OpenApiTypes.STR, required=True, description="Password confirmation to ensure accuracy."),
+#         ],
+#     )
+
+#     def post(self, request: Request):
+#         username = request.data.get("username")
+#         email = request.data.get("email")
+#         if CustomUser.objects.filter(username=username).exists():
+#             return Response({"error": "این نام کاربری وحود دارد، نام کاربری دیگری انتخاب کنید."}, status=status.HTTP_409_CONFLICT)
+#         if CustomUser.objects.filter(email=email).exists():
+#             return Response({"error": "ایمل مورد نظر قبلا ثبت نام کرده است."}, status=status.HTTP_409_CONFLICT)
+
+#         serializer = CustomUserSerializer(data=request.data)
+#         if serializer.is_valid():
+#             user = serializer.save()
+#             confirm_email_address(user)
+#             return Response({"message": "اطلاعات شما ثبت شد، برای تکمیل فرایند ثبت نام به ایمیل خود بروید و ایمیل خود را تایید کنید."}, status=status.HTTP_201_CREATED)
+#         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
 #======================================= Resend Verification Email View ==============================
 
-class ResendVerificationEmailAPIView(APIView):
+# DB strategy
+# class ResendVerificationEmailAPIView(APIView):
 
-    @extend_schema(
-        request=None,
-        responses={
-            200: "Verification email resent",
-            404: "Username not found"
-        },
-        summary="API view for resending verification email to the user.",
-        description=(
-            "Allows users to request a resend of the verification email if their account has not yet been activated. " 
-            "Validates the existence of the username and checks activation status before resending the email."
-        ),
-        parameters=[
-            OpenApiParameter(name="username", type=OpenApiTypes.STR, required=True, description="Unique username for the new user account."),
-        ],
-    )
+#     @extend_schema(
+#         request=None,
+#         responses={
+#             200: "Verification email resent",
+#             404: "Username not found"
+#         },
+#         summary="API view for resending verification email to the user.",
+#         description=(
+#             "Allows users to request a resend of the verification email if their account has not yet been activated. " 
+#             "Validates the existence of the username and checks activation status before resending the email."
+#         ),
+#         parameters=[
+#             OpenApiParameter(name="username", type=OpenApiTypes.STR, required=True, description="Unique username for the new user account."),
+#         ],
+#     )
     
-    def post(self, request: Request):
-        try:
-            username = request.data.get("username")
-            user = CustomUser.objects.get(username=username)
-            if user.is_active:
-                return Response({"message": "ایمیل شما قبلا تایید شده است."}, status=status.HTTP_200_OK)
-            confirm_email_address(user)
-            return Response({"message": "ایمیل تایید دوباره برای شما ارسال شد."}, status=status.HTTP_200_OK)
-        except CustomUser.DoesNotExist:
-            return Response({"error": "نام کاربری مورد نظر یافت نشد."}, status=status.HTTP_404_NOT_FOUND)
+#     def post(self, request: Request):
+#         try:
+#             username = request.data.get("username")
+#             user = CustomUser.objects.get(username=username)
+#             if user.is_active:
+#                 return Response({"message": "ایمیل شما قبلا تایید شده است."}, status=status.HTTP_200_OK)
+#             confirm_email_address(user)
+#             return Response({"message": "ایمیل تایید دوباره برای شما ارسال شد."}, status=status.HTTP_200_OK)
+#         except CustomUser.DoesNotExist:
+#             return Response({"error": "نام کاربری مورد نظر یافت نشد."}, status=status.HTTP_404_NOT_FOUND)
       
     
 #======================================= Verify Email View ===========================================
 
+# Redis-first strategy
 class VerifyEmailAPIView(APIView):
-
+    
     @extend_schema(
         request=None,
         responses={
-            200: "Email verified successfully", 
-            202: "User already verified", 
-            400: "Invalid or expired token", 
-            404: "User not found"
+            201: "User account created and verified successfully",
+            400: "Invalid or expired token",
+            500: "Internal server error"
         },
-        summary="API view for verifying user's email using the token provided.",
+        summary="Verify user's email and finalize registration.",
         description=(
-            "Verifies the user's email address using a token provided via query parameters. " 
-            "Activates the user account if the token is valid and the user is not already verified. "
-            "Handles token errors and missing users gracefully."
+            "Retrieves pending user data from Redis using the provided token. "
+            "Creates the user account in the database and activates it upon successful verification. "
+            "Handles token expiration and malformed data gracefully."
         ),
     )
-    
+        
     def get(self, request: Request):
+        token = request.GET.get("token")
+        if not token:
+            return Response({"error": "توکن یافت نشد."}, status=status.HTTP_400_BAD_REQUEST)
+
+        raw_data = cache.get(token)
+        if not raw_data:
+            return Response({"error": "توکن منقضی شده یا نامعتبر است."}, status=status.HTTP_400_BAD_REQUEST)
+
         try:
-            token = request.GET.get("token")
-            payload = AccessToken(token).payload
-            user_id = payload.get("user_id")
-            if not user_id:
-                return Response({"error": "توکن معتبر نیست یا منقضی شده است."}, status=status.HTTP_400_BAD_REQUEST)
-            try:
-                user = CustomUser.objects.get(pk=user_id)
-                if not user.is_active:
-                    user.is_active = True
-                    user.save()
-                    return Response({"message": "ثبت نام شما کامل شد."}, status=status.HTTP_200_OK)
-                return Response({"message": f"کاربر {user.username} قبلا تایید شده است."}, status=status.HTTP_202_ACCEPTED)
-            except CustomUser.DoesNotExist:
-                return Response({"error": "کاربر یافت نشد."}, status=status.HTTP_404_NOT_FOUND)
-        except InvalidToken:
-            return Response({"error": "توکن معنبر نیست."}, status=status.HTTP_400_BAD_REQUEST)
-        except TokenError:
-            return Response({"error": "توکن معنبر نیست."}, status=status.HTTP_400_BAD_REQUEST)
+            user_data = json.loads(raw_data)
+            user = CustomUser.objects.create_user(**user_data)
+            user.is_active = True
+            user.save()
+            cache.delete(token)
+            return Response({"message": "ثبت نام شما با موفقیت انجام شد."}, status=status.HTTP_201_CREATED)
+        except Exception as error:
+            return Response({"error": str(error)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
 
+# DB strategy    
+# class VerifyEmailAPIView(APIView):
+
+#     @extend_schema(
+#         request=None,
+#         responses={
+#             200: "Email verified successfully", 
+#             202: "User already verified", 
+#             400: "Invalid or expired token", 
+#             404: "User not found"
+#         },
+#         summary="API view for verifying user's email using the token provided.",
+#         description=(
+#             "Verifies the user's email address using a token provided via query parameters. " 
+#             "Activates the user account if the token is valid and the user is not already verified. "
+#             "Handles token errors and missing users gracefully."
+#         ),
+#     )
+    
+#     def get(self, request: Request):
+#         try:
+#             token = request.GET.get("token")
+#             payload = AccessToken(token).payload
+#             user_id = payload.get("user_id")
+#             if not user_id:
+#                 return Response({"error": "توکن معتبر نیست یا منقضی شده است."}, status=status.HTTP_400_BAD_REQUEST)
+#             try:
+#                 user = CustomUser.objects.get(pk=user_id)
+#                 if not user.is_active:
+#                     user.is_active = True
+#                     user.save()
+#                     return Response({"message": "ثبت نام شما کامل شد."}, status=status.HTTP_200_OK)
+#                 return Response({"message": f"کاربر {user.username} قبلا تایید شده است."}, status=status.HTTP_202_ACCEPTED)
+#             except CustomUser.DoesNotExist:
+#                 return Response({"error": "کاربر یافت نشد."}, status=status.HTTP_404_NOT_FOUND)
+#         except InvalidToken:
+#             return Response({"error": "توکن معنبر نیست."}, status=status.HTTP_400_BAD_REQUEST)
+#         except TokenError:
+#             return Response({"error": "توکن معنبر نیست."}, status=status.HTTP_400_BAD_REQUEST)
+
+        
 #======================================= Login View ==================================================
 
 class LoginAPIView(APIView):
