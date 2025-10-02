@@ -240,6 +240,7 @@ class VerifyEmailAPIView(APIView):
 
         try:
             user_data = json.loads(raw_data)
+            user_data.pop("re_password", None)
             user = CustomUser.objects.create_user(**user_data)
             user.is_active = True
             user.save()
