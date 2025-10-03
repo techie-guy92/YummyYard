@@ -5,6 +5,7 @@ settings.json
 templates/
 storage_utils.py
 celery_definition.txt
+redis_definition.txt
 webhook.py
 
 # Ignore media

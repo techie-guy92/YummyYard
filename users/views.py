@@ -29,29 +29,52 @@ from custom_permission import CheckOwnershipPermission
 logger = getLogger(__name__)
 
 
+class CustomEmailException(Exception): pass
+
+
+class CustomRedisException(Exception):
+    def __init__(self, message, code=None):
+        super().__init__(message)
+        self.code = code
+
+    def __str__(self):
+        return f"{self.args[0]} (code: {self.code})"
+
+
+# ======================================================
+
 def store_pending_user(data: dict):
     "Generate a UUID-based token and store user registration data in Redis for 15 minutes."
     
-    token = f"pending-user:{uuid.uuid4()}"
-    cache.set(token, json.dumps(data), timeout=settings.CACHE_TTL)
-    return token
+    try:
+        token = f"pending-user:{uuid.uuid4()}"
+        cache.set(token, json.dumps(data), timeout=settings.CACHE_TTL)
+        return token
+    except Exception as error:
+        logger.error(f"Failed to store pending user: {error}")
+        raise CustomRedisException("Redis failed to store token", code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 def send_verification_email(user_data: dict, token: str):
     "Send a verification email containing a tokenized link to the user's email address."
     
-    domain = settings.FRONTEND_DOMAIN
-    verification_link = f"http://{domain}/users/verify-email?token={token}"
-    subject = "تاییدیه ایمیل"
-    message = f"روی لینک کلیک کنید تا ایمیل شما تایید شود: {verification_link}"
-    html_content = f"""<p>درود<br>{user_data['first_name']} {user_data['last_name']} عزیز,
-    <br><br>لطفا روی لینک زیر کلیک کنید تا ایمیل شما تایید شود:
-    <br><a href="{verification_link}">تایید ایمیل</a><br><br>ممنون</p>"""
-    email_sender(subject, message, html_content, [user_data["email"]])
+    try:
+        domain = settings.FRONTEND_DOMAIN
+        verification_link = f"http://{domain}/users/verify-email?token={token}"
+        subject = "تاییدیه ایمیل"
+        message = f"روی لینک کلیک کنید تا ایمیل شما تایید شود: {verification_link}"
+        html_content = f"""<p>درود<br>{user_data['first_name']} {user_data['last_name']} عزیز,
+        <br><br>لطفا روی لینک زیر کلیک کنید تا ایمیل شما تایید شود:
+        <br><a href="{verification_link}">تایید ایمیل</a><br><br>ممنون</p>"""
+        email_sender(subject, message, html_content, [user_data["email"]])
+    except Exception as error:
+        logger.error(f"Failed to send verification email: {error}")
+        raise CustomEmailException("Email failed to send")
 
 
 def generate_access_token(user):
     "Generate a short-lived access token for stateless verification links."
+    
     return AccessToken.for_user(user)
 
 
@@ -370,7 +393,7 @@ class UpdateUserAPIView(APIView):
     permission_classes = [CheckOwnershipPermission]
     
     @extend_schema(
-        request=UpdateUserSerializer,
+        request=PartialUserUpdateSerializer,
         responses={
             201: "User information updated successfully.",
             400: "Invalid input data. Check required fields and formats."
@@ -380,12 +403,11 @@ class UpdateUserAPIView(APIView):
             "This endpoint allows authenticated users to update their account details. "
             "All fields are optional and will only be updated if provided. "
             "Password updates require both 'password' and 're_password' fields to match. "
-            "Email must be unique and valid. Partial updates are supported."
         ),
         parameters=[
+            OpenApiParameter(name="username", type=OpenApiTypes.STR, required=False, description="User's username. Optional."),
             OpenApiParameter(name="first_name", type=OpenApiTypes.STR, required=False, description="User's first name. Optional."),
             OpenApiParameter(name="last_name", type=OpenApiTypes.STR, required=False, description="User's last name. Optional."),
-            OpenApiParameter(name="email", type=OpenApiTypes.STR, required=False, description="New email address. Must be valid and not already in use."),
             OpenApiParameter(name="password", type=OpenApiTypes.STR, required=False, description="New password. Must be confirmed using 're_password'."),
             OpenApiParameter(name="re_password", type=OpenApiTypes.STR, required=False,description="Password confirmation. Must match 'password'."),
         ],
@@ -394,7 +416,7 @@ class UpdateUserAPIView(APIView):
     def put(self, request: Request):
         user = request.user
         self.check_object_permissions(request, user)
-        serializer = UpdateUserSerializer(data=request.data, instance=user, partial=True)
+        serializer = PartialUserUpdateSerializer(data=request.data, instance=user, partial=True)
         if serializer.is_valid():
             serializer.save()
             return Response({"message": "اطلاعات شما با موفقیت تغییر کرد."}, status=status.HTTP_201_CREATED)

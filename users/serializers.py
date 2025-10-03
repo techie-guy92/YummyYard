@@ -9,10 +9,6 @@ from utilities import *
 class CustomUserSerializer(serializers.ModelSerializer):
     """
     Serializer for creating and retrieving CustomUser instances.
-
-    Attributes:
-    password (str): The password of the user (write-only)
-    re_password (str): The repeated password for confirmation (write-only)
     """
     
     password = serializers.CharField(max_length=20, write_only=True, validators=[password_validator])
@@ -56,10 +52,6 @@ class CustomUserSerializer(serializers.ModelSerializer):
 class LoginSerializer(serializers.Serializer):
     """
     Serializer for handling user login.
-
-    Attributes:
-    username (str): The username of the user
-    password (str): The password of the user (write-only)
     """
     
     username = serializers.CharField(max_length=30)
@@ -81,43 +73,22 @@ class UserProfileSerializer(serializers.ModelSerializer):
 
 #======================================= Update User Serializer ====================================
 
-class UpdateUserSerializer(serializers.ModelSerializer):
+class PartialUserUpdateSerializer(serializers.ModelSerializer):
     """
     Serializer for updating CustomUser instances.
-
-    Attributes:
-    password (str): The password of the user (write-only, optional)
-    re_password (str): The repeated password for confirmation (write-only, optional)
     """
     
     password = serializers.CharField(max_length=20, write_only=True, required=False, validators=[password_validator])
     re_password = serializers.CharField(max_length=20, write_only=True, required=False)
-    email = serializers.CharField(max_length=100, validators=[email_validator])
     
     class Meta:
         model = CustomUser
-        fields = ["first_name", "last_name", "email", "password", "re_password"]
-        extra_kwargs = {
-            "first_name": {"required": False},
-            "last_name": {"required": False},
-            "email": {"required": False}
-        }
+        fields = ["username", "first_name", "last_name", "password", "re_password"]
         
-    def update(self, instance, validated_data):
-        """
-        Updates an existing CustomUser instance.
-
-        Parameters:
-        instance (CustomUser): The existing user instance
-        validated_data (dict): The validated data containing updated user details
-
-        Returns:
-        CustomUser: The updated user instance
-        """
-        
+    def update(self, instance, validated_data): 
+        instance.username = validated_data.get("username", instance.username)       
         instance.first_name = validated_data.get("first_name", instance.first_name)
         instance.last_name = validated_data.get("last_name", instance.last_name)
-        instance.email = validated_data.get("email", instance.email)
         password = validated_data.pop("password", None)
         if password:
             instance.set_password(password)
@@ -125,22 +96,20 @@ class UpdateUserSerializer(serializers.ModelSerializer):
         return instance
     
     def validate(self, attrs):
-        """
-        Validates the passwords and ensures they match.
-
-        Parameters:
-        attrs (dict): The attributes to validate
-
-        Returns:
-        dict: The validated attributes
-        """
-        
         instance = getattr(self, "instance", None)
         if not instance:
             raise serializers.ValidationError("کاربر مورد نظر یافت نشد.")
+        
+        if "username" in attrs:
+            new_username = attrs["username"]
+            if CustomUser.objects.filter(username=new_username).exclude(pk=instance.pk).exists():
+                raise serializers.ValidationError({"username": "نام کاربری قبلاً انتخاب شده است."})
+                
         if "password" in attrs and attrs["password"] != attrs.get("re_password"):
             raise serializers.ValidationError({"re_password": "رمز عبور و تکرار آن یکسان نمی باشد."})
+        
         return attrs
+
     
     
 #======================================= Forget Password Serializer ================================
