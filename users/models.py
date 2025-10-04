@@ -27,7 +27,6 @@ class CustomUserManager(BaseUserManager):
     """
     Custom manager for creating regular and super users.
     """
-    
     def create_user(self, username, first_name, last_name, email, password=None, **extra_fields):
         if not email:
             raise ValueError("وارد کردن ایمیل ضروری است.")
@@ -91,7 +90,6 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     joined_at (datetime): The date and time when the user joined
     updated_at (datetime): The date and time when the user was last updated
     """
-    
     USER_TYPE = [("backend","BackEnd"), ("frontend","FrontEnd"), ("admin","Admin"), ("premium","Premium"), ("user","User")]
     username = models.CharField(max_length=30, unique=True, verbose_name="Username")
     first_name = models.CharField(max_length=30, verbose_name="First Name")
@@ -131,7 +129,6 @@ class UserProfile(models.Model):
     """
     Model for storing additional user profile information.
     """
-    
     GENDER_TYPE = [("male","Male"), ("female","Female"), ("other","Other")]
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="UserProfile_user", verbose_name="User")
     phone = models.CharField(max_length=12, unique=True, verbose_name="Phone")
@@ -159,7 +156,6 @@ class InPersonCustomer(models.Model):
     """
     Model for placing orders for in-person customers.
     """
-    
     first_name = models.CharField(max_length=30, verbose_name="First Name")
     last_name = models.CharField(max_length=30, verbose_name="Last Nmae")
     phone = models.CharField(max_length=20, unique=True, verbose_name="Phone Number")
@@ -192,7 +188,6 @@ class PremiumSubscription(models.Model):
     Methods: 
         is_expired(): Checks if the subscription has expired. Returns True if the subscription has expired, False otherwise.
     """
-    
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="PremiumSubscription_user", verbose_name="User")
     start_date = models.DateTimeField(verbose_name="Start Date")
     expiry_date = models.DateTimeField(verbose_name="Expiry Date")
@@ -222,7 +217,6 @@ class Payment(models.Model):
     Methods:
         process_payment(): Processes the payment and updates the user"s premium subscription.
     """
-    
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="Payment_user", verbose_name="User")
     amount = models.DecimalField(max_digits=10, decimal_places=2, default=70.00, verbose_name="Amount Payable")
     payment_id = models.CharField(max_length=100, null=True, blank=True, verbose_name="Payment ID")

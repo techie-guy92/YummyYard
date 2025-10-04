@@ -12,7 +12,9 @@ from .admin_views import print_customers_view
 class CustomUserAdmin(UserAdmin):
     add_form = CustomUserForm
     
-    list_display = ("id", "username", "first_name", "last_name", "email", "user_type", "is_active", "is_premium", "is_admin", "is_superuser", "joined_at", "updated_at",)
+    list_display = (
+        "id", "username", "first_name", "last_name", "email", "user_type","is_active", 
+        "is_premium", "is_admin", "is_superuser", "joined_at", "updated_at",)
     list_filter = ("user_type", "is_active", "is_premium", "is_admin", "is_superuser",)
     list_search = ("username",)
     list_editable = ()

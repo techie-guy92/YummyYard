@@ -10,19 +10,15 @@ class CustomUserSerializer(serializers.ModelSerializer):
     """
     Serializer for creating and retrieving CustomUser instances.
     """
-    
     password = serializers.CharField(max_length=20, write_only=True, validators=[password_validator])
     re_password = serializers.CharField(max_length=20, write_only=True)
     email = serializers.EmailField(max_length=100, validators=[email_validator])
     
     class Meta:
         model = CustomUser
-        # fields = ["username", "first_name", "last_name", "email", "password", "re_password", "is_admin", "is_superuser"]
         fields = ["username", "first_name", "last_name", "email", "password", "re_password"]
         
-    def create(self, validated_data):        
-        # is_admin = validated_data.pop("is_admin", False)        
-        # is_superuser = validated_data.pop("is_superuser", False)        
+    def create(self, validated_data):              
         password = validated_data.pop("password", None)
         if not password:
             raise serializers.ValidationError({"password": "وارد کردن رمز عبور ضروری است."})
@@ -34,10 +30,6 @@ class CustomUserSerializer(serializers.ModelSerializer):
             email = validated_data["email"],
             password = password,
         )
-        # user.is_admin = is_admin
-        # user.is_superuser = is_superuser
-        # if is_admin and is_superuser:
-        #     user.user_type = "frontend"
         user.save()
         return user
     
@@ -53,7 +45,6 @@ class LoginSerializer(serializers.Serializer):
     """
     Serializer for handling user login.
     """
-    
     username = serializers.CharField(max_length=30)
     password = serializers.CharField(max_length=20, write_only=True)
 
@@ -64,7 +55,6 @@ class UserProfileSerializer(serializers.ModelSerializer):
     """
     Serializer for creating and retrieving UserProfile instances.
     """
-    
     class Meta:
         model = UserProfile
         fields = "__all__"
@@ -77,7 +67,6 @@ class PartialUserUpdateSerializer(serializers.ModelSerializer):
     """
     Serializer for updating CustomUser instances.
     """
-    
     password = serializers.CharField(max_length=20, write_only=True, required=False, validators=[password_validator])
     re_password = serializers.CharField(max_length=20, write_only=True, required=False)
     
@@ -99,15 +88,12 @@ class PartialUserUpdateSerializer(serializers.ModelSerializer):
         instance = getattr(self, "instance", None)
         if not instance:
             raise serializers.ValidationError("کاربر مورد نظر یافت نشد.")
-        
         if "username" in attrs:
             new_username = attrs["username"]
             if CustomUser.objects.filter(username=new_username).exclude(pk=instance.pk).exists():
                 raise serializers.ValidationError({"username": "نام کاربری قبلاً انتخاب شده است."})
-                
         if "password" in attrs and attrs["password"] != attrs.get("re_password"):
             raise serializers.ValidationError({"re_password": "رمز عبور و تکرار آن یکسان نمی باشد."})
-        
         return attrs
 
 
@@ -128,7 +114,6 @@ class PasswordResetSerializer(serializers.Serializer):
     """
     Serializer for handling password reset requests.
     """
-    
     email = serializers.EmailField()
 
 
@@ -136,7 +121,6 @@ class SetNewPasswordSerializer(serializers.Serializer):
     """
     Serializer for setting a new password after a reset request.
     """
-    
     password = serializers.CharField(max_length=20, write_only=True, validators=[password_validator])
     re_password = serializers.CharField(max_length=20, write_only=True)
     token = serializers.CharField(write_only=True)
@@ -149,11 +133,6 @@ class SetNewPasswordSerializer(serializers.Serializer):
         return attrs
     
     def to_representation(self, instance):
-        """
-        Removes password fields from the representation.
-        Returns:dict: The representation of the instance
-        """
-        
         data = super().to_representation(instance)
         data.pop("password", None)
         data.pop("re_password", None)
@@ -166,7 +145,6 @@ class FetchUsersSerializer(serializers.ModelSerializer):
     """
     Serializer for fetching CustomUser instances.
     """
-    
     class Meta:
         model = CustomUser
         fields = "__all__"
@@ -177,12 +155,10 @@ class FetchUsersSerializer(serializers.ModelSerializer):
 class FileOperationSerializer(serializers.Serializer):
     """
     Serializer for single file operations on the ArvanCloud bucket.
-
     Used to validate input for tasks such as deleting or downloading a file.
-    - `key`: Required. The unique path of the file in the bucket.
-    - `local_path`: Optional. Local destination path for downloaded files.
+    - key: Required. The unique path of the file in the bucket.
+    - local_path: Optional. Local destination path for downloaded files.
     """
-    
     key = serializers.CharField(max_length=500, required=True)
     local_path = serializers.CharField(max_length=500, required=False, allow_null=True)
 
@@ -192,11 +168,9 @@ class FileOperationSerializer(serializers.Serializer):
 class BulkOperationSerializer(serializers.Serializer):
     """
     Serializer for bulk file operations on the ArvanCloud bucket.
-
     Used to validate a list of file keys for batch deletion.
-    - `keys`: Required. A list of file paths to be deleted from the bucket.
+    - keys: Required. A list of file paths to be deleted from the bucket.
     """
-    
     keys = serializers.ListField(child=serializers.CharField(max_length=500),required=True)
 
 
@@ -205,14 +179,12 @@ class BulkOperationSerializer(serializers.Serializer):
 class FileInfoSerializer(serializers.Serializer):
     """
     Serializer for representing metadata of files stored in the ArvanCloud bucket.
-
     Used to format the output of file listing tasks.
-    - `Key`: The file's path in the bucket.
-    - `Size`: File size in bytes.
-    - `LastModified`: Timestamp of last modification.
-    - `ETag`: Entity tag used for cache validation and versioning.
+    - Key: The file's path in the bucket.
+    - Size: File size in bytes.
+    - LastModified: Timestamp of last modification.
+    - ETag: Entity tag used for cache validation and versioning.
     """
-    
     Key = serializers.CharField()
     Size = serializers.IntegerField()
     LastModified = serializers.DateTimeField()

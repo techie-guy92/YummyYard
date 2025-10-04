@@ -16,8 +16,6 @@ from logging import getLogger
 from django.urls import reverse
 from urllib.parse import urlencode
 from django.utils import timezone
-import time
-import jwt
 import os
 import json
 import uuid
@@ -27,60 +25,48 @@ from .tasks import fetch_all_files, remove_file, download_obj
 from utilities import email_sender
 from custom_permission import CheckOwnershipPermission
 from custome_throttling import CustomThrottle
+from custome_exception import CustomEmailException, CustomRedisException
 
 
 #======================================== Utilities ==============================================
-
-logger = getLogger(__name__)
-
-
-# ======================================================
 
 class EmailChangeThrottle(CustomThrottle):
     def __init__(self):
         super().__init__(scope="email_change", seconds=1800)
 
 
+class PasswordResetThrottle(CustomThrottle):
+    def __init__(self):
+        super().__init__(scope="password_reset", seconds=86400)
+        
+        
 # ======================================================
 
-class CustomEmailException(Exception): pass
+logger = getLogger(__name__)
 
 
-class CustomRedisException(Exception):
-    def __init__(self, message, code=None):
-        super().__init__(message)
-        self.code = code
-
-    def __str__(self):
-        return f"{self.args[0]} (code: {self.code})"
-
-
-# ======================================================
-
-# def generate_token(user, new_email):
-#     """
-#     Generates a time-limited JWT token for verifying an email change request.
-#     Returns: A signed JWT token containing the user's ID, the new email, and an expiration timestamp.
-#     Notes: The token is intended for one-time use in the email verification flow.
-#     """
-    
-#     payload = {
-#         "user_id": user.id,
-#         "new_email": new_email,
-#         "exp": timezone.now() + timedelta(hours=24)
-#     }
-#     return jwt.encode(payload, settings.SECRET_KEY, algorithm="HS256")
+def generate_token(user, new_email):
+    """
+    Generates a time-limited JWT token for verifying an email change request.
+    Returns: A signed JWT token containing the user's ID, the new email, and an expiration timestamp.
+    Notes: The token is intended for one-time use in the email verification flow.
+    """
+    from jwt import encode
+    payload = {"user_id": user.id, "new_email": new_email, "exp": timezone.now() + timedelta(hours=24)}
+    return encode(payload, settings.SECRET_KEY, algorithm="HS256")
 
 
 def generate_access_token(user):
-    """Generate a short-lived access token for stateless verification links."""
-    
+    """
+    Generate a short-lived access token for stateless verification links.
+    """
     return AccessToken.for_user(user)
 
 
 def store_pending_user(data: dict):
-    """Generate a UUID-based token and store user registration data in Redis for 15 minutes."""
-    
+    """
+    Generate a UUID-based token and store user registration data in Redis for 15 minutes.
+    """
     try:
         token = f"pending-user:{uuid.uuid4()}"
         cache.set(token, json.dumps(data), timeout=settings.CACHE_TTL)
@@ -91,8 +77,9 @@ def store_pending_user(data: dict):
 
 
 def send_verification_email(user_data: dict, token: str, payload=None):
-    """Send a verification email containing a tokenized link to the user's email address."""
-    
+    """
+    Send a verification email containing a tokenized link to the user's email address.
+    """
     try:
         domain = settings.FRONTEND_DOMAIN
         query_params = {"token": token}
@@ -113,12 +100,15 @@ def send_verification_email(user_data: dict, token: str, payload=None):
 
 
 def reset_password_email(user):
-    """Send a password reset email to the user's email address."""
-    
+    """
+    Send a password reset email to the user's email address.
+    """
     try:
-        token = generate_access_token(user)
         domain = settings.FRONTEND_DOMAIN
-        verification_link = f"http://{domain}/users/set-new-password?token={str(token)}"
+        token = generate_access_token(user)
+        query_params = {"token": str(token)}
+        query_string = urlencode(query_params)
+        verification_link = f"http://{domain}/users/set-new-password?{query_string}"
         subject = "Password Reset Request"
         message = f"روی لینک کلیک کنید تا رمز خود را بازیابی کنید: {verification_link}"
         html_content = f"""<p>درود<br>{user.first_name} {user.last_name} عزیز,
@@ -482,6 +472,8 @@ class RequestEmailChangeAPIView(APIView):
 
 class PasswordResetAPIView(APIView):
 
+    throttle_classes = [PasswordResetThrottle]
+    
     @extend_schema(
         request=PasswordResetSerializer,
         responses={
@@ -504,12 +496,12 @@ class PasswordResetAPIView(APIView):
         serializer = PasswordResetSerializer(data=request.data)
         if serializer.is_valid():
             email = serializer.validated_data["email"]
-            if CustomUser.objects.filter(email=email).exists():
+            try:
                 user = CustomUser.objects.get(email=email)
-                reset_password_email(user)
-                return Response({"message": "ایمیل برای تغییر رمز عبور ارسال شد."}, status=status.HTTP_200_OK)
-            else:
+            except CustomUser.DoesNotExist:
                 return Response({"error": "ایمیل وارد شده معتبر نمی باشد."}, status=status.HTTP_404_NOT_FOUND)
+            reset_password_email(user)
+            return Response({"message": "ایمیل برای تغییر رمز عبور ارسال شد."}, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -533,8 +525,8 @@ class SetNewPasswordAPIView(APIView):
             OpenApiParameter(name="re_password", type=OpenApiTypes.STR, required=True,description="Password confirmation. Must match 'password'."),
         ],
     )
+    
     def post(self, request: Request):
-
         serializer = SetNewPasswordSerializer(data=request.data)
         if serializer.is_valid():
             try:
@@ -562,8 +554,7 @@ class SetNewPasswordAPIView(APIView):
 #======================================= Fetch Users View ============================================
 
 class FetchUsersModelViewSet(viewsets.ModelViewSet):
-    "ViewSet for fetching CustomUser instances with pagination and filtering."
-    
+    """ViewSet for fetching CustomUser instances with pagination and filtering."""
     permission_classes = [IsAdminUser]
     queryset = CustomUser.objects.all().order_by("id")
     serializer_class = FetchUsersSerializer
@@ -635,8 +626,7 @@ class BucketResultView(APIView):
             "Checks the status and result of a previously triggered asynchronous file listing task in ArvanCloud. "
             "Accepts a task ID and returns one of the following: the completed file list, a pending status with retry suggestion, "
             "or error details if the task failed or result format is invalid. "
-            "Only accessible to admin users.",
-        
+            "Only accessible to admin users."
         ),
         parameters=[
             OpenApiParameter(name="task_id", type=OpenApiTypes.STR, required=True, description="Unique ID of the Celery task to poll for results.")
@@ -707,7 +697,7 @@ class FileDeleteView(APIView):
         summary="Admin-only API view to delete a single file from the bucket.",
         description=(
             "Triggers an asynchronous Celery task to delete a specific file from the bucket. "
-            "Accepts a file key and returns immediately with a task ID and polling URL to check deletion status.",
+            "Accepts a file key and returns immediately with a task ID and polling URL to check deletion status."
         )
     )
 
@@ -744,7 +734,7 @@ class BulkDeleteView(APIView):
         summary="Admin-only API view to delete multiple files from the bucket.",
         description=(
             "Initiates asynchronous deletion tasks for up to 100 files in a single request. "
-            "Accepts a list of file keys and returns a list of task IDs and polling URLs for each file deletion operation.",
+            "Accepts a list of file keys and returns a list of task IDs and polling URLs for each file deletion operation."
         )
     )
 
@@ -795,7 +785,7 @@ class FileDeleteResultView(APIView):
         summary="Admin-only API view to check the result of a file deletion task.",
         description=(
             "Polls the status of a previously triggered file deletion task using its task ID. "
-            "Returns success, failure, or pending status along with relevant details or error tracebacks.",
+            "Returns success, failure, or pending status along with relevant details or error tracebacks."
         ),
         parameters=[
             OpenApiParameter(name="task_id", type=OpenApiTypes.STR, required=True, description="Unique ID of the Celery task to poll for deletion result.")
@@ -850,7 +840,7 @@ class FileDownloadView(APIView):
         summary="Admin-only API view to initiate file download from bucket.",
         description=(
             "Triggers an asynchronous Celery task to download a file from the bucket to a specified local path. "
-            "If no path is provided, a default location is used. Returns a task ID and polling URL to check download status.",
+            "If no path is provided, a default location is used. Returns a task ID and polling URL to check download status."
         )
     )
 
@@ -899,7 +889,7 @@ class FileDownloadResultView(APIView):
         description=(
             "Polls the status of a previously triggered file download task using its task ID. "
             "If successful, returns the downloaded file as an attachment. "
-            "Handles pending, failed, or missing file scenarios with appropriate responses.",
+            "Handles pending, failed, or missing file scenarios with appropriate responses."
         ),
         parameters=[
             OpenApiParameter(name="task_id", type=OpenApiTypes.STR, required=True, description="Unique ID of the Celery task to poll for download result.")

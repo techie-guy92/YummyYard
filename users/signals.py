@@ -17,7 +17,6 @@ def update_subscription(sender, instance, **kwargs):
     Signal receiver to update the user's subscription status upon successful payment.
     Logs the payment processing and updates the user's subscription.
     """
-    
     if instance.is_sucessful:
         instance.process_payment()
         logger.info(f"Processed payment for user: {instance.user.username}")
