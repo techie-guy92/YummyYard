@@ -1,8 +1,11 @@
+from rest_framework_simplejwt.tokens import AccessToken, RefreshToken
 from django.core.validators import RegexValidator
 from django.core.mail import EmailMultiAlternatives
 import logging
 import environ
 from django.conf import settings
+from django.utils import timezone
+from datetime import timedelta
 from re import compile
 from random import choice
 from string import ascii_letters, digits
@@ -31,10 +34,43 @@ def code_generator(count):
     """
     Generate a random code of specified length.
     """
-    
     chars = list(ascii_letters + digits)
     code = "".join([choice(chars) for _ in range(count)])
     return code
+
+
+# ==========================================================
+
+def generate_token(user, new_email):
+    """
+    Generates a time-limited JWT token for verifying an email change request.
+    Returns: A signed JWT token containing the user's ID, the new email, and an expiration timestamp.
+    Notes: The token is intended for one-time use in the email verification flow.
+    """
+    from jwt import encode
+    payload = {"user_id": user.id, "new_email": new_email, "exp": timezone.now() + timedelta(hours=24)}
+    return encode(payload, settings.SECRET_KEY, algorithm="HS256")
+
+
+# ==========================================================
+
+def generate_access_token(user):
+    """
+    Generate a short-lived access token for stateless verification links.
+    """
+    return AccessToken.for_user(user)
+
+
+# ==========================================================
+
+def generate_auth_tokens(user):
+    """
+    Generate a short-lived refresh and access token for stateless verification links.
+    """
+    refresh = RefreshToken.for_user(user)
+    access = refresh.access_token
+    tokens = {"refresh": str(refresh), "access": str(access)}
+    return tokens
 
 
 # ==========================================================
@@ -43,7 +79,6 @@ def email_sender(subject, message, HTML_Content, to):
     """
     Send an email with HTML content.
     """
-    
     sender = settings.EMAIL_HOST_USER
     message = EmailMultiAlternatives(subject, message, sender, to)
     message.attach_alternative(HTML_Content, "text/html")
@@ -56,7 +91,6 @@ def replace_dash_to_space(title):
     """
     Replace spaces with dashes in a given title.
     """
-    
     new_title = "".join([eliminator.replace(" ", "-") for eliminator in title])
     return new_title.lower()
     
@@ -70,7 +104,6 @@ def create_test_users():
     """
     Create and return test users.
     """
-    
     user_1 = User.objects.create_user(**primary_user_1)
     user_1.is_active = True
     user_1.is_admin = True
@@ -91,7 +124,6 @@ def create_test_categories():
     """
     Create and return test categories.
     """
-    
     from main.models import Category
     category_1 = Category.objects.create(name=primary_category_1["name"])
     category_2 = Category.objects.create(name=primary_category_2["name"])
@@ -107,7 +139,6 @@ def create_test_products():
     """
     Create and return test products.
     """
-    
     from main.models import Product
     # It returns a tuple, so indexing starts at 0 and last one is 6.
     categories = create_test_categories()       

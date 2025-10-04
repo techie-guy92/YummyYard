@@ -15,14 +15,13 @@ from celery.result import AsyncResult
 from logging import getLogger
 from django.urls import reverse
 from urllib.parse import urlencode
-from django.utils import timezone
 import os
 import json
 import uuid
 from .models import *
 from .serializers import *
 from .tasks import fetch_all_files, remove_file, download_obj
-from utilities import email_sender
+from utilities import email_sender, generate_token, generate_access_token, generate_auth_tokens
 from custom_permission import CheckOwnershipPermission
 from custome_throttling import CustomThrottle
 from custome_exception import CustomEmailException, CustomRedisException
@@ -43,24 +42,6 @@ class PasswordResetThrottle(CustomThrottle):
 # ======================================================
 
 logger = getLogger(__name__)
-
-
-def generate_token(user, new_email):
-    """
-    Generates a time-limited JWT token for verifying an email change request.
-    Returns: A signed JWT token containing the user's ID, the new email, and an expiration timestamp.
-    Notes: The token is intended for one-time use in the email verification flow.
-    """
-    from jwt import encode
-    payload = {"user_id": user.id, "new_email": new_email, "exp": timezone.now() + timedelta(hours=24)}
-    return encode(payload, settings.SECRET_KEY, algorithm="HS256")
-
-
-def generate_access_token(user):
-    """
-    Generate a short-lived access token for stateless verification links.
-    """
-    return AccessToken.for_user(user)
 
 
 def store_pending_user(data: dict):
@@ -337,10 +318,13 @@ class LoginAPIView(APIView):
             password = serializer.validated_data["password"]
             user = authenticate(username=username, password=password)
             if user is not None:
-                # token = RefreshToken.for_user(user).access_token
-                refresh = RefreshToken.for_user(user)
-                access = refresh.access_token
-                return Response({"access": str(access), "refresh": str(refresh)}, status=status.HTTP_200_OK)
+                token = generate_auth_tokens(user)
+                return Response({
+                    "access": token["access"],
+                    "refresh": token["refresh"],
+                    "access_expires_in": settings.SIMPLE_JWT["ACCESS_TOKEN_LIFETIME"].total_seconds(),
+                    "refresh_expires_in": settings.SIMPLE_JWT["REFRESH_TOKEN_LIFETIME"].total_seconds()
+                }, status=status.HTTP_200_OK)
             return Response({"error": "نام کاربری و یا رمز عبور اشتباه است."}, status=status.HTTP_400_BAD_REQUEST)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
             

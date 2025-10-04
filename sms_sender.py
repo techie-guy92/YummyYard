@@ -4,9 +4,8 @@ import logging
 import environ
 
 
-# ==========================================================
+#======================================== Kavenegar Messenger ============================================
 
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 env = environ.Env()
@@ -58,7 +57,7 @@ def message_sender(phone_number, message, retries=2):
     return None
 
 
-# ==========================================================
+#=========================================================================================================
 
 # Example of Kavenegar's response
 

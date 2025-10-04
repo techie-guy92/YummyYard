@@ -4,8 +4,7 @@ __pycache__/
 settings.json
 templates/
 storage_utils.py
-celery_definition.txt
-redis_definition.txt
+definition_*.txt
 webhook.py
 
 # Ignore media
