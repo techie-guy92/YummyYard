@@ -4,7 +4,7 @@ from .views import (
     SignUpAPIView, VerifyEmailAPIView, LoginAPIView, UserProfileAPIView, 
     UpdateUserAPIView, FetchUsersModelViewSet, PasswordResetAPIView, SetNewPasswordAPIView,
     BucketFilesView, BucketResultView, FileDeleteView, BulkDeleteView, FileDeleteResultView, 
-    FileDownloadView, FileDownloadResultView,
+    FileDownloadView, FileDownloadResultView, RequestEmailChangeAPIView, 
 )
 
 router = DefaultRouter()
@@ -20,6 +20,7 @@ urlpatterns = [
     path("update-user/", UpdateUserAPIView.as_view(), name="update-user"),
     path("password-reset/", PasswordResetAPIView.as_view(), name="password-reset"),
     path("set-new-password/", SetNewPasswordAPIView.as_view(), name="set-new-password"),
+    path("update-email/", RequestEmailChangeAPIView.as_view(), name="update-email"),
     # ArvanCloud
     path("admin/bucket/files/", BucketFilesView.as_view(), name="bucket-files"),
     path("admin/bucket/result/<str:task_id>/", BucketResultView.as_view(), name="bucket-files-result"),

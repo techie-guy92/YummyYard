@@ -14,6 +14,10 @@ from django.http import FileResponse, HttpResponse
 from celery.result import AsyncResult
 from logging import getLogger
 from django.urls import reverse
+from urllib.parse import urlencode
+from django.utils import timezone
+import time
+import jwt
 import os
 import json
 import uuid
@@ -22,12 +26,22 @@ from .serializers import *
 from .tasks import fetch_all_files, remove_file, download_obj
 from utilities import email_sender
 from custom_permission import CheckOwnershipPermission
+from custome_throttling import CustomThrottle
 
 
-#======================================== email senders ==============================================
+#======================================== Utilities ==============================================
 
 logger = getLogger(__name__)
 
+
+# ======================================================
+
+class EmailChangeThrottle(CustomThrottle):
+    def __init__(self):
+        super().__init__(scope="email_change", seconds=1800)
+
+
+# ======================================================
 
 class CustomEmailException(Exception): pass
 
@@ -43,8 +57,29 @@ class CustomRedisException(Exception):
 
 # ======================================================
 
+# def generate_token(user, new_email):
+#     """
+#     Generates a time-limited JWT token for verifying an email change request.
+#     Returns: A signed JWT token containing the user's ID, the new email, and an expiration timestamp.
+#     Notes: The token is intended for one-time use in the email verification flow.
+#     """
+    
+#     payload = {
+#         "user_id": user.id,
+#         "new_email": new_email,
+#         "exp": timezone.now() + timedelta(hours=24)
+#     }
+#     return jwt.encode(payload, settings.SECRET_KEY, algorithm="HS256")
+
+
+def generate_access_token(user):
+    """Generate a short-lived access token for stateless verification links."""
+    
+    return AccessToken.for_user(user)
+
+
 def store_pending_user(data: dict):
-    "Generate a UUID-based token and store user registration data in Redis for 15 minutes."
+    """Generate a UUID-based token and store user registration data in Redis for 15 minutes."""
     
     try:
         token = f"pending-user:{uuid.uuid4()}"
@@ -55,49 +90,30 @@ def store_pending_user(data: dict):
         raise CustomRedisException("Redis failed to store token", code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-def send_verification_email(user_data: dict, token: str):
-    "Send a verification email containing a tokenized link to the user's email address."
+def send_verification_email(user_data: dict, token: str, payload=None):
+    """Send a verification email containing a tokenized link to the user's email address."""
     
     try:
         domain = settings.FRONTEND_DOMAIN
-        verification_link = f"http://{domain}/users/verify-email?token={token}"
+        query_params = {"token": token}
+        if payload:
+            query_params.update(payload)
+        query_string = urlencode(query_params)
+        verification_link = f"http://{domain}/users/verify-email?{query_string}"
+        email = payload["email"] if payload else user_data["email"]
         subject = "تاییدیه ایمیل"
         message = f"روی لینک کلیک کنید تا ایمیل شما تایید شود: {verification_link}"
         html_content = f"""<p>درود<br>{user_data['first_name']} {user_data['last_name']} عزیز,
         <br><br>لطفا روی لینک زیر کلیک کنید تا ایمیل شما تایید شود:
         <br><a href="{verification_link}">تایید ایمیل</a><br><br>ممنون</p>"""
-        email_sender(subject, message, html_content, [user_data["email"]])
+        email_sender(subject, message, html_content, [email])
     except Exception as error:
         logger.error(f"Failed to send verification email: {error}")
         raise CustomEmailException("Email failed to send")
 
 
-def generate_access_token(user):
-    "Generate a short-lived access token for stateless verification links."
-    
-    return AccessToken.for_user(user)
-
-
-def confirm_email_address(user):
-    "Send a verification email to the user's email address."
-    
-    try:
-        token = generate_access_token(user)
-        domain = settings.FRONTEND_DOMAIN
-        verification_link = f"http://{domain}/users/verify-email?token={str(token)}"
-        subject = "تاییدیه ایمیل"
-        message = f"روی لینک زیر کلیک کنید تا ایمیل شما تایید شود: {verification_link}"
-        html_content = f"""<p>درود<br>{user.first_name} {user.last_name} عزیز,
-        <br><br>لطفا روی لینک زیر کلیک کنید تا ایمیل شما تایید شود:
-        <br><a href="{verification_link}">تایید ایمیل</a><br><br>ممنون</p>"""
-        email_sender(subject, message, html_content, [user.email])
-    except Exception as error:
-        logger.error(f"Failed to send verification email to {user.email}: {error}")
-        raise
-    
-
 def reset_password_email(user):
-    "Send a password reset email to the user's email address."
+    """Send a password reset email to the user's email address."""
     
     try:
         token = generate_access_token(user)
@@ -234,86 +250,75 @@ class SignUpAPIView(APIView):
     
 #======================================= Verify Email View ===========================================
 
-# Redis-first strategy
 class VerifyEmailAPIView(APIView):
     
     @extend_schema(
         request=None,
         responses={
-            201: "User account created and verified successfully",
-            400: "Invalid or expired token",
-            500: "Internal server error"
+            200: "Email address updated successfully.",
+            201: "User account created and verified successfully.",
+            400: "Invalid or expired token.",
+            404: "User not found.",
+            500: "Internal server error.",
         },
-        summary="Verify user's email and finalize registration.",
+        summary="Verify email for signup or email change.",
         description=(
-            "Retrieves pending user data from Redis using the provided token. "
-            "Creates the user account in the database and activates it upon successful verification. "
-            "Handles token expiration and malformed data gracefully."
+            "Handles email verification for two flows:\n\n"
+            "1. **Signup Verification**: If no `email` parameter is present, the system assumes this is a new user registration. "
+            "It retrieves pending user data from Redis using the provided token, creates the user account, and activates it.\n\n"
+            "2. **Email Change Verification**: If an `email` parameter is present, the system assumes this is an email update. "
+            "It decodes the token to identify the user and updates their email address accordingly.\n\n"
+            "Handles token expiration, malformed data, and missing users gracefully."
         ),
     )
-        
+
     def get(self, request: Request):
         token = request.GET.get("token")
         if not token:
             return Response({"error": "توکن یافت نشد."}, status=status.HTTP_400_BAD_REQUEST)
 
-        raw_data = cache.get(token)
-        if not raw_data:
-            return Response({"error": "توکن منقضی شده یا نامعتبر است."}, status=status.HTTP_400_BAD_REQUEST)
+        email = request.GET.get("email")
 
         try:
-            user_data = json.loads(raw_data)
-            user_data.pop("re_password", None)
-            user = CustomUser.objects.create_user(**user_data)
-            user.is_active = True
-            user.save()
-            cache.delete(token)
-            return Response({"message": "ثبت نام شما با موفقیت انجام شد."}, status=status.HTTP_201_CREATED)
-        except Exception as error:
-            return Response({"error": str(error)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-        
+            if email:
+                # Email change flow
+                payload = AccessToken(token).payload
+                user_id = payload.get("user_id")
+                if not user_id:
+                    return Response({"error": "توکن معتبر نیست یا منقضی شده است."}, status=status.HTTP_400_BAD_REQUEST)
 
-# DB strategy    
-# class VerifyEmailAPIView(APIView):
+                try:
+                    user = CustomUser.objects.get(pk=user_id)
+                    user.email = email
+                    user.save()
+                    logger.info(f"Email changed for user {user.username}")
+                    return Response({"message": "ایمیل جدید شما ثبت شد."}, status=status.HTTP_200_OK)
+                except CustomUser.DoesNotExist:
+                    return Response({"error": "کاربر یافت نشد."}, status=status.HTTP_404_NOT_FOUND)
 
-#     @extend_schema(
-#         request=None,
-#         responses={
-#             200: "Email verified successfully", 
-#             202: "User already verified", 
-#             400: "Invalid or expired token", 
-#             404: "User not found"
-#         },
-#         summary="API view for verifying user's email using the token provided.",
-#         description=(
-#             "Verifies the user's email address using a token provided via query parameters. " 
-#             "Activates the user account if the token is valid and the user is not already verified. "
-#             "Handles token errors and missing users gracefully."
-#         ),
-#     )
-    
-#     def get(self, request: Request):
-#         try:
-#             token = request.GET.get("token")
-#             payload = AccessToken(token).payload
-#             user_id = payload.get("user_id")
-#             if not user_id:
-#                 return Response({"error": "توکن معتبر نیست یا منقضی شده است."}, status=status.HTTP_400_BAD_REQUEST)
-#             try:
-#                 user = CustomUser.objects.get(pk=user_id)
-#                 if not user.is_active:
-#                     user.is_active = True
-#                     user.save()
-#                     return Response({"message": "ثبت نام شما کامل شد."}, status=status.HTTP_200_OK)
-#                 return Response({"message": f"کاربر {user.username} قبلا تایید شده است."}, status=status.HTTP_202_ACCEPTED)
-#             except CustomUser.DoesNotExist:
-#                 return Response({"error": "کاربر یافت نشد."}, status=status.HTTP_404_NOT_FOUND)
-#         except InvalidToken:
-#             return Response({"error": "توکن معنبر نیست."}, status=status.HTTP_400_BAD_REQUEST)
-#         except TokenError:
-#             return Response({"error": "توکن معنبر نیست."}, status=status.HTTP_400_BAD_REQUEST)
+            else:
+                # Signup flow
+                raw_data = cache.get(token)
+                if not raw_data:
+                    return Response({"error": "توکن منقضی شده یا نامعتبر است."}, status=status.HTTP_400_BAD_REQUEST)
 
-        
+                try:
+                    user_data = json.loads(raw_data)
+                    user_data.pop("re_password", None)
+                    user = CustomUser.objects.create_user(**user_data)
+                    user.is_active = True
+                    user.save()
+                    cache.delete(token)
+                    logger.info(f"New user registered: {user.username}")
+                    return Response({"message": "ثبت نام شما با موفقیت انجام شد."}, status=status.HTTP_201_CREATED)
+                except Exception as error:
+                    logger.error(f"User creation failed: {error}")
+                    return Response({"error": str(error)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        except (InvalidToken, TokenError):
+            return Response({"error": "توکن معتبر نیست."}, status=status.HTTP_400_BAD_REQUEST)
+
+            
 #======================================= Login View ==================================================
 
 class LoginAPIView(APIView):
@@ -418,8 +423,58 @@ class UpdateUserAPIView(APIView):
         self.check_object_permissions(request, user)
         serializer = PartialUserUpdateSerializer(data=request.data, instance=user, partial=True)
         if serializer.is_valid():
-            serializer.save()
-            return Response({"message": "اطلاعات شما با موفقیت تغییر کرد."}, status=status.HTTP_201_CREATED)
+            data = serializer.save()
+            return Response({
+                "message": "اطلاعات شما با موفقیت تغییر کرد.",               
+                "username": data.username, 
+                "first_name": data.first_name, 
+                "last_name": data.last_name, 
+                }, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+#======================================= Request Email Change View =====================================
+
+class RequestEmailChangeAPIView(APIView):
+    
+    permission_classes = [CheckOwnershipPermission]
+    throttle_classes = [EmailChangeThrottle]
+    
+    @extend_schema(
+        request=RequestEmailChangeSerializer,
+        responses={
+            200: "Verification email sent successfully.",
+            400: "Invalid input data. Check email format.",
+        },
+        summary="Initiate email change request for authenticated user.",
+        description=(
+            "Allows authenticated users to request an email address change. "
+            "The new email must be valid and not already registered. "
+            "If the request is valid, a verification link is sent to the new email address. "
+            "The change will only take effect after the user verifies the new email via the link."
+        ),
+        parameters=[
+            OpenApiParameter(name="new_email", type=OpenApiTypes.STR, required=True, description="The new email address the user wants to use. Must be valid and not already registered."),
+        ],
+    )
+
+    def post(self, request):
+        self.check_object_permissions(request, request.user)
+        serializer = RequestEmailChangeSerializer(data=request.data)
+        if serializer.is_valid():
+            try:
+                user = CustomUser.objects.get(pk=request.user.pk)
+            except CustomUser.DoesNotExist:
+                return Response({"error": "کاربر یافت نشد."}, status=status.HTTP_404_NOT_FOUND)
+            new_email = serializer.validated_data["new_email"]
+            token = generate_access_token(user)
+            user_data = {
+                "first_name": user.first_name,
+                "last_name": user.last_name,
+                }
+            payload = {"email": new_email}
+            send_verification_email(user_data, token, payload)
+            return Response({"message": "لینک تأیید به ایمیل جدید ارسال شد و تا ۳۰ دقیقه معتبر است."}, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 

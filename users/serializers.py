@@ -110,6 +110,16 @@ class PartialUserUpdateSerializer(serializers.ModelSerializer):
         
         return attrs
 
+
+#======================================= Request Email Change Serializer ============================
+
+class RequestEmailChangeSerializer(serializers.Serializer):
+    new_email = serializers.EmailField(validators=[email_validator])
+
+    def validate_new_email(self, attr):
+        if CustomUser.objects.filter(email=attr).exists():
+            raise serializers.ValidationError("این ایمیل قبلاً ثبت شده است.")
+        return attr
     
     
 #======================================= Forget Password Serializer ================================
@@ -117,9 +127,6 @@ class PartialUserUpdateSerializer(serializers.ModelSerializer):
 class PasswordResetSerializer(serializers.Serializer):
     """
     Serializer for handling password reset requests.
-
-    Attributes:
-    email (str): The email address of the user requesting the password reset
     """
     
     email = serializers.EmailField()
@@ -128,11 +135,6 @@ class PasswordResetSerializer(serializers.Serializer):
 class SetNewPasswordSerializer(serializers.Serializer):
     """
     Serializer for setting a new password after a reset request.
-
-    Attributes:
-    password (str): The new password (write-only)
-    re_password (str): The repeated new password for confirmation (write-only)
-    token (str): The password reset token
     """
     
     password = serializers.CharField(max_length=20, write_only=True, validators=[password_validator])
@@ -140,16 +142,6 @@ class SetNewPasswordSerializer(serializers.Serializer):
     token = serializers.CharField(write_only=True)
     
     def validate(self, attrs):
-        """
-        Validates the new passwords and ensures they match.
-
-        Parameters:
-        attrs (dict): The attributes to validate
-
-        Returns:
-        dict: The validated attributes
-        """
-        
         if "password" not in attrs:
             raise serializers.ValidationError({"password": "وارد کردن رمز عبور ضروری است."})
         if attrs["password"] != attrs.get("re_password"):
@@ -159,12 +151,7 @@ class SetNewPasswordSerializer(serializers.Serializer):
     def to_representation(self, instance):
         """
         Removes password fields from the representation.
-
-        Parameters:
-        instance (object): The instance to represent
-
-        Returns:
-        dict: The representation of the instance
+        Returns:dict: The representation of the instance
         """
         
         data = super().to_representation(instance)
