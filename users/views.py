@@ -87,7 +87,7 @@ def send_verification_email(user_data: dict, token: str, payload=None):
         raise CustomEmailException("Email failed to send")
 
 
-def reset_password_email(user, token):
+def send_reset_password_email(user, token):
     """
     Send a password reset email to the user's email address.
     """
@@ -138,7 +138,7 @@ class SignUpAPIView(APIView):
         if serializer.is_valid():
             token = store_pending_user(serializer.validated_data)
             send_verification_email(serializer.validated_data, token)
-            return Response({"message": "لینک تایید به ایمیل شما ارسال شد و تا یک ساعت معتبر است."}, status=status.HTTP_201_CREATED)
+            return Response({"message": "لینک تایید به ایمیل شما ارسال شد و تا ۱۵ دقیقه معتبر است."}, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -447,7 +447,7 @@ class RequestEmailChangeAPIView(APIView):
                 }
             payload = {"email": new_email}
             send_verification_email(user_data, token, payload)
-            return Response({"message": "لینک تأیید به ایمیل جدید ارسال شد و تا ۳۰ دقیقه معتبر است."}, status=status.HTTP_200_OK)
+            return Response({"message": "لینک تأیید به ایمیل جدید ارسال شد و تا یک ساعت معتبر است."}, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -484,7 +484,7 @@ class PasswordResetAPIView(APIView):
             except CustomUser.DoesNotExist:
                 return Response({"error": "ایمیل وارد شده معتبر نمی باشد."}, status=status.HTTP_404_NOT_FOUND)
             token = generate_access_token(user, 24)
-            reset_password_email(user, token)
+            send_reset_password_email(user, token)
             return Response({"message": "ایمیل بازیابی رمز عبور ارسال شد. لینک تا ۲۴ ساعت آینده معتبر خواهد بود."}, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 

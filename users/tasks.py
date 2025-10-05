@@ -4,6 +4,8 @@ from django.core.cache import cache
 import logging
 import time
 from .models import *
+from utilities import email_sender
+from custome_exception import CustomEmailException
 from config.storages import Bucket
 
 
@@ -16,10 +18,23 @@ from config.storages import Bucket
 # celery -A config beat --loglevel=info
 
 
-#==================================== UpdateSubscription Celery =========================================
+#==================================== Update Subscription Celery ========================================
 
-logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
+
+
+def send_extend_premium_account(user):
+    try:
+        verification_link = f"http://{settings.FRONTEND_DOMAIN}"
+        subject = "پایان اشتکراک ویژه"
+        message = "اشتراک ویژه شما به اتمام رسید در صورت تمدید اشتراک خود روی لینک زیر کلیک کنید"
+        html_content = f"""<p>درود<br>{user.first_name} {user.last_name} عزیز,
+        <br><br>اشتراک ویژه شما به اتمام رسید در صورت تمدید اشتراک خود روی لینک زیر کلیک کنید:
+        <br><a href="{verification_link}">تمدید اشتراک</a><br><br>ممنون</p>"""
+        email_sender(subject, message, html_content, [user.email])
+    except Exception as error:
+        logger.error(f"Failed to send verification email: {error}")
+        raise CustomEmailException("Email failed to send")
 
 
 @shared_task(rate_limit="10/m")
@@ -37,22 +52,23 @@ def check_premium_subscriptions():
     start_time = time.time()
     current_date = localtime(now())
     logger.debug(f"Checking for expired subscriptions at {current_date}")
-
     try:
         expired_subscriptions = PremiumSubscription.objects.filter(expiry_date__lt=current_date)
         logger.info(f"Expired subscriptions: {expired_subscriptions}")
-
         for sub in expired_subscriptions:
             user = sub.user
             user.is_premium = False
             user.save()
             logger.info(f"Updated user: {user.username} is_premium: {user.is_premium}")
+            try:
+                send_extend_premium_account(user)
+                logger.info(f"Sent premium extension email to {user.email}")
+            except Exception as error:
+                logger.error(f"Email failed for {user.email}", exc_info=True)
             sub.delete()
-            logger.info(f"Deleted subscription: {sub}")
-
+            logger.info(f"Deleted subscription for user: {user.username}")
         duration = time.time() - start_time
         logger.info(f"Premium subscription check completed in {duration:.2f} seconds")
-
     except Exception as error:
         logger.error(f"Error in check_premium_subscriptions: {error}", exc_info=True)
       
