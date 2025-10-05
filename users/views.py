@@ -15,13 +15,14 @@ from celery.result import AsyncResult
 from logging import getLogger
 from django.urls import reverse
 from urllib.parse import urlencode
+from datetime import timedelta
 import os
 import json
 import uuid
 from .models import *
 from .serializers import *
 from .tasks import fetch_all_files, remove_file, download_obj
-from utilities import email_sender, generate_token, generate_access_token, generate_auth_tokens
+from utilities import email_sender, generate_access_token, generate_auth_tokens
 from custom_permission import CheckOwnershipPermission
 from custome_throttling import CustomThrottle
 from custome_exception import CustomEmailException, CustomRedisException
@@ -29,16 +30,22 @@ from custome_exception import CustomEmailException, CustomRedisException
 
 #======================================== Utilities ==============================================
 
+MINUTES_30 = timedelta(minutes=30).total_seconds()
+AN_HOUR = timedelta(hours=1).total_seconds()
+A_DAY = timedelta(days=1).total_seconds()
+THIRTY_DAYS = timedelta(days=30).total_seconds()
+
+
 class EmailChangeThrottle(CustomThrottle):
     def __init__(self):
-        super().__init__(scope="email_change", seconds=1800)
+        super().__init__(scope="email_change", seconds=AN_HOUR)
 
 
 class PasswordResetThrottle(CustomThrottle):
     def __init__(self):
-        super().__init__(scope="password_reset", seconds=86400)
+        super().__init__(scope="password_reset", seconds=A_DAY)
         
-        
+
 # ======================================================
 
 logger = getLogger(__name__)
@@ -80,17 +87,15 @@ def send_verification_email(user_data: dict, token: str, payload=None):
         raise CustomEmailException("Email failed to send")
 
 
-def reset_password_email(user):
+def reset_password_email(user, token):
     """
     Send a password reset email to the user's email address.
     """
     try:
-        domain = settings.FRONTEND_DOMAIN
-        token = generate_access_token(user)
-        query_params = {"token": str(token)}
+        query_params = {"token": token}
         query_string = urlencode(query_params)
-        verification_link = f"http://{domain}/users/set-new-password?{query_string}"
-        subject = "Password Reset Request"
+        verification_link = f"http://{settings.FRONTEND_DOMAIN}/users/set-new-password?{query_string}"
+        subject = "بازیابی رمز عبور"
         message = f"روی لینک کلیک کنید تا رمز خود را بازیابی کنید: {verification_link}"
         html_content = f"""<p>درود<br>{user.first_name} {user.last_name} عزیز,
         <br><br>روی لینک زیر کلیک کنید تا رمز خود را بازیابی کنید:
@@ -110,7 +115,6 @@ class SignUpAPIView(APIView):
         request=CustomUserSerializer,
         responses={
             201: "Verification email sent successfully",
-            409: "Username or email already exists",
             400: "Invalid registration data"
         },
         summary="Register a new user and send verification email.",
@@ -130,18 +134,11 @@ class SignUpAPIView(APIView):
     )
     
     def post(self, request: Request):
-        username = request.data.get("username")
-        email = request.data.get("email")
-        if CustomUser.objects.filter(username=username).exists():
-            return Response({"error": "این نام کاربری وحود دارد، نام کاربری دیگری انتخاب کنید."}, status=status.HTTP_409_CONFLICT)
-        if CustomUser.objects.filter(email=email).exists():
-            return Response({"error": "ایمل مورد نظر قبلا ثبت نام کرده است."}, status=status.HTTP_409_CONFLICT)
-        
         serializer = CustomUserSerializer(data=request.data)
         if serializer.is_valid():
             token = store_pending_user(serializer.validated_data)
             send_verification_email(serializer.validated_data, token)
-            return Response({"message": "لینک تایید به ایمیل شما ارسال شد."}, status=status.HTTP_200_OK)
+            return Response({"message": "لینک تایید به ایمیل شما ارسال شد و تا یک ساعت معتبر است."}, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -319,11 +316,13 @@ class LoginAPIView(APIView):
             user = authenticate(username=username, password=password)
             if user is not None:
                 token = generate_auth_tokens(user)
+                access_lifetime = round(settings.SIMPLE_JWT["ACCESS_TOKEN_LIFETIME"].total_seconds() / 60, 2)
+                refresh_lifetime = round(((settings.SIMPLE_JWT["REFRESH_TOKEN_LIFETIME"].total_seconds() / 60) / 60) / 24, 4)
                 return Response({
                     "access": token["access"],
                     "refresh": token["refresh"],
-                    "access_expires_in": settings.SIMPLE_JWT["ACCESS_TOKEN_LIFETIME"].total_seconds(),
-                    "refresh_expires_in": settings.SIMPLE_JWT["REFRESH_TOKEN_LIFETIME"].total_seconds()
+                    "access_expires_in": f"{access_lifetime} minutes",
+                    "refresh_expires_in": f"{refresh_lifetime} days"
                 }, status=status.HTTP_200_OK)
             return Response({"error": "نام کاربری و یا رمز عبور اشتباه است."}, status=status.HTTP_400_BAD_REQUEST)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -367,7 +366,7 @@ class UserProfileAPIView(APIView):
     
 #======================================= Update User View ============================================
 
-class UpdateUserAPIView(APIView):
+class PartialUserUpdateAPIView(APIView):
 
     permission_classes = [CheckOwnershipPermission]
     
@@ -484,8 +483,9 @@ class PasswordResetAPIView(APIView):
                 user = CustomUser.objects.get(email=email)
             except CustomUser.DoesNotExist:
                 return Response({"error": "ایمیل وارد شده معتبر نمی باشد."}, status=status.HTTP_404_NOT_FOUND)
-            reset_password_email(user)
-            return Response({"message": "ایمیل برای تغییر رمز عبور ارسال شد."}, status=status.HTTP_200_OK)
+            token = generate_access_token(user, 24)
+            reset_password_email(user, token)
+            return Response({"message": "ایمیل بازیابی رمز عبور ارسال شد. لینک تا ۲۴ ساعت آینده معتبر خواهد بود."}, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -511,11 +511,16 @@ class SetNewPasswordAPIView(APIView):
     )
     
     def post(self, request: Request):
-        serializer = SetNewPasswordSerializer(data=request.data)
+        token = request.query_params.get("token")
+        if not token:
+            return Response({"error": "توکن در لینک موجود نیست یا نامعتبر است."}, status=status.HTTP_400_BAD_REQUEST)
+
+        data = request.data.copy()
+        data["token"] = token
+        serializer = SetNewPasswordSerializer(data=data)
         if serializer.is_valid():
             try:
                 password = serializer.validated_data["password"]
-                token = serializer.validated_data["token"]
                 payload = AccessToken(token).payload
                 user_id = payload.get("user_id")
                 if not user_id:
@@ -531,6 +536,7 @@ class SetNewPasswordAPIView(APIView):
             except TokenError:
                 return Response({"error": "توکن منقضی شده است."}, status=status.HTTP_400_BAD_REQUEST)
             except Exception as error:
+                logger.error(f"Unexpected error during password reset: {error}")
                 return Response({"error": str(error)}, status=status.HTTP_400_BAD_REQUEST)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -538,7 +544,9 @@ class SetNewPasswordAPIView(APIView):
 #======================================= Fetch Users View ============================================
 
 class FetchUsersModelViewSet(viewsets.ModelViewSet):
-    """ViewSet for fetching CustomUser instances with pagination and filtering."""
+    """
+    ViewSet for fetching CustomUser instances with pagination and filtering.
+    """
     permission_classes = [IsAdminUser]
     queryset = CustomUser.objects.all().order_by("id")
     serializer_class = FetchUsersSerializer

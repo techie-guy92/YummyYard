@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from rest_framework.validators import UniqueValidator
 from uuid import UUID
 from .models import *
 from utilities import *
@@ -12,8 +13,17 @@ class CustomUserSerializer(serializers.ModelSerializer):
     """
     password = serializers.CharField(max_length=20, write_only=True, validators=[password_validator])
     re_password = serializers.CharField(max_length=20, write_only=True)
-    email = serializers.EmailField(max_length=100, validators=[email_validator])
+    username = serializers.CharField(max_length=30, validators=[
+        UniqueValidator(queryset=CustomUser.objects.all(), message="این نام کاربری وجود دارد، نام کاربری دیگری انتخاب کنید.")
+        ]
+    )
     
+    email = serializers.EmailField(max_length=100, validators=[
+        email_validator, 
+        UniqueValidator(queryset=CustomUser.objects.all(), message="ایمیل قبلا ثبت شده است.")
+        ]
+    )
+
     class Meta:
         model = CustomUser
         fields = ["username", "first_name", "last_name", "email", "password", "re_password"]
@@ -30,12 +40,11 @@ class CustomUserSerializer(serializers.ModelSerializer):
             email = validated_data["email"],
             password = password,
         )
-        user.save()
         return user
     
-    def validate(self, attrs):        
+    def validate(self, attrs):
         if attrs["password"] != attrs["re_password"]:
-            raise serializers.ValidationError("رمز عبور و تکرار آن یکسان نمی باشد.")
+            raise serializers.ValidationError("رمز عبور و تکرار آن یکسان نمی باشد.")        
         return attrs
 
     
@@ -100,6 +109,10 @@ class PartialUserUpdateSerializer(serializers.ModelSerializer):
 #======================================= Request Email Change Serializer ============================
 
 class RequestEmailChangeSerializer(serializers.Serializer):
+    """
+    Serializer for handling email change requests.
+    Validates the new email format and ensures it is not already registered.
+    """
     new_email = serializers.EmailField(validators=[email_validator])
 
     def validate_new_email(self, attr):
@@ -149,8 +162,9 @@ class FetchUsersSerializer(serializers.ModelSerializer):
         model = CustomUser
         fields = "__all__"
 
-
+#===================================================================================================
 #======================================= ArvanCloud Serializer =====================================
+#===================================================================================================
 
 class FileOperationSerializer(serializers.Serializer):
     """

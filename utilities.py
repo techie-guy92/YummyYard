@@ -41,24 +41,13 @@ def code_generator(count):
 
 # ==========================================================
 
-def generate_token(user, new_email):
+def generate_access_token(user, lifetime=1):
     """
-    Generates a time-limited JWT token for verifying an email change request.
-    Returns: A signed JWT token containing the user's ID, the new email, and an expiration timestamp.
-    Notes: The token is intended for one-time use in the email verification flow.
+    Generate a flexable access token for stateless verification links.
     """
-    from jwt import encode
-    payload = {"user_id": user.id, "new_email": new_email, "exp": timezone.now() + timedelta(hours=24)}
-    return encode(payload, settings.SECRET_KEY, algorithm="HS256")
-
-
-# ==========================================================
-
-def generate_access_token(user):
-    """
-    Generate a short-lived access token for stateless verification links.
-    """
-    return AccessToken.for_user(user)
+    token = AccessToken.for_user(user)
+    token.set_exp(lifetime=timedelta(hours=lifetime))
+    return str(token)
 
 
 # ==========================================================
@@ -95,6 +84,17 @@ def replace_dash_to_space(title):
     return new_title.lower()
     
     
+# ==========================================================
+
+def get_client_ip(request):
+    x_forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
+    if x_forwarded_for:
+        ip = x_forwarded_for.split(",")[0].strip()
+    else:
+        ip = request.META.get("REMOTE_ADDR", "unknown")
+    return ip
+
+
 # ==========================================================
 
 User = get_user_model()
