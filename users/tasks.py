@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 def send_extend_premium_account_email(user):
     try:
         verification_link = f"http://{settings.FRONTEND_DOMAIN}/"
-        subject = "پایان اشتکراک ویژه"
+        subject = "پایان اشتراک ویژه"
         message = "اشتراک ویژه شما به اتمام رسید در صورت تمدید اشتراک خود روی لینک زیر کلیک کنید"
         html_content = f"""<p>درود<br>{user.first_name} {user.last_name} عزیز,
         <br><br>اشتراک ویژه شما به اتمام رسید در صورت تمدید اشتراک خود روی لینک زیر کلیک کنید:
