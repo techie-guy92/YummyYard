@@ -101,7 +101,7 @@ def send_reset_password_email(user, token):
         <br><a href="{verification_link}">بازیابی رمز عبور</a><br><br>ممنون</p>"""
         email_sender(subject, message, html_content, [user.email])
     except Exception as error:
-        logger.error(f"Failed to send verification email to {user.email}: {error}")
+        logger.error(f"Failed to send reset password email to {user.email}: {error}")
         raise
 
 

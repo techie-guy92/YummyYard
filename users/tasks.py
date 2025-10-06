@@ -4,6 +4,8 @@ from django.core.cache import cache
 import logging
 import time
 from .models import *
+from utilities import *
+from custome_exception import CustomEmailException
 from config.storages import Bucket
 
 
@@ -20,6 +22,20 @@ from config.storages import Bucket
 
 logger = logging.getLogger(__name__)
 
+
+def send_extend_premium_account_email(user):
+    try:
+        verification_link = f"http://{settings.FRONTEND_DOMAIN}/"
+        subject = "پایان اشتکراک ویژه"
+        message = "اشتراک ویژه شما به اتمام رسید در صورت تمدید اشتراک خود روی لینک زیر کلیک کنید"
+        html_content = f"""<p>درود<br>{user.first_name} {user.last_name} عزیز,
+        <br><br>اشتراک ویژه شما به اتمام رسید در صورت تمدید اشتراک خود روی لینک زیر کلیک کنید:
+        <br><a href="{verification_link}">تمدید اشتراک</a><br><br>ممنون</p>"""
+        email_sender(subject, message, html_content, [user.email])
+    except Exception as error:
+        logger.error(f"Failed to send premium extension email to {user.email}: {error}")
+        raise
+    
 
 @shared_task(rate_limit="10/m")
 def check_premium_subscriptions():
@@ -44,6 +60,8 @@ def check_premium_subscriptions():
             user.is_premium = False
             user.save()
             logger.info(f"Updated user: {user.username} is_premium: {user.is_premium}")
+            send_extend_premium_account_email(user)
+            logger.info(f"Sent premium extension email to {user.email}")
             sub.delete()
             logger.info(f"Deleted subscription for user: {user.username}")
         duration = time.time() - start_time
