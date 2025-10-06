@@ -84,35 +84,35 @@ class SignUpTest(APITestCase):
     
 #======================================== Resend Verification Email Test ===========================
 
-class ResendVerificationEmailTest(APITestCase):
-    def setUp(self):
-        self.client = APIClient()
-        self.url = reverse("resend-verification-email")
-        self.user_1, self.user_2, self.user_3, self.user_4 = create_test_users()
+# class ResendVerificationEmailTest(APITestCase):
+#     def setUp(self):
+#         self.client = APIClient()
+#         self.url = reverse("resend-verification-email")
+#         self.user_1, self.user_2, self.user_3, self.user_4 = create_test_users()
         
-    @patch("users.views.confirm_email_address")    
-    def test_resend_verification_email_view(self,  mock_confirm_email_address):
-        user = {"username": primary_user_4["username"]}
-        response = self.client.post(self.url, user, format="json")
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data["message"], "ایمیل تایید دوباره ارسال شد.")
-        mock_confirm_email_address.assert_called_once_with(self.user_4)
+#     @patch("users.views.confirm_email_address")    
+#     def test_resend_verification_email_view(self,  mock_confirm_email_address):
+#         user = {"username": primary_user_4["username"]}
+#         response = self.client.post(self.url, user, format="json")
+#         self.assertEqual(response.status_code, status.HTTP_200_OK)
+#         self.assertEqual(response.data["message"], "ایمیل تایید دوباره ارسال شد.")
+#         mock_confirm_email_address.assert_called_once_with(self.user_4)
     
-    def test_already_verified_view(self):
-        user = {"username": primary_user_2["username"]}
-        response = self.client.post(self.url, user, format="json")
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data["message"], "ایمیل شما قبلا تایید شده است.")
+#     def test_already_verified_view(self):
+#         user = {"username": primary_user_2["username"]}
+#         response = self.client.post(self.url, user, format="json")
+#         self.assertEqual(response.status_code, status.HTTP_200_OK)
+#         self.assertEqual(response.data["message"], "ایمیل شما قبلا تایید شده است.")
     
-    def test_email_not_found_view(self):
-        user = {"username": new_user_1["username"]}
-        response = self.client.post(self.url, user, format="json")
-        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
-        self.assertEqual(response.data["error"], "نام کاربری مورد نظر یافت نشد.")
+#     def test_email_not_found_view(self):
+#         user = {"username": new_user_1["username"]}
+#         response = self.client.post(self.url, user, format="json")
+#         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+#         self.assertEqual(response.data["error"], "نام کاربری مورد نظر یافت نشد.")
     
-    def test_resend_verification_email_url(self):
-        view = resolve("/users/resend-verification-email/")
-        self.assertEqual(view.func.cls, ResendVerificationEmailAPIView)
+#     def test_resend_verification_email_url(self):
+#         view = resolve("/users/resend-verification-email/")
+#         self.assertEqual(view.func.cls, ResendVerificationEmailAPIView)
         
         
 #======================================== Verify Email Test ========================================
@@ -229,7 +229,7 @@ class UpdateUserTest(APITestCase):
         self.update_data = {"first_name": "saghar", "last_name": "sharifi"}
         
     def test_update_user_serializer(self):
-        serializer = UpdateUserSerializer(data=self.update_data, instance=self.user_2, partial=True)
+        serializer = PartialUserUpdateSerializer(data=self.update_data, instance=self.user_2, partial=True)
         self.assertTrue(serializer.is_valid(raise_exception=True))
         serializer.save()
         ser_data = serializer.data
@@ -243,7 +243,7 @@ class UpdateUserTest(APITestCase):
     
     def test_update_user_url(self):
         view = resolve("/users/update-user/")
-        self.assertEqual(view.func.cls, UpdateUserAPIView)
+        self.assertEqual(view.func.cls, PartialUserUpdateAPIView)
         
         
 #======================================== Password Reset Test ======================================

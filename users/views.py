@@ -69,12 +69,11 @@ def send_verification_email(user_data: dict, token: str, payload=None):
     Send a verification email containing a tokenized link to the user's email address.
     """
     try:
-        domain = settings.FRONTEND_DOMAIN
         query_params = {"token": token}
         if payload:
             query_params.update(payload)
         query_string = urlencode(query_params)
-        verification_link = f"http://{domain}/users/verify-email?{query_string}"
+        verification_link = f"http://{settings.FRONTEND_DOMAIN}/users/verify-email?{query_string}"
         email = payload["email"] if payload else user_data["email"]
         subject = "تاییدیه ایمیل"
         message = f"روی لینک کلیک کنید تا ایمیل شما تایید شود: {verification_link}"
