@@ -57,9 +57,13 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     
+    # created apps
+    'users',
+    'main',
+    
     # created apps with signal handlers
-    'users.apps.UsersConfig',
-    'main.apps.UsersConfig',
+    # 'users.apps.UsersConfig',
+    # 'main.apps.UsersConfig',
     
     # third parties
     'rest_framework',

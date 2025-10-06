@@ -8,4 +8,4 @@ class MainConfig(AppConfig):
 
     
     def ready(self):
-        import main.signals
+        from . import signals
