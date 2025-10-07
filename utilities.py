@@ -87,6 +87,17 @@ def replace_dash_to_space(title):
 # ==========================================================
 
 def get_client_ip(request):
+    """
+    Extracts the client's IP address from the incoming Django request.
+    This function first checks for the 'HTTP_X_FORWARDED_FOR' header, which is commonly set by proxies
+    and load balancers to preserve the original client IP. If present, it returns the first IP in the list.
+    If the header is absent, it falls back to 'REMOTE_ADDR', which reflects the direct socket connection.
+
+    Notes:
+        - This method is suitable for logging, throttling, and analytics.
+        - It should not be used for security-critical logic without validating trusted proxy headers.
+        - The returned IP may be IPv4 or IPv6 depending on the client and network configuration.
+    """
     x_forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
     if x_forwarded_for:
         ip = x_forwarded_for.split(",")[0].strip()
