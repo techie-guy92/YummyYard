@@ -19,12 +19,12 @@ RUN pip install --upgrade pip && pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-# Create non-root user and assign ownership
-RUN adduser --disabled-password --gecos '' celeryuser && \
+RUN adduser --uid 1000 --disabled-password --gecos '' webuser && \
     mkdir -p /app/logs /app/aws && \
-    chown -R celeryuser:celeryuser /app && \
-    chmod -R 755 /app/aws  
+    chown -R webuser:webuser /app && \
+    chmod -R 755 /app/aws && \
+    chmod -R 755 /app/healthchecks/*.sh
 
-USER celeryuser
+USER webuser
 
 EXPOSE 8000

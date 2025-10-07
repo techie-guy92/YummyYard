@@ -19,10 +19,9 @@ services:
     volumes:
       - .:/app
       - shared_downloads:/app/shared_downloads 
-    # command: ["sh", "-c", "python manage.py migrate && python manage.py runserver 0.0.0.0:8000"]
     command: ["sh", "-c", "python manage.py migrate && python manage.py collectstatic --noinput && gunicorn config.wsgi:application --bind 0.0.0.0:8000 --timeout 120 --workers 3 --worker-class sync"]
     healthcheck:
-      test: ["CMD-SHELL", "curl --silent --fail http://127.0.0.1:8000/admin/ || exit 1"]
+      test: ["CMD-SHELL", "/app/healthchecks/django.sh"]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -49,7 +48,7 @@ services:
     networks:
       - main
     healthcheck:
-      test: ["CMD-SHELL", "redis-cli ping | grep PONG"]
+      test: ["CMD-SHELL", "/app/healthchecks/redis.sh"]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -68,6 +67,11 @@ services:
       - main
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD-SHELL", "/app/healthchecks/rabbitmq.sh"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
 
   celery:
     build:
@@ -92,7 +96,7 @@ services:
       - celerybeat_data:/app/celerybeat-schedule
       - shared_downloads:/app/shared_downloads
     healthcheck:
-      test: ["CMD-SHELL", "pgrep -f 'celery worker' || exit 0"]
+      test: ["CMD-SHELL", "/app/healthchecks/celery_worker.sh"]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -119,7 +123,7 @@ services:
     volumes:
       - celerybeat_data:/app/celerybeat-schedule
     healthcheck:
-      test: ["CMD-SHELL", "pgrep -f 'celery beat' || exit 0"]
+      test: ["CMD-SHELL", "/app/healthchecks/celery_beat.sh"]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -143,7 +147,7 @@ services:
     networks:
       - main
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5555"]
+      test: ["CMD-SHELL", "/app/healthchecks/flower.sh"]
       interval: 30s
       timeout: 10s
       retries: 5
