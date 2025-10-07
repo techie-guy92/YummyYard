@@ -21,7 +21,7 @@ services:
       - shared_downloads:/app/shared_downloads 
     command: ["sh", "-c", "python manage.py migrate && python manage.py collectstatic --noinput && gunicorn config.wsgi:application --bind 0.0.0.0:8000 --timeout 120 --workers 3 --worker-class sync"]
     healthcheck:
-      test: ["CMD-SHELL", "/app/healthchecks/django.sh"]
+      test: ["CMD-SHELL", "curl --silent --fail http://127.0.0.1:8000/ || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -49,10 +49,11 @@ services:
     networks:
       - main
     healthcheck:
-      test: ["CMD-SHELL", "/app/healthchecks/redis.sh"]
+      test: ["CMD-SHELL", "redis-cli ping | grep PONG || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 5
+      start_period: 30s
 
   rabbitmq:
     image: rabbitmq:3.12-management
@@ -69,10 +70,11 @@ services:
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
     healthcheck:
-      test: ["CMD-SHELL", "/app/healthchecks/rabbitmq.sh"]
+      test: ["CMD-SHELL", "rabbitmq-diagnostics -q ping || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 5
+      start_period: 30s
 
   celery:
     build:
@@ -97,10 +99,11 @@ services:
       - celerybeat_data:/app/celerybeat-schedule
       - shared_downloads:/app/shared_downloads
     healthcheck:
-      test: ["CMD-SHELL", "/app/healthchecks/celery_worker.sh"]
+      test: ["CMD-SHELL", "pgrep -f 'celery worker' || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 5
+      start_period: 30s
 
   beat:
     build:
@@ -124,10 +127,11 @@ services:
     volumes:
       - celerybeat_data:/app/celerybeat-schedule
     healthcheck:
-      test: ["CMD-SHELL", "/app/healthchecks/celery_beat.sh"]
+      test: ["CMD-SHELL", "pgrep -f 'celery beat' || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 5
+      start_period: 30s
 
   flower:
     build:
@@ -148,10 +152,11 @@ services:
     networks:
       - main
     healthcheck:
-      test: ["CMD-SHELL", "/app/healthchecks/flower.sh"]
+      test: ["CMD-SHELL", "curl -f http://localhost:5555 || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 5
+      start_period: 30s
 
 networks:
   main:
