@@ -5,7 +5,7 @@ django.setup()
 
 from rest_framework.test import APITestCase, APIClient
 from rest_framework import status
-from rest_framework_simplejwt.tokens import RefreshToken, AccessToken
+from django.test import override_settings
 from jwt import decode
 from django.urls import resolve, reverse
 from django.core import mail
@@ -228,7 +228,7 @@ class UserProfileTest(APITestCase):
         
 #======================================== Update User Test =========================================
 
-class UpdateUserTest(APITestCase):
+class PartialUserUpdateTest(APITestCase):
     def setUp(self):
         self.client = APIClient()
         self.url = reverse("update-user")
@@ -253,7 +253,26 @@ class UpdateUserTest(APITestCase):
         view = resolve("/users/update-user/")
         self.assertEqual(view.func.cls, PartialUserUpdateAPIView)
         
-        
+
+#======================================= Request Email Change View =====================================
+
+class RequestEmailChangeTest(APITestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.url = reverse("update-email")
+        self.user_1, self.user_2, self.user_3, self.user_4 = create_test_users()
+    
+    def email_change_serializer(self):
+        pass
+    
+    def email_change_view(self):
+        pass
+    
+    def email_change_url(self):
+        view = resolve("/users/update-email/")
+        self.assertEqual(view.func.cls, RequestEmailChangeAPIView)
+    
+          
 #======================================== Password Reset Test ======================================
 
 class PasswordResetTest(APITestCase):
@@ -261,19 +280,35 @@ class PasswordResetTest(APITestCase):
         self.client = APIClient()
         self.url = reverse("password-reset")
         self.user_1, self.user_2, self.user_3, self.user_4 = create_test_users()
-       
-    @patch("users.views.reset_password_email")
-    def test_password_reset_view(self, mock_reset_password_email):
+    
+    @override_settings(
+        REST_FRAMEWORK={
+            'DEFAULT_THROTTLE_CLASSES': [],
+            'DEFAULT_THROTTLE_RATES': {}
+        }
+    )
+    
+    @patch("users.views.send_reset_password_email")
+    @patch("users.views.generate_access_token")
+    def test_password_reset_view(self, mock_generate_token, mock_send_email):
+        self.client.force_authenticate(user=self.user_2)
+        mock_generate_token.return_value = "test-token-123"
         email = {"email": self.user_2.email}
         response = self.client.post(self.url, email, format="json")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data["message"], "ایمیل برای تغییر رمز عبور ارسال شد.")
-        mock_reset_password_email.assert_called_once_with(self.user_2)
+        self.assertEqual(response.data["message"], "ایمیل بازیابی رمز عبور ارسال شد. لینک تا ۲۴ ساعت آینده معتبر خواهد بود.")
+        mock_generate_token.assert_called_once_with(self.user_2, 24)
+        mock_send_email.assert_called_once_with(self.user_2, "test-token-123")
+    
+    def test_password_reset_invalid_email(self):
+        response = self.client.post(self.url, {"email": "nonexistent@example.com"}, format="json")
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertEqual(response.data["error"], "ایمیل وارد شده معتبر نمی باشد.")
     
     def test_password_reset_url(self):
         view = resolve("/users/password-reset/")
         self.assertEqual(view.func.cls, PasswordResetAPIView)
-        
+
 
 #======================================== Set New Password Test ====================================
 
@@ -282,10 +317,11 @@ class SetNewPasswordTest(APITestCase):
         self.client = APIClient()
         self.url = reverse("set-new-password")
         self.user_1, self.user_2, self.user_3, self.user_4 = create_test_users()
+        self.token = generate_access_token(self.user_2, 24)
         self.user_data = {
             "password": "abcdABCD1234@",
             "re_password": "abcdABCD1234@",
-            "token": str(RefreshToken.for_user(self.user_2).access_token)
+            "token": "token"
         }
         
     def test_set_new_password_serializer(self):
@@ -297,17 +333,12 @@ class SetNewPasswordTest(APITestCase):
         self.assertIn("token", validated_data)
     
     def test_set_new_password_view(self):
-        response = self.client.post(self.url, self.user_data ,format="json")
+        response = self.client.post(f"{self.url}?token={self.token}", self.user_data, format="json")
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(response.data["message"], "رمز عبور با موفقیت تغییر کرد.")
     
     def test_set_new_password_invalid_view(self):
-        invalid_user_data = {
-            "password": "abcdABCD1234@",
-            "re_password": "abcdABCD1234@",
-            "token": "token"
-        }
-        response = self.client.post(self.url, invalid_user_data ,format="json")
+        response = self.client.post(f"{self.url}?token={self.user_data["token"]}", self.user_data, format="json")
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertEqual(response.data["error"], "توکن منقضی شده است.")
     
