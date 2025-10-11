@@ -10,6 +10,8 @@ from jwt import decode
 from django.urls import resolve, reverse
 from django.core import mail
 from unittest.mock import patch
+from django.core.cache import cache
+import json
 from .models import *
 from .serializers import *
 from .views import *
@@ -46,29 +48,24 @@ class SignUpTest(APITestCase):
         ser_data_1 = serializer_1.data 
         ser_data_2 = serializer_2.data 
         ser_data_4 = serializer_4.data
-        self.assertIn("is_admin", ser_data_1)
-        self.assertIn("is_superuser", ser_data_1)
+        self.assertIn("username", ser_data_1)
+        self.assertIn("first_name", ser_data_1)
         self.assertNotIn("is_active", ser_data_1)
         self.assertNotIn("is_premium", ser_data_1)
         self.assertEqual(ser_data_1["username"], primary_user_1["username"])
-        self.assertTrue(ser_data_1["is_admin"])
-        self.assertTrue(ser_data_1["is_superuser"])
-        self.assertFalse(ser_data_2["is_admin"])
-        self.assertFalse(ser_data_2["is_superuser"])
-        self.assertFalse(ser_data_4["is_admin"])
-        self.assertFalse(ser_data_4["is_superuser"])
+        self.assertEqual(ser_data_2["username"], primary_user_2["username"])
+        self.assertEqual(ser_data_4["username"], primary_user_4["username"])
          
     def test_signup_view(self):
         response = self.client.post(self.url, new_user_1, format="json")
-        user = CustomUser.objects.get(username=new_user_1["username"])
+        with self.assertRaises(CustomUser.DoesNotExist):
+            CustomUser.objects.get(username=new_user_1["username"])
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(response.data["message"], "اطلاعات شما ثبت شد، برای تکمیل فرایند ثبت نام به ایمیل خود بروید و ایمیل خود را تایید کنید.")
-        self.assertTrue(user.check_password(new_user_1["password"]))
-        self.assertEqual(user.email, new_user_1["email"])
+        self.assertEqual(response.data["message"], "لینک تایید به ایمیل شما ارسال شد و تا ۱۵ دقیقه معتبر است.")
         self.assertEqual(len(mail.outbox), 1)
         self.assertEqual(mail.outbox[0].to, [new_user_1["email"]])
-        self.assertIn("Verify your email", mail.outbox[0].subject)
-        self.assertIn("Click on the link to verify your email", mail.outbox[0].body)
+        self.assertIn("تاییدیه ایمیل", mail.outbox[0].subject)
+        self.assertIn("روی لینک کلیک کنید تا ایمیل شما تایید شود", mail.outbox[0].body)
 
     def test_signup_with_invalid_data(self):
         response = self.client.post(self.url, invalid_user_1, format="json")
@@ -122,21 +119,29 @@ class VerifyEmailTest(APITestCase):
         self.client = APIClient()
         self.url = reverse("verify-email")
         self.user_1, self.user_2, self.user_3, self.user_4 = create_test_users()
-        self.token_1 = str(RefreshToken.for_user(self.user_1).access_token)
-        self.token_2 = str(RefreshToken.for_user(self.user_2).access_token)
-        self.token_4 = str(RefreshToken.for_user(self.user_4).access_token)
         
     def test_verify_email_view(self):
-        token = {"token": self.token_4}
-        response = self.client.get(self.url, token, format="json")
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data["message"], "ثبت نام شما کامل شد.")
-    
-    def test_already_verified_view(self):
-        token = {"token": self.token_2}
-        response = self.client.get(self.url, token, format="json")
-        self.assertEqual(response.status_code, status.HTTP_202_ACCEPTED)
-        self.assertEqual(response.data["message"], f"کاربر {self.user_2.username} قبلا تایید شده است.")
+        token = f"pending-user:{uuid.uuid4()}"
+        user_data = new_user_1.copy()
+        user_data.pop("re_password", None)
+        cache.set(token, json.dumps(new_user_1), timeout=900)
+        response = self.client.get(f"{self.url}?token={token}")
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data["message"], "ثبت نام شما با موفقیت انجام شد.")
+        user = CustomUser.objects.get(username=new_user_1["username"])
+        self.assertTrue(user.is_active)
+        self.assertEqual(user.email, new_user_1["email"])
+        self.assertIsNone(cache.get(token))
+        
+    def test_verify_email_invalid_token(self):
+        response = self.client.get(f"{self.url}?token=invalid-token")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_verify_email_expired_token(self):
+        token = f"pending-user:{uuid.uuid4()}"
+        cache.set(token, json.dumps({}), timeout=0)  
+        response = self.client.get(f"{self.url}?token={token}")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
     
     def test_verify_email_url(self):
         view = resolve("/users/verify-email/")
@@ -162,10 +167,13 @@ class LoginTest(APITestCase):
     
     def test_login_view(self):
         response = self.client.post(self.url, self.login_data, format="json")
-        decode_token = decode(response.data["token"], settings.SECRET_KEY, algorithms=["HS256"])
+        access_token = decode(response.data["access"], settings.SECRET_KEY, algorithms=["HS256"])
+        refresh_token = decode(response.data["refresh"], settings.SECRET_KEY, algorithms=["HS256"])
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(decode_token["user_id"], self.user_2.id)
-        self.assertIn("token", response.data)
+        self.assertEqual(access_token["user_id"], self.user_2.id)
+        self.assertEqual(refresh_token["user_id"], self.user_2.id)
+        self.assertIn("access", response.data)
+        self.assertIn("refresh", response.data)
         
     def test_invalid_login_view(self):
         response = self.client.post(self.url, self.invalid_login_data, format="json")
