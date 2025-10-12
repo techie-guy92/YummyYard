@@ -11,6 +11,7 @@ from django.urls import resolve, reverse
 from django.core import mail
 from unittest.mock import patch
 from django.core.cache import cache
+from random import choice
 import json
 from .models import *
 from .serializers import *
@@ -261,14 +262,38 @@ class RequestEmailChangeTest(APITestCase):
         self.client = APIClient()
         self.url = reverse("update-email")
         self.user_1, self.user_2, self.user_3, self.user_4 = create_test_users()
+        self.raw_data = {"new_email": "sahar.moradii@gmail.com"}
     
-    def email_change_serializer(self):
-        pass
+    # @override_settings(
+    #     REST_FRAMEWORK={
+    #         'DEFAULT_THROTTLE_CLASSES': [],
+    #         'DEFAULT_THROTTLE_RATES': {}
+    #     }
+    # )
     
-    def email_change_view(self):
-        pass
+    def test_email_change_serializer(self):
+        serializer = RequestEmailChangeSerializer(data=self.raw_data)
+        serializer.is_valid(raise_exception=True) 
+        ser_data = serializer.validated_data
+        self.assertIn("new_email", ser_data)  
+        self.assertEqual(ser_data["new_email"], self.raw_data["new_email"])
     
-    def email_change_url(self):
+    @patch("users.views.RequestEmailChangeAPIView.throttle_classes", [])
+    @patch("users.views.send_verification_email")  
+    @patch("users.views.generate_access_token")   
+    def test_email_change_view(self, mock_generate_token, mock_send_email):
+        expected_payload = {"email": self.raw_data["new_email"]}
+        expected_token = "test-token-123"
+        mock_generate_token.return_value = expected_token
+        user_data = {"first_name": self.user_2.first_name, "last_name": self.user_2.last_name,}
+        self.client.force_authenticate(self.user_2)
+        response = self.client.post(self.url, self.raw_data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["message"], "لینک تأیید به ایمیل جدید ارسال شد و تا یک ساعت معتبر است.")
+        mock_generate_token.assert_called_once_with(self.user_2)
+        mock_send_email.assert_called_once_with(user_data, expected_token, expected_payload)
+             
+    def test_email_change_url(self):
         view = resolve("/users/update-email/")
         self.assertEqual(view.func.cls, RequestEmailChangeAPIView)
     
@@ -281,29 +306,25 @@ class PasswordResetTest(APITestCase):
         self.url = reverse("password-reset")
         self.user_1, self.user_2, self.user_3, self.user_4 = create_test_users()
     
-    # @override_settings(
-    #     REST_FRAMEWORK={
-    #         'DEFAULT_THROTTLE_CLASSES': [],
-    #         'DEFAULT_THROTTLE_RATES': {}
-    #     }
-    # )
-    
+    @patch("users.views.PasswordResetAPIView.throttle_classes", [])
     @patch("users.views.send_reset_password_email")
     @patch("users.views.generate_access_token")
     def test_password_reset_view(self, mock_generate_token, mock_send_email):
-        mock_generate_token.return_value = "test-token-123"
+        expected_token = "test-token-123"
+        mock_generate_token.return_value = expected_token
         email = {"email": self.user_4.email}
         response = self.client.post(self.url, email, format="json")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["message"], "ایمیل بازیابی رمز عبور ارسال شد. لینک تا ۲۴ ساعت آینده معتبر خواهد بود.")
         mock_generate_token.assert_called_once_with(self.user_4, 24)
-        mock_send_email.assert_called_once_with(self.user_4, "test-token-123")
+        mock_send_email.assert_called_once_with(self.user_4, expected_token)
     
+    @patch("users.views.PasswordResetAPIView.throttle_classes", [])
     def test_password_reset_invalid_email(self):
-        response = self.client.post(self.url, {"email": "nonexistentuser@example.com"}, format="json")
+        response = self.client.post(self.url, {"email": "nonexistent@example.com"}, format="json")
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
         self.assertEqual(response.data["error"], "ایمیل وارد شده معتبر نمی باشد.")
-    
+            
     def test_password_reset_url(self):
         view = resolve("/users/password-reset/")
         self.assertEqual(view.func.cls, PasswordResetAPIView)
