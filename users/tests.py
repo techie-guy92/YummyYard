@@ -281,27 +281,26 @@ class PasswordResetTest(APITestCase):
         self.url = reverse("password-reset")
         self.user_1, self.user_2, self.user_3, self.user_4 = create_test_users()
     
-    @override_settings(
-        REST_FRAMEWORK={
-            'DEFAULT_THROTTLE_CLASSES': [],
-            'DEFAULT_THROTTLE_RATES': {}
-        }
-    )
+    # @override_settings(
+    #     REST_FRAMEWORK={
+    #         'DEFAULT_THROTTLE_CLASSES': [],
+    #         'DEFAULT_THROTTLE_RATES': {}
+    #     }
+    # )
     
     @patch("users.views.send_reset_password_email")
     @patch("users.views.generate_access_token")
     def test_password_reset_view(self, mock_generate_token, mock_send_email):
-        self.client.force_authenticate(user=self.user_2)
         mock_generate_token.return_value = "test-token-123"
-        email = {"email": self.user_2.email}
+        email = {"email": self.user_4.email}
         response = self.client.post(self.url, email, format="json")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["message"], "ایمیل بازیابی رمز عبور ارسال شد. لینک تا ۲۴ ساعت آینده معتبر خواهد بود.")
-        mock_generate_token.assert_called_once_with(self.user_2, 24)
-        mock_send_email.assert_called_once_with(self.user_2, "test-token-123")
+        mock_generate_token.assert_called_once_with(self.user_4, 24)
+        mock_send_email.assert_called_once_with(self.user_4, "test-token-123")
     
     def test_password_reset_invalid_email(self):
-        response = self.client.post(self.url, {"email": "nonexistent@example.com"}, format="json")
+        response = self.client.post(self.url, {"email": "nonexistentuser@example.com"}, format="json")
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
         self.assertEqual(response.data["error"], "ایمیل وارد شده معتبر نمی باشد.")
     

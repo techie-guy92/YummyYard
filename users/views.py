@@ -461,7 +461,8 @@ class PasswordResetAPIView(APIView):
         responses={
             200: "Password reset email sent successfully.",
             400: "Invalid input data. Check email format.",
-            404: "No user found with the provided email address."
+            404: "No user found with the provided email address.",
+            429: "Too many requests."
         },
         summary="API view for requesting a password reset email.",
         description=(
