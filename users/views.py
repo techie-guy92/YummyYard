@@ -417,6 +417,7 @@ class RequestEmailChangeAPIView(APIView):
         responses={
             200: "Verification email sent successfully.",
             400: "Invalid input data. Check email format.",
+            429: "Too many requests."
         },
         summary="Initiate email change request for authenticated user.",
         description=(
