@@ -11,7 +11,7 @@ from django.urls import resolve, reverse
 from django.core import mail
 from unittest.mock import patch
 from django.core.cache import cache
-from random import choice
+from urllib.parse import urlencode
 import json
 from .models import *
 from .serializers import *
@@ -121,7 +121,7 @@ class VerifyEmailTest(APITestCase):
         self.url = reverse("verify-email")
         self.user_1, self.user_2, self.user_3, self.user_4 = create_test_users()
         
-    def test_verify_email_view(self):
+    def test_signup_email_view(self):
         token = f"pending-user:{uuid.uuid4()}"
         user_data = new_user_1.copy()
         user_data.pop("re_password", None)
@@ -134,21 +134,34 @@ class VerifyEmailTest(APITestCase):
         self.assertEqual(user.email, new_user_1["email"])
         self.assertIsNone(cache.get(token))
         
-    def test_verify_email_invalid_token(self):
+    def test_signup_email_invalid_token(self):
         response = self.client.get(f"{self.url}?token=invalid-token")
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
-    def test_verify_email_expired_token(self):
+    def test_signup_email_expired_token(self):
         token = f"pending-user:{uuid.uuid4()}"
         cache.set(token, json.dumps({}), timeout=0)  
         response = self.client.get(f"{self.url}?token={token}")
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
     
+    @patch("users.views.AccessToken")
+    def test_change_email_view(self, mock_access_token):
+        user = self.user_2
+        mock_token_instance = mock_access_token.return_value
+        mock_token_instance.payload = {"user_id": user.id} 
+        expected_payload = {"token": "test-token", "email": new_user_1["email"]}
+        query_params = urlencode(expected_payload)
+        response = self.client.get(f"{self.url}?{query_params}")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["message"], "ایمیل جدید شما ثبت شد.")
+        user.refresh_from_db()
+        self.assertEqual(user.email, new_user_1["email"])
+    
     def test_verify_email_url(self):
         view = resolve("/users/verify-email/")
         self.assertEqual(view.func.cls, VerifyEmailAPIView)
         
-        
+
 #======================================== Login Test ===============================================
 
 class LoginTest(APITestCase):
