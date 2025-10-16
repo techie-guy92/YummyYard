@@ -9,10 +9,9 @@ WORKDIR /app
 
 RUN apt-get update && apt-get install -y \
     curl \
-    build-essential \
-    libpq-dev \
+    procps \
+    bash \
     postgresql-client \
-    procps \ 
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
