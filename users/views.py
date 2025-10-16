@@ -30,12 +30,17 @@ from custome_exception import CustomEmailException, CustomRedisException
 
 #======================================== Utilities ==============================================
 
+MINUTES_15 = timedelta(minutes=15).total_seconds()
 MINUTES_30 = timedelta(minutes=30).total_seconds()
 AN_HOUR = timedelta(hours=1).total_seconds()
 A_DAY = timedelta(days=1).total_seconds()
 THIRTY_DAYS = timedelta(days=30).total_seconds()
 
 
+class SignUpThrottle(CustomThrottle):
+    def __init__(self):
+        super().__init__(scope="sign_up", seconds=MINUTES_15)
+        
 class EmailChangeThrottle(CustomThrottle):
     def __init__(self):
         super().__init__(scope="email_change", seconds=AN_HOUR)
@@ -109,6 +114,8 @@ def send_reset_password_email(user, token):
 
 # Redis-first strategy
 class SignUpAPIView(APIView):
+    
+    throttle_classes = [SignUpThrottle]
     
     @extend_schema(
         request=CustomUserSerializer,
