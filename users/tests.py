@@ -56,7 +56,8 @@ class SignUpTest(APITestCase):
         self.assertEqual(ser_data_1["username"], primary_user_1["username"])
         self.assertEqual(ser_data_2["username"], primary_user_2["username"])
         self.assertEqual(ser_data_4["username"], primary_user_4["username"])
-         
+    
+    @patch("users.views.SignUpAPIView.throttle_classes", [])
     def test_signup_view(self):
         response = self.client.post(self.url, new_user_1, format="json")
         with self.assertRaises(CustomUser.DoesNotExist):
@@ -68,6 +69,7 @@ class SignUpTest(APITestCase):
         self.assertIn("تاییدیه ایمیل", mail.outbox[0].subject)
         self.assertIn("روی لینک کلیک کنید تا ایمیل شما تایید شود", mail.outbox[0].body)
 
+    @patch("users.views.SignUpAPIView.throttle_classes", [])
     def test_signup_with_invalid_data(self):
         response = self.client.post(self.url, invalid_user_1, format="json")
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
