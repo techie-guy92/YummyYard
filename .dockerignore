@@ -21,3 +21,6 @@ logs/
 storage_utils.py
 definition_*.txt
 webhook.py
+nginx/certbot/conf/*.key
+nginx/certbot/conf/*.crt
+nginx/certbot/www/
