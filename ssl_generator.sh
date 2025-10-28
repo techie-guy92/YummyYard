@@ -7,6 +7,7 @@
 # Usage: ./ssl_generator.sh
 #############################################################
 
+
 openssl req -x509 -newkey rsa:2048 -nodes \
   -keyout nginx/certbot/conf/localhost.key \
   -out nginx/certbot/conf/localhost.crt \
