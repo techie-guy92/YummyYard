@@ -45,7 +45,6 @@ class EmailChangeThrottle(CustomThrottle):
     def __init__(self):
         super().__init__(scope="email_change", seconds=AN_HOUR)
 
-
 class PasswordResetThrottle(CustomThrottle):
     def __init__(self):
         super().__init__(scope="password_reset", seconds=A_DAY)
@@ -88,7 +87,7 @@ def send_verification_email(user_data: dict, token: str, payload=None):
         email_sender(subject, message, html_content, [email])
     except Exception as error:
         logger.error(f"Failed to send verification email: {error}")
-        raise CustomEmailException("Email failed to send")
+        raise CustomEmailException("Verification email failed to send")
 
 
 def send_reset_password_email(user, token):
@@ -107,7 +106,7 @@ def send_reset_password_email(user, token):
         email_sender(subject, message, html_content, [user.email])
     except Exception as error:
         logger.error(f"Failed to send reset password email to {user.email}: {error}")
-        raise
+        raise CustomEmailException("Reset email failed to send")
 
 
 #======================================== Sign Up View ===============================================
@@ -142,8 +141,9 @@ class SignUpAPIView(APIView):
     def post(self, request: Request):
         serializer = CustomUserSerializer(data=request.data)
         if serializer.is_valid():
-            token = store_pending_user(serializer.validated_data)
-            send_verification_email(serializer.validated_data, token)
+            user_data = serializer.validated_data
+            token = store_pending_user(user_data)
+            send_verification_email(user_data, token)
             return Response({"message": "لینک تایید به ایمیل شما ارسال شد و تا ۱۵ دقیقه معتبر است."}, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -248,19 +248,18 @@ class VerifyEmailAPIView(APIView):
 
     def get(self, request: Request):
         token = request.GET.get("token")
+        email = request.GET.get("email")
         if not token:
             return Response({"error": "توکن یافت نشد."}, status=status.HTTP_400_BAD_REQUEST)
 
-        email = request.GET.get("email")
-
         try:
+            # Email change flow
             if email:
-                # Email change flow
                 payload = AccessToken(token).payload
                 user_id = payload.get("user_id")
                 if not user_id:
                     return Response({"error": "توکن معتبر نیست یا منقضی شده است."}, status=status.HTTP_400_BAD_REQUEST)
-
+                
                 try:
                     user = CustomUser.objects.get(pk=user_id)
                     user.email = email
@@ -270,8 +269,8 @@ class VerifyEmailAPIView(APIView):
                 except CustomUser.DoesNotExist:
                     return Response({"error": "کاربر یافت نشد."}, status=status.HTTP_404_NOT_FOUND)
 
+            # Signup flow
             else:
-                # Signup flow
                 raw_data = cache.get(token)
                 if not raw_data:
                     return Response({"error": "توکن منقضی شده یا نامعتبر است."}, status=status.HTTP_400_BAD_REQUEST)
@@ -321,12 +320,12 @@ class LoginAPIView(APIView):
             password = serializer.validated_data["password"]
             user = authenticate(username=username, password=password)
             if user is not None:
-                token = generate_auth_tokens(user)
+                tokens = generate_auth_tokens(user)
                 access_lifetime = round(settings.SIMPLE_JWT["ACCESS_TOKEN_LIFETIME"].total_seconds() / 60, 2)
                 refresh_lifetime = round(((settings.SIMPLE_JWT["REFRESH_TOKEN_LIFETIME"].total_seconds() / 60) / 60) / 24, 4)
                 return Response({
-                    "access": token["access"],
-                    "refresh": token["refresh"],
+                    "access": tokens["access"],
+                    "refresh": tokens["refresh"],
                     "access_expires_in": f"{access_lifetime} minutes",
                     "refresh_expires_in": f"{refresh_lifetime} days"
                 }, status=status.HTTP_200_OK)
@@ -536,19 +535,18 @@ class SetNewPasswordAPIView(APIView):
                 user = CustomUser.objects.get(pk=user_id)
                 user.set_password(password)
                 user.save()
+                logger.info(f"Password reset for user {user_id}")
                 return Response({"message": "رمز عبور با موفقیت تغییر کرد."}, status=status.HTTP_201_CREATED)
             except CustomUser.DoesNotExist:
                 return Response({"error": "کاربر یافت نشد."}, status=status.HTTP_404_NOT_FOUND)
-            except InvalidToken:
-                return Response({"error": "توکن معتبر نیست."}, status=status.HTTP_400_BAD_REQUEST)
-            except TokenError:
-                return Response({"error": "توکن منقضی شده است."}, status=status.HTTP_400_BAD_REQUEST)
+            except (InvalidToken, TokenError):
+                return Response({"error": "توکن معتبر نیست یا منقضی شده است."}, status=status.HTTP_400_BAD_REQUEST)
             except Exception as error:
                 logger.error(f"Unexpected error during password reset: {error}")
                 return Response({"error": str(error)}, status=status.HTTP_400_BAD_REQUEST)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-
+    
 #======================================= Fetch Users View ============================================
 
 class FetchUsersModelViewSet(viewsets.ModelViewSet):
