@@ -375,7 +375,7 @@ class SetNewPasswordTest(APITestCase):
     def test_set_new_password_invalid_view(self):
         response = self.client.post(f"{self.url}?token={self.user_data["token"]}", self.user_data, format="json")
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertEqual(response.data["error"], "توکن منقضی شده است.")
+        self.assertEqual(response.data["error"], "توکن معتبر نیست یا منقضی شده است.")
     
     def test_set_new_password_url(self):
         view = resolve("/users/set-new-password/")
