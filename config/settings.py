@@ -24,11 +24,6 @@ env_path = env.str("ENV_PATH", default=str(BASE_DIR / ".env"))
 env.read_env(env_path)
 
 
-LOG_DIR = BASE_DIR / "logs"
-if not LOG_DIR.exists():
-    LOG_DIR.mkdir(parents=True)
-
-
 SECRET_KEY = env.str('SECRET_KEY')
 
 DEBUG = env.bool('DEBUG')
@@ -48,6 +43,11 @@ AUTHENTICATION_BACKENDS = [
     # 'allauth.account.auth_backends.AuthenticationBackend',
 ]
 
+
+LOG_DIR = BASE_DIR / "logs"
+if not LOG_DIR.exists():
+    LOG_DIR.mkdir(parents=True)
+    
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -154,7 +154,6 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 
-
 LANGUAGE_CODE = 'en-us'
 TIME_ZONE = 'Asia/Tehran'
 USE_I18N = True
@@ -167,6 +166,8 @@ USE_TZ = True
 STATIC_URL = 'static/'
 STATICFILES_DIRS = [BASE_DIR / 'static']
 STATIC_ROOT = BASE_DIR / 'staticfiles'
+
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 
 # Cloud storage:
@@ -196,9 +197,6 @@ AUTH_USER_MODEL = 'users.CustomUser'
 
 
 #============================= Third Parties =================================
-
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
-
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
