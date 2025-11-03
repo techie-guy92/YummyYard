@@ -3,24 +3,12 @@ from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, Permis
 from django.utils.timezone import now, localtime
 from datetime import timedelta
 from django.conf import settings
-from config.storages import ArvanCloudStorage
-from os.path import splitext
-from uuid import uuid4
+from logging import getLogger
+from media_utils import upload_to, Arvan_storage
 
 
-#======================================= Needed Method ================================================
+logger = getLogger(__name__)
 
-Arvan_storage = ArvanCloudStorage()
-
-
-def upload_to(instance, filename):
-    file_name, ext = splitext(filename)
-    new_filename = f"{uuid4()}{ext}"
-    user = instance.user
-    full_name = user.get_full_name().replace(" ", "-")
-    return f"images/users/{full_name}/{new_filename}"
-
-    
 #====================================== CustomUserManager Model =======================================
 
 class CustomUserManager(BaseUserManager):

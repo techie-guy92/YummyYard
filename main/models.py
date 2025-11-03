@@ -4,37 +4,17 @@ from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
-from config.storages import ArvanCloudStorage
 from logging import getLogger
 from django.utils.timezone import now, localtime
 from django.conf import settings
-from os.path import splitext
-from uuid import uuid4
 from django.utils.text import slugify
+from uuid import uuid4
 from utilities import code_generator
+from media_utils import upload_to, Arvan_storage
 from users.models import InPersonCustomer
 
 
-#======================================= Needed Method ================================================
-
 logger = getLogger(__name__)
-
-Arvan_storage = ArvanCloudStorage()
-
-
-def upload_to(instance, filename):
-    file_name, ext = splitext(filename)
-    new_filename = f"{slugify(instance.name, allow_unicode=True)}{ext}"
-
-    if isinstance(instance, Category):
-        return f"images/categories/{slugify(instance.name, allow_unicode=True)}/{new_filename}"
-    elif isinstance(instance, Product):
-        return f"images/products/{slugify(instance.name, allow_unicode=True)}/{new_filename}"
-    elif isinstance(instance, Gallery) and instance.product:
-        return f"images/gallery/{slugify(instance.product.name, allow_unicode=True)}/{new_filename}"
-    else:
-        return f"images/others/{new_filename}"
-
 
 #====================================== Category Model ================================================
 
@@ -46,9 +26,7 @@ class Category(models.Model):
         validate_parent(): Ensures a category cannot be its own parent.
         get_all_children(): Recursively retrieves all subcategories of the current category.
         save(): Automatically validates data and generates a unique slug for the category before saving.
-        
     """
-    
     name = models.CharField(max_length=100, verbose_name="Category")
     parent = models.ForeignKey("Category", on_delete=models.CASCADE, related_name="Category_parent", null=True, blank=True, verbose_name="Parent")
     slug = models.SlugField(unique=True, editable=False, verbose_name="Slug")
@@ -100,9 +78,7 @@ class Product(models.Model):
 
     Methods:
         save(): Generates a unique slug for the product based on its name to ensure URL uniqueness.
-        
     """
-    
     name = models.CharField(max_length=250, verbose_name="Product") 
     category = models.ForeignKey(Category, on_delete=models.CASCADE, related_name="Product_category", verbose_name="Category")
     slug = models.SlugField(unique=True, editable=False, verbose_name="Slug")
@@ -137,9 +113,7 @@ class Product(models.Model):
 class Gallery(models.Model):
     """
     Represents additional images for a product.
-    
     """
-    
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name="Gallery_product", verbose_name="Product")
     image = models.ImageField(upload_to=upload_to, storage=Arvan_storage, verbose_name="Image")
     
@@ -159,9 +133,7 @@ class Wishlist(models.Model):
 
     Methods:
         get_product_price(): Returns the price of the product in the wishlist.
-        
     """
-    
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="Wishlist_user", verbose_name="User")
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name="Wishlist_product", verbose_name="Product")
    
@@ -195,9 +167,7 @@ class Warehouse(models.Model):
 
     Methods:
         total_stock(product): Calculates the total stock for a given product by aggregating input, output, and defective stock levels.
-    
     """
-    
     WAREHOUSE_TYPE = [("input", "ورپدی"), ("output", "خروجی"), ("defective", "مرجوعی"), ("sent_back", "مرجوع-شده")]
     
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name="Warehouse_product", verbose_name="Product")
@@ -245,9 +215,7 @@ class Coupon(models.Model):
         is_expired(): Checks if the coupon has passed its expiration date.
         is_valid(): Determines if the coupon is still usable based on its active status, expiration date, and usage limit.
         save(): Automatically generates a coupon code if not provided before saving the instance.
-        
     """
-    
     code = models.CharField(max_length=10, blank=True, verbose_name="Code")
     category = models.ForeignKey(Category, on_delete=models.CASCADE, related_name="Coupon_category", null=True, blank=True, verbose_name="Category")
     discount_percentage = models.DecimalField(max_digits=4, decimal_places=2, validators=[MinValueValidator(10), MaxValueValidator(50)], verbose_name="Discount Percentage")
@@ -297,9 +265,7 @@ class ShoppingCart(models.Model):
         place_order(): Converts the cart items into a warehouse stock record when an order is placed.
         clear_cart(): Removes all items from the cart and resets the total price.
         save(): Validates data and ensures the total price is updated after modifications.
-        
     """
-    
     STATUS_TYPES = [("active", "فعال"), ("processed", "در-حال-پردازش"), ("abandoned", "لغو-شده")]
     
     online_customer = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, blank=True, null=True, related_name="ShoppingCart_online_customers", verbose_name="Online Customer")
@@ -384,9 +350,7 @@ class CartItem(models.Model):
         validate_stock(): Confirms the requested quantity does not exceed available stock.
         validate_grand_total(): Updates the `grand_total` field based on the product price and quantity.
         save(): Ensures data integrity before storing the item in the cart.
-        
     """
-    
     STATUS_TYPES = [("active", "فعال"), ("processed", "در-حال-پردازش")]
     
     cart = models.ForeignKey(ShoppingCart, on_delete=models.CASCADE, related_name="CartItem_cart", verbose_name="Cart")
@@ -453,10 +417,8 @@ class DeliverySchedule(models.Model):
         validate_timeframe(): Prevents scheduling deliveries in the past or beyond allowed limits.
         validate_delivery_slot(): Enforces capacity restrictions for different delivery methods.
         calculate_delivery_cost(): Determines the delivery fee based on the method selected.
-        save(): Cleans, formats, and updates the delivery schedule before saving it.
-        
+        save(): Cleans, formats, and updates the delivery schedule before saving it. 
     """
-
     TIMES = [("8_10", "8 - 10"), ("10_12", "10 - 12"), ("12_14", "12 - 14"), ("14_16", "14 - 16"), ("16_18", "16 - 18"), ("18_20", "18 - 20"), ("20_22", "20 - 22")]
     DELIVERY_TYPES = [("normal", "ارسال-عادی"), ("fast", "ارسال-سریع"), ("postal", "پست")]
     MAX_DAYS_AHEAD = 7
@@ -573,9 +535,7 @@ class Order(models.Model):
         validate_price(): Calculates total price and enforces validation rules on amount payable.
         validate_discount(): Ensures coupon validity and verifies applied discount accuracy.
         save(): Cleans data and determines the order type before saving.
-        
     """
-    
     ORDER_TYPE = [("in_person", "حضوری"), ("online", "آنلاین")]
     PAYMENT_METHOD = [("cash", "نقد"), ("credit_card", "کارت-بانکی"), ("online", "درگاه")]
     STATUS_TYPES = [("on_hold", "On Hold"), ("waiting", "در-انتظار-پرداخت"), ("successful", "پرداخت-موفق"), ("failed", "پرداخت-ناموفق"), ("shipped", "ارسال-شده"), ("completed", "سفارش-تکمیل-شده"), ("canceled", "سفارش-لغو-شده"), ("refunded", "بازپرداخت-شده")]
@@ -677,9 +637,7 @@ class Transaction(models.Model):
         validate_amount(): Ensures the transaction amount matches the expected order payable amount.
         validate_payment(): Updates the order status and creates a delivery entry upon successful payment.
         save(): Validates and processes the transaction before saving it to the database.
-        
     """
-    
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="Transaction_user", verbose_name="User")
     order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name="Transaction_order", verbose_name="Order")
     amount = models.PositiveIntegerField(verbose_name="Amount") 
@@ -737,9 +695,7 @@ class Delivery(models.Model):
         postman (str, optional): The name of the delivery person handling the shipment.
         shipped_at (datetime, optional): The timestamp when the order was shipped.
         delivered_at (datetime, optional): The timestamp when the order was successfully delivered.
-        
     """
-    
     STATUS_DELIVERY = [("pending", "در-انتظار-ارسال"), ("shipped", "ارسال-شده"), ("delivered", "تحویل-شده")]
     
     order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name="Delivery_order", verbose_name="Order")
@@ -769,10 +725,8 @@ class UserView(models.Model):
         user (User): The authenticated user who viewed the product.
         product (Product): The product that was accessed.
         view_count (int): The total number of times the user has viewed the product.
-        last_seen (datetime): The timestamp of the most recent view event.
-        
+        last_seen (datetime): The timestamp of the most recent view event.  
     """
-    
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="UserView_user", verbose_name="User")
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name="UserView_product", verbose_name="Product")
     view_count = models.PositiveIntegerField(default=1, verbose_name="View Count")  
@@ -803,9 +757,7 @@ class Rating(models.Model):
         rating (int): The rating given by the user, restricted to a scale of 1-5.
         review (str, optional): An optional review text describing the user's experience.
         created_at (datetime): The timestamp when the rating was recorded.
-        
     """
-    
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="Rating_user", verbose_name="User")
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name="Rating_product", verbose_name="Product")
     rating = models.IntegerField(validators=[MinValueValidator(1), MaxValueValidator(5)], verbose_name="Rating")
@@ -840,9 +792,7 @@ class Notification(models.Model):
         related_object (GenericForeignKey): A generic reference to the related object (e.g., Order, Product).
         is_read (bool): Whether the notification has been read by the user.
         created_at (datetime): The timestamp when the notification was created.
-        
     """
-    
     TYPES = [("order", "Order Update"), ("promotion", "Promotion"), ("system", "System Alert")]
     
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="Notification_user", verbose_name="User")
