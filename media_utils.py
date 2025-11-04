@@ -10,7 +10,7 @@ Arvan_storage = ArvanCloudStorage()
 
 def upload_to(instance, filename):
     file_name, ext = splitext(filename)
-    file_name_slug = f"{slugify(file_name, allow_unicode=True).lower()}_{uuid4()}{ext}"
+    fallback_filename = f"{slugify(file_name, allow_unicode=True).lower()}_{uuid4()}{ext}"
 
     model_name = instance.__class__.__name__.lower()
     app_name = instance._meta.app_label.lower()
@@ -18,7 +18,7 @@ def upload_to(instance, filename):
     if model_name == "userprofile":
         user = getattr(instance, "user", None)
         full_name = slugify(user.get_full_name(), allow_unicode=True).lower() if user else "unknown"
-        new_filename = f"{user.id}_{full_name}{ext}" if user else file_name_slug
+        new_filename = f"{user.id}_{full_name}{ext}" if user else fallback_filename
         return f"{app_name}/{model_name}/{new_filename}"
 
     elif model_name in ["category", "product"]:
@@ -32,4 +32,4 @@ def upload_to(instance, filename):
         return f"{app_name}/{model_name}/{new_filename}"
 
     else:
-        return f"others/{file_name_slug}"
+        return f"others/{fallback_filename}"
