@@ -8,6 +8,19 @@ from uuid import uuid4
 #====================================== Category Admin ================================================
 
 class CategoryFilter(SimpleListFilter):
+    """
+    A custom filter for narrowing down categories based on their parent category.
+
+    This filter is designed for hierarchical category models, allowing admin users to filter
+    and view only the subcategories of a selected parent category.
+
+    Methods:
+        lookups(request, model_admin):
+            Returns a list of unique parent categories to populate the filter options.
+
+        queryset(request, queryset):
+            Filters the queryset to include only categories whose parent matches the selected value.
+    """
     title = "Food Supplie's Categories"
     parameter_name = "Category"
     
@@ -52,6 +65,18 @@ class GalleryAdmin(admin.ModelAdmin):
     search_fields = ["product"]
     ordering = ["product"]
 
+
+#====================================== Wishlist Admin ================================================
+
+@admin.register(Wishlist)
+class WishlistAdmin(admin.ModelAdmin):
+    list_display = ["id", "user", "product", "price"]
+    search_fields = ["user", "product"]
+    ordering = ["user", "id"]
+
+    def price(self, obj):
+        return obj.get_product_price()
+    
     
 #====================================== Warehouse Admin ===============================================
 
@@ -87,18 +112,6 @@ class CouponAdmin(admin.ModelAdmin):
     #         all_category, created = Category.objects.get_or_create(name="All", defaults={"slug": "all"})
     #         obj.category = all_category
     #     super().save_model(request, obj, form, change)
-
-
-#====================================== Wishlist Admin ================================================
-
-@admin.register(Wishlist)
-class WishlistAdmin(admin.ModelAdmin):
-    list_display = ["id", "user", "product", "price"]
-    search_fields = ["user", "product"]
-    ordering = ["user", "id"]
-
-    def price(self, obj):
-        return obj.get_product_price()
 
         
 #====================================== ShoppingCart Admin ============================================

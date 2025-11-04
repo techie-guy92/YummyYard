@@ -29,7 +29,7 @@ class Category(models.Model):
     """
     name = models.CharField(max_length=100, verbose_name="Category")
     parent = models.ForeignKey("Category", on_delete=models.CASCADE, related_name="Category_parent", null=True, blank=True, verbose_name="Parent")
-    slug = models.SlugField(unique=True, editable=False, verbose_name="Slug")
+    slug = models.SlugField(unique=True, verbose_name="Slug")
     description = models.TextField(null=True, blank=True, verbose_name="Description")
     image = models.ImageField(upload_to=upload_to, storage=Arvan_storage, null=True, blank=True, verbose_name="Image")
     created_at = models.DateTimeField(auto_now_add=True, editable=False, verbose_name="Created At")
@@ -81,7 +81,7 @@ class Product(models.Model):
     """
     name = models.CharField(max_length=250, verbose_name="Product") 
     category = models.ForeignKey(Category, on_delete=models.CASCADE, related_name="Product_category", verbose_name="Category")
-    slug = models.SlugField(unique=True, editable=False, verbose_name="Slug")
+    slug = models.SlugField(unique=True, verbose_name="Slug")
     price = models.PositiveIntegerField(default=0, verbose_name="Price")
     description = models.TextField(null=True, blank=True, verbose_name="Description")
     image = models.ImageField(upload_to=upload_to, storage=Arvan_storage, null=True, blank=True, verbose_name="Image")
@@ -157,18 +157,18 @@ class Warehouse(models.Model):
     Represents the inventory management system for a product within different warehouse operations.
 
     Attributes:
-        product (Product): The associated product in the warehouse.
-        warehouse_type (str): The type of warehouse operation (e.g., input, output, defective, sent back).
-        stock (int): The quantity of the product stored in the warehouse.
-        is_available (bool): Indicates whether the product is available in stock.
-        price (int): The cost price of the product in the warehouse.
-        created_at (datetime): The timestamp when the warehouse entry was initially recorded.
-        updated_at (datetime): The timestamp when the warehouse entry was last modified.
+        product: The associated product in the warehouse.
+        warehouse_type: The type of warehouse operation (e.g., input, output, defective, sent back).
+        stock: The quantity of the product stored in the warehouse.
+        is_available: Indicates whether the product is available in stock.
+        price: The cost price of the product for company.
+        created_at: The timestamp when the warehouse entry was initially recorded.
+        updated_at: The timestamp when the warehouse entry was last modified.
 
     Methods:
         total_stock(product): Calculates the total stock for a given product by aggregating input, output, and defective stock levels.
     """
-    WAREHOUSE_TYPE = [("input", "ورپدی"), ("output", "خروجی"), ("defective", "مرجوعی"), ("sent_back", "مرجوع-شده")]
+    WAREHOUSE_TYPE = [("input", "ورودی"), ("output", "خروجی"), ("defective", "مرجوعی"), ("sent_back", "مرجوع-شده")]
     
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name="Warehouse_product", verbose_name="Product")
     warehouse_type = models.CharField(max_length=10, choices=WAREHOUSE_TYPE, default="input", verbose_name="Warehouse Type")
@@ -202,14 +202,14 @@ class Coupon(models.Model):
     Represents a discount coupon that can be applied to purchases.
 
     Attributes:
-        code (str): A unique identifier for the coupon.
-        category (Category): The category associated with the coupon (optional).
-        discount_percentage (Decimal): The percentage discount applied when using the coupon.
-        max_usage (int): The maximum number of times the coupon can be used.
-        usage_count (int): The number of times the coupon has been used.
-        valid_from (datetime): The date and time when the coupon becomes active.
-        valid_to (datetime): The date and time when the coupon expires.
-        is_active (bool): Indicates whether the coupon is currently available for use.
+        code: A unique identifier for the coupon which generates automatically via save() method if it is not filled.
+        category: The category associated with the coupon (optional) in case a discount is going to apply for a specific category.
+        discount_percentage: The percentage discount applied when using the coupon.
+        max_usage: The maximum number of times the coupon can be used.
+        usage_count: The number of times the coupon has been used.
+        valid_from: The date and time when the coupon becomes active.
+        valid_to: The date and time when the coupon expires.
+        is_active: Indicates whether the coupon is currently available for use.
 
     Methods:
         is_expired(): Checks if the coupon has passed its expiration date.

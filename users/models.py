@@ -64,19 +64,6 @@ class CustomUserManager(BaseUserManager):
 class CustomUser(AbstractBaseUser, PermissionsMixin):
     """
     Custom user model that extends AbstractBaseUser and PermissionsMixin.
-
-    Attributes:
-    username (str): The username of the user
-    first_name (str): The first name of the user
-    last_name (str): The last name of the user
-    email (str): The email address of the user
-    user_type (str): The type of user
-    is_active (bool): Indicates if the user is active
-    is_premium (bool): Indicates if the user is a premium user
-    is_admin (bool): Indicates if the user is an admin
-    is_superuser (bool): Indicates if the user is a superuser
-    joined_at (datetime): The date and time when the user joined
-    updated_at (datetime): The date and time when the user was last updated
     """
     USER_TYPE = [("backend","BackEnd"), ("frontend","FrontEnd"), ("admin","Admin"), ("premium","Premium"), ("user","User")]
     username = models.CharField(max_length=30, unique=True, verbose_name="Username")
