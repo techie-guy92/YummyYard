@@ -19,7 +19,7 @@ services:
     volumes:
       - .:/app
       - shared_downloads:/app/shared_downloads 
-    command: ["sh", "-c", "python manage.py migrate && python manage.py collectstatic --noinput && gunicorn config.wsgi:application --bind 0.0.0.0:8000 --timeout 120 --workers 3 --worker-class sync"]
+    command: ["sh", "-c", "python manage.py migrate && python manage.py collectstatic --noinput && gunicorn config.wsgi:application --bind 0.0.0.0:8000 --timeout 120 --workers 4 --worker-class sync"]
     healthcheck:
       test: ["CMD-SHELL", "curl --silent --fail http://127.0.0.1:8000/ || exit 1"]
       interval: 30s
@@ -162,8 +162,8 @@ services:
     image: nginx:1.25
     container_name: ${PROJECT_NAME}-nginx
     ports:
-      - "80:80"
-      - "443:443"
+      - "8080:8080"
+      - "8443:8443"
     depends_on:
       web:
         condition: service_healthy
@@ -175,7 +175,7 @@ services:
       - main
     restart: always
     healthcheck:
-      test: ["CMD", "curl", "-k", "https://localhost"]
+      test: ["CMD", "curl", "-k", "https://localhost:8443"]
       interval: 30s
       timeout: 10s
       retries: 5
