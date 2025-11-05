@@ -11,12 +11,15 @@ RUN apt-get update && apt-get install -y \
     curl \
     procps \
     bash \
+    iproute2 \
+    net-tools \
+    lsof \
     postgresql-client \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
-RUN python -m pip install --upgrade pip
-RUN pip install --no-cache-dir -r requirements.txt
+RUN python -m pip install --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
