@@ -101,8 +101,8 @@ class WishlistModelViewSet(viewsets.ModelViewSet):
         wishlist_item = Wishlist.objects.filter(user=request.user, product_id=product_id).first()
         if wishlist_item:
             wishlist_item.delete()
-            return Response({"detail": "کالای مورد نظر با موفقیت حذف شد."}, status=status.HTTP_204_NO_CONTENT)
-        return Response({"detail": "کالای مورد نظر یافت نشد."}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"message": "کالای مورد نظر با موفقیت حذف شد."}, status=status.HTTP_204_NO_CONTENT)
+        return Response({"error": "کالای مورد نظر یافت نشد."}, status=status.HTTP_404_NOT_FOUND)
 
 
 #====================================== ShoppingCart View ============================================

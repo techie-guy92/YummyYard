@@ -36,7 +36,7 @@ def check_coupon_expiration():
         if expired_count > 0:
             expired_coupons.update(is_active=False)
             logger.info(f"Deactivated {expired_count} expired coupons")
-
+                                                    
         max_usage_coupons = Coupon.objects.filter(usage_count__gte=models.F("max_usage"), is_active=True)
         max_usage_count = max_usage_coupons.count()
         logger.info(f"Found {max_usage_count} coupons at max usage")

@@ -105,13 +105,6 @@ class CouponAdmin(admin.ModelAdmin):
     def get_category_display(self, obj):
         return obj.category.name if obj.category else "All"
     get_category_display.short_description = "Category"
-    
-    # Second Approch
-    # def save_model(self, request, obj, form, change):
-    #     if not obj.category:
-    #         all_category, created = Category.objects.get_or_create(name="All", defaults={"slug": "all"})
-    #         obj.category = all_category
-    #     super().save_model(request, obj, form, change)
 
         
 #====================================== ShoppingCart Admin ============================================

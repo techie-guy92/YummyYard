@@ -15,12 +15,12 @@ def check_coupon_expiration(sender, instance, **kwargs):
     try:
         logger.debug(f"Signal triggered for coupon: {instance.code}. Current time: {localtime(now())}, Valid To: {instance.valid_to}")
         instance.refresh_from_db()
-        if instance.is_expired() and instance.is_active:
+        if instance.is_active and instance.is_expired():
             logger.info(f"Coupon {instance.code} has expired.")
             instance.is_active = False
             instance.save(update_fields=["is_active"])
             logger.info(f"Coupon {instance.code} deactivated due to expiration.")
-        if instance.usage_count > instance.max_usage and instance.is_active:
+        if instance.is_active and instance.usage_count > instance.max_usage:
             logger.info(f"Coupon {instance.code} has reached its maximum usage.")
             instance.is_active = False
             instance.save(update_fields=["is_active"])
@@ -31,7 +31,7 @@ def check_coupon_expiration(sender, instance, **kwargs):
         logger.error(f"Error in check_coupon_expiration signal: {error}", exc_info=True)
 
 
-#==================================== UpdateOrder Signal ===============================================
+#==================================== UpdateWarehouse Signal ===========================================
 
 @receiver(post_save, sender=Warehouse)
 def handle_update_stock(sender, instance, created, **kwargs):
@@ -41,6 +41,8 @@ def handle_update_stock(sender, instance, created, **kwargs):
     # Update directly without triggering save()
     Warehouse.objects.filter(product=product).update(is_available=is_available)
 
+
+#==================================== UpdateOrder Signal ===============================================
 
 @receiver(post_save, sender=CartItem)
 def update_cart_total_price(sender, instance, created, **kwargs):

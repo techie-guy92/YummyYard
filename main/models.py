@@ -223,7 +223,7 @@ class Coupon(models.Model):
     usage_count = models.PositiveIntegerField(default=0, editable=False, verbose_name="Usage Count")
     valid_from = models.DateTimeField(verbose_name="Valid From")
     valid_to = models.DateTimeField(verbose_name="Valid To")
-    is_active = models.BooleanField(default=False, verbose_name="Is Active")
+    is_active = models.BooleanField(default=True, verbose_name="Is Active")
     
     def __str__(self):
         return f"{self.code}"
