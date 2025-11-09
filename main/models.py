@@ -174,7 +174,7 @@ class Warehouse(models.Model):
     warehouse_type = models.CharField(max_length=10, choices=WAREHOUSE_TYPE, default="input", verbose_name="Warehouse Type")
     stock = models.PositiveIntegerField(default=0, verbose_name="Quantity")  
     is_available = models.BooleanField(default=True, editable=False, verbose_name="Is Available") 
-    price = models.IntegerField(default=0, verbose_name="Cost Price")
+    price = models.IntegerField(default=0, verbose_name="Cost/Sell Price")
     created_at = models.DateTimeField(auto_now_add=True, editable=False, verbose_name="Created At")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="Updated At")
     
@@ -252,11 +252,11 @@ class ShoppingCart(models.Model):
     Represents a user's shopping cart, tracking selected products and total cost during a shopping session.
 
     Attributes:
-        online_customer (CustomUser, optional): The registered user who owns the shopping cart.
-        in_person_customer (InPersonCustomer, optional): The guest or in-person customer associated with the cart.
+        online_customer (optional): The registered user who owns the shopping cart.
+        in_person_customer (optional): The guest or in-person customer associated with the cart.
         products (ManyToManyField): The products added to the shopping cart, linked through `CartItem`.
-        total_price (int): The aggregated price of all items in the shopping cart.
-        status (str): The current status of the order (e.g., active, processed, abandoned).
+        total_price: The aggregated price of all items in the shopping cart.
+        status: The current status of the order (e.g., active, processed, abandoned).
 
     Methods:
         customer(): Returns the associated customer (either online or in-person).
@@ -266,7 +266,7 @@ class ShoppingCart(models.Model):
         clear_cart(): Removes all items from the cart and resets the total price.
         save(): Validates data and ensures the total price is updated after modifications.
     """
-    STATUS_TYPES = [("active", "فعال"), ("processed", "در-حال-پردازش"), ("abandoned", "لغو-شده")]
+    STATUS_TYPES = [("active", "فعال"), ("processed", "پردازش-شده"), ("abandoned", "لغو-شده")]
     
     online_customer = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, blank=True, null=True, related_name="ShoppingCart_online_customers", verbose_name="Online Customer")
     in_person_customer = models.ForeignKey(InPersonCustomer, on_delete=models.CASCADE, blank=True, null=True, related_name="ShoppingCart_in_person_customers", verbose_name="In-Person Customer")
@@ -338,11 +338,11 @@ class CartItem(models.Model):
     Represents an individual product entry in a shopping cart.
 
     Attributes:
-        cart (ShoppingCart): The shopping cart that contains this item.
-        product (Product): The specific product added to the cart.
-        quantity (int): The number of units of the product selected by the customer.
-        grand_total (int): The total cost of the product in the cart based on quantity.
-        status (str): The current status of the order (e.g., active, processed).
+        cart: The shopping cart that contains this item.
+        product: The specific product added to the cart.
+        quantity: The number of units of the product selected by the customer.
+        grand_total: The total cost of the product in the cart based on quantity.
+        status: The current status of the order (e.g., active, processed).
 
     Methods:
         get_product_price(): Returns the price of the associated product.
@@ -397,19 +397,18 @@ class CartItem(models.Model):
 class DeliverySchedule(models.Model):
     """
     Represents a scheduled delivery slot for customer orders.
-    This model manages delivery availability by defining valid days, time slots, 
-    capacity limits, and scheduling constraints.
+    This model manages delivery availability by defining valid days, time slots, capacity limits, and scheduling constraints.
 
     Attributes:
-        user (User): The customer requesting the delivery.
-        shopping_cart (ShoppingCart): The associated shopping cart for the delivery.
-        delivery_method (str): The chosen delivery method (e.g., normal, fast, postal).
-        date (DateField): The specific date when the delivery is scheduled.
-        day (str): The day of the week for the delivery slot.
-        time (str): The selected delivery timeframe (e.g., 8 - 10).
-        delivery_cost (int): The calculated delivery cost based on the selected method.
-        created_at (datetime): The timestamp when the delivery schedule was created.
-        updated_at (datetime): The timestamp when the delivery schedule was last modified.
+        user: The customer requesting the delivery.
+        shopping_cart: The associated shopping cart for the delivery.
+        delivery_method: The chosen delivery method (e.g., normal, fast, postal).
+        date: The specific date when the delivery is scheduled.
+        day: The day of the week for the delivery slot.
+        time: The selected delivery timeframe (e.g., 8 - 10).
+        delivery_cost: The calculated delivery cost based on the selected method.
+        created_at: The timestamp when the delivery schedule was created.
+        updated_at: The timestamp when the delivery schedule was last modified.
 
     Methods:
         customer(): Returns the username of the customer associated with the delivery.
@@ -429,7 +428,7 @@ class DeliverySchedule(models.Model):
     shopping_cart = models.ForeignKey(ShoppingCart, on_delete=models.CASCADE, related_name="DeliverySchedule_shopping_cart", verbose_name="Shopping Cart")
     delivery_method = models.CharField(max_length=20, choices=DELIVERY_TYPES, verbose_name="Delivery Method")
     date = models.DateField(verbose_name="Delivery Date")
-    day = models.CharField(max_length=10, editable=False, verbose_name="Day of the Week")
+    day = models.CharField(max_length=10, verbose_name="Day of the Week")
     time = models.CharField(max_length=10, choices=TIMES, verbose_name="Time")
     delivery_cost = models.PositiveIntegerField(default=0, verbose_name="Delivery Cost")
     created_at = models.DateTimeField(auto_now_add=True, editable=False, verbose_name="Created At")
@@ -462,9 +461,9 @@ class DeliverySchedule(models.Model):
         crr_date = crr_datetime.date()
         crr_hour = crr_datetime.hour
         if self.date < crr_date:
-            raise ValidationError(f"بازه انتخابی نمیتواند در گذشتع باشد و باید از امروز تا {self.MAX_DAYS_AHEAD} روز آینده باشد.")
+            raise ValidationError(f"بازه انتخابی نمیتواند در گذشته باشد و باید از امروز تا {self.MAX_DAYS_AHEAD} روز آینده باشد.")
         if (self.date - crr_date).days > self.MAX_DAYS_AHEAD:
-            raise ValidationError(f"بازه زمانی انتخابی باید تا {self.MAX_DAYS_AHEAD} باشد.")
+            raise ValidationError(f"بازه زمانی انتخابی باید تا {self.MAX_DAYS_AHEAD} روز آینده باشد.")
         if self.date == crr_date:
             start_hour = int(self.time.split("_")[0])
             if start_hour <= crr_hour + 4:
@@ -511,29 +510,29 @@ class DeliverySchedule(models.Model):
 
 class Order(models.Model):
     """
-    Represents a customer order, tracking details such as payment method, delivery method, pricing, and overall order status.
+    Represents a final check and complete process of purchase before checkout.
 
     Attributes:
-        online_customer (User, optional): The online user who placed the order.
-        in_person_customer (InPersonCustomer, optional): The in-person customer making a direct purchase.
-        order_type (str): Specifies whether the order is placed online or in-person.
-        shopping_cart (ShoppingCart): The linked shopping cart containing purchased items.
-        delivery_schedule (DeliverySchedule, optional): The scheduled delivery details.
-        payment_method (str): The payment method used (cash, credit card, or online).
-        total_amount (int): The total cost before any discounts are applied.
-        amount_payable (int): The final payable amount after applying discounts.
-        discount_applied (int): The discount value deducted from the total amount.
-        coupon (Coupon, optional): A discount coupon applied to the order.
-        status (str): The current status of the order (e.g., waiting, successful, canceled).
-        description (str, optional): Additional details or customer notes about the order.
-        created_at (datetime): The timestamp when the order was created.
-        updated_at (datetime): The timestamp when the order was last modified.
+        online_customer (optional): The online user who placed the order.
+        in_person_customer (optional): The in-person customer making a direct purchase.
+        order_type: Specifies whether the order is placed online or in-person.
+        shopping_cart: The linked shopping cart containing purchased items.
+        delivery_schedule: The scheduled delivery details.
+        payment_method: The payment method used (cash, credit card, or online).
+        total_amount: The total cost before any discounts are applied.
+        amount_payable: The final payable amount after applying discounts.
+        discount_applied: The discount value deducted from the total amount.
+        coupon (optional): A discount coupon applied to the order.
+        status: The current status of the order (e.g., waiting, successful, canceled).
+        description (optional): Additional details or customer notes about the order.
+        created_at: The timestamp when the order was created.
+        updated_at: The timestamp when the order was last modified.
 
     Methods:
         customer(): Returns the customer associated with the order.
         validate_customer(): Ensures an order has only one type of customer (online or in-person).
-        validate_price(): Calculates total price and enforces validation rules on amount payable.
         validate_discount(): Ensures coupon validity and verifies applied discount accuracy.
+        validate_price(): Calculates total price and enforces validation rules on amount payable.
         save(): Cleans data and determines the order type before saving.
     """
     ORDER_TYPE = [("in_person", "حضوری"), ("online", "آنلاین")]
@@ -544,7 +543,7 @@ class Order(models.Model):
     in_person_customer = models.ForeignKey(InPersonCustomer, on_delete=models.CASCADE, blank=True, null=True, related_name="Order_in_person_customers", verbose_name="In-Person Customer")
     order_type = models.CharField(max_length=10, choices=ORDER_TYPE, verbose_name="Order Type")
     shopping_cart = models.OneToOneField(ShoppingCart, on_delete=models.CASCADE, related_name="Order_shopping_cart", verbose_name="Shopping Cart")
-    delivery_schedule = models.ForeignKey(DeliverySchedule, on_delete=models.SET_NULL, blank=True, null=True, verbose_name="Delivery Schedule")
+    delivery_schedule = models.ForeignKey(DeliverySchedule, on_delete=models.CASCADE, blank=True, verbose_name="Delivery Schedule")
     coupon = models.ForeignKey(Coupon, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Coupon")
     discount_applied = models.IntegerField(default=0, verbose_name="Discount Applied")
     payment_method = models.CharField(max_length=15, choices=PAYMENT_METHOD, verbose_name="Payment Method")
@@ -572,6 +571,19 @@ class Order(models.Model):
         if self.online_customer and self.in_person_customer:
             raise ValidationError("سبد خرید نمیتواند هم کاربر آنلاین داشته باشد و هم کاربر حضوری.")
     
+    def validate_discount(self):
+        if self.discount_applied:
+            if not self.coupon:
+                raise ValidationError("کد تخفیف یافت نشد.")
+            try:
+                if not self.coupon.is_valid():
+                    raise ValidationError("این کد تخفیف معتبر نیست و یا منقضی شده است.")
+                expected_discount = (self.total_amount * self.coupon.discount_percentage) / 100
+                if self.discount_applied != expected_discount:
+                    raise ValidationError("میزان تخفیف با میزان تخفیف مورد انتظار یکسان نمی باشد.")
+            except (ValidationError, Exception) as error:
+                raise ValidationError(f"Validation error while applying discount: {str(error)}")
+            
     def validate_price(self):
         try:
             if not self.shopping_cart:
@@ -587,21 +599,6 @@ class Order(models.Model):
             raise ValidationError("سبد خرید انتخابی موجود نیست.")
         except Exception as error:
             raise ValidationError(f"An error occurred while validating the price: {str(error)}")
-
-    def validate_discount(self):
-        if self.discount_applied:
-            if not self.coupon:
-                raise ValidationError("کد تخفیف یافت نشد.")
-            try:
-                if not self.coupon.is_valid():
-                    raise ValidationError("این کد تخفیف معتبر نیست و یا منقضی شده است.")
-                expected_discount = (self.total_amount * self.coupon.discount_percentage) / 100
-                if self.discount_applied != expected_discount:
-                    raise ValidationError("میزان تخفیف با میزان تخفیف مورد انتظار یکسان نمی باشد.")
-            except ValidationError as error:
-                raise ValidationError(f"Validation error while applying discount: {str(error)}")
-            except Exception as error:
-                raise ValidationError(f"Unexpected error while applying discount: {str(error)}")
 
     def save(self, *args, **kwargs):
         if not self.order_type:
@@ -622,21 +619,19 @@ class Order(models.Model):
 
 class Transaction(models.Model):
     """
-    Represents a financial transaction associated with an order.
-    This model tracks payment details, including the amount paid, transaction success status, and payment gateway metadata.
+    Represents a financial transaction associated with an order and makes payment through a gateway.
 
     Attributes:
-        user (User): The user who initiated the transaction.
-        order (Order): The order linked to this payment transaction.
-        amount (int): The amount charged for the transaction, provided by the payment gateway.
-        payment_id (str): A unique identifier for the transaction assigned by the payment gateway.
-        is_successful (bool): Indicates whether the transaction was completed successfully.
-        created_at (datetime): The timestamp when the transaction record was created.
+        user: The user who initiated the transaction.
+        order: The order linked to this payment transaction.
+        amount: The amount charged for the transaction, provide for the payment gateway.
+        payment_id: A unique identifier for the transaction assigned by the gateway (gateway web service).
+        is_successful: Indicates whether the transaction was completed successfully.
+        created_at: The timestamp when the transaction record was created.
 
     Methods:
         validate_amount(): Ensures the transaction amount matches the expected order payable amount.
         validate_payment(): Updates the order status and creates a delivery entry upon successful payment.
-        save(): Validates and processes the transaction before saving it to the database.
     """
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="Transaction_user", verbose_name="User")
     order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name="Transaction_order", verbose_name="Order")
@@ -664,7 +659,7 @@ class Transaction(models.Model):
             self.order.refresh_from_db()
             with transaction.atomic():
                 delivery, created = Delivery.objects.get_or_create(order=self.order, defaults={
-                    "tracking_id": f"{self.order.id}-{uuid4().hex[:7].upper()}", 
+                    "tracking_id": f"{self.order.id}-{uuid4().hex[:5].upper()}", 
                     "status": "pending"
                     })
                 if created:
@@ -686,15 +681,14 @@ class Transaction(models.Model):
 class Delivery(models.Model):
     """
     Represents the shipment and delivery details of an order.
-    This model tracks the status, shipment timestamps, and tracking information associated with the delivery process.
 
     Attributes:
-        order (Order): The order linked to this delivery record.
-        status (str): The current delivery status (e.g., pending, shipped, delivered).
-        tracking_id (str, optional): The unique tracking number assigned to the delivery.
-        postman (str, optional): The name of the delivery person handling the shipment.
-        shipped_at (datetime, optional): The timestamp when the order was shipped.
-        delivered_at (datetime, optional): The timestamp when the order was successfully delivered.
+        order: The order linked to this delivery record.
+        status: The current delivery status (e.g., pending, shipped, delivered).
+        tracking_id: The unique tracking number assigned to the delivery by Transaction model.
+        postman: The name of the delivery person handling the shipment.
+        shipped_at: The timestamp when the order is shipped.
+        delivered_at: The timestamp when the order is successfully delivered to a customer and tracking_id is filled.
     """
     STATUS_DELIVERY = [("pending", "در-انتظار-ارسال"), ("shipped", "ارسال-شده"), ("delivered", "تحویل-شده")]
     
