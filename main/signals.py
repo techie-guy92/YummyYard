@@ -62,14 +62,19 @@ def handle_place_order(sender, instance, created, **kwargs):
 
 
 @receiver(post_save, sender=Order)
-def set_order_status_to_waiting(sender, instance, created, **kwargs):
+def set_order_status(sender, instance, created, **kwargs):
     try:
         if created and instance.status == "on_hold":
             instance.status = "waiting"
             instance.save(update_fields=["status"])
             logger.info(f"Order ID {instance.id} status changed to 'waiting' after placing.")
+        # Only restore stock if status just changed to canceled
+        previous = Order.objects.get(pk=instance.pk)
+        if previous.status != "canceled" and instance.status == "canceled":
+            instance.restore_stock()
+            logger.info(f"Order ID {instance.id} was canceled and products returned to stock.")
     except Exception as error:
-        logger.error(f"Error in set_order_status_to_waiting signal for Order ID {instance.id}: {error}", exc_info=True)
+        logger.error(f"Error in set_order_status signal for Order ID {instance.id}: {error}", exc_info=True)
 
 
 @receiver(post_save, sender=Delivery)

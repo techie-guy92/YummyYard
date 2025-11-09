@@ -375,7 +375,8 @@ class CartItem(models.Model):
             raise ValidationError("تعداد باید بیشتر از صفر باشد.")
     
     def validate_stock(self):
-        total_stock = Warehouse.total_stock(product=self.product) 
+        self.refresh_from_db()
+        total_stock = Warehouse.total_stock(product=self.product)
         if self.quantity > total_stock:
             raise ValidationError(f"موجودی ناکافی برای {self.product.name}. تعداد درخواستی: {self.quantity}, موجودی: {total_stock}")
 
@@ -599,6 +600,17 @@ class Order(models.Model):
             raise ValidationError("سبد خرید انتخابی موجود نیست.")
         except Exception as error:
             raise ValidationError(f"An error occurred while validating the price: {str(error)}")
+
+    def restore_stock(self):
+        if self.status == "canceled":
+            with transaction.atomic():
+                for item in CartItem.objects.filter(cart=self.shopping_cart):
+                    Warehouse.objects.create(
+                        product=item.product,
+                        warehouse_type="input",
+                        stock=item.quantity,
+                        price=item.product.price
+                    )
 
     def save(self, *args, **kwargs):
         if not self.order_type:
