@@ -53,28 +53,33 @@ def update_cart_total_price(sender, instance, created, **kwargs):
 
 
 @receiver(post_save, sender=Order)
-def handle_place_order(sender, instance, created, **kwargs):
-    if created:  
-        shopping_cart = instance.shopping_cart 
-        shopping_cart.place_order()
-        shopping_cart.clear_cart()
-        logger.debug(f"Order ID {instance.id} triggered place_order and clear_cart for ShoppingCart ID {shopping_cart.id}")  
-
-
-@receiver(post_save, sender=Order)
-def set_order_status(sender, instance, created, **kwargs):
+def handle_order_workflow(sender, instance, created, **kwargs):
     try:
-        if created and instance.status == "on_hold":
-            instance.status = "waiting"
-            instance.save(update_fields=["status"])
-            logger.info(f"Order ID {instance.id} status changed to 'waiting' after placing.")
-        # Only restore stock if status just changed to canceled
-        previous = Order.objects.get(pk=instance.pk)
-        if previous.status != "canceled" and instance.status == "canceled":
-            instance.restore_stock()
-            logger.info(f"Order ID {instance.id} was canceled and products returned to stock.")
+        if created:
+            with transaction.atomic():
+                if not instance.order_number:
+                    instance.order_number = instance.generate_order_number()
+                    instance.save(update_fields=['order_number'])
+                shopping_cart = instance.shopping_cart
+                shopping_cart.place_order()
+                shopping_cart.clear_cart()
+                if instance.status == "on_hold":
+                    Order.objects.filter(pk=instance.pk).update(status="waiting")
+                logger.info(f"Order {instance.id} processed - Cart {shopping_cart.id}")
+        if not created:
+            if instance.status == "canceled" and instance.shopping_cart.status != "abandoned":
+                with transaction.atomic():
+                    instance.restore_stock()
+                    instance.shopping_cart.status = "abandoned"
+                    instance.shopping_cart.save(update_fields=["status"])                        
+                    cart_items = CartItem.objects.filter(cart=instance.shopping_cart, status__in=["processed"])
+                    if cart_items.exists():
+                        cart_items.update(status="abandoned")
+                    logger.info(f"Order {instance.id} canceled - stock restored")
+            elif instance.status == "canceled" and instance.shopping_cart.status == "abandoned":
+                logger.debug(f"Order {instance.id} already processed as canceled")
     except Exception as error:
-        logger.error(f"Error in set_order_status signal for Order ID {instance.id}: {error}", exc_info=True)
+        logger.error(f"Order signal error {instance.id}: {error}", exc_info=True)
 
 
 @receiver(post_save, sender=Delivery)

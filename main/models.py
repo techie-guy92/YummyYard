@@ -2,12 +2,14 @@ from django.db import models, transaction
 from django.db.models import Sum, Count
 from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator, MaxValueValidator
+from django.core.cache import cache
 from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
-from logging import getLogger
 from django.utils.timezone import now, localtime
-from django.conf import settings
+from django.utils.functional import cached_property
 from django.utils.text import slugify
+from django.conf import settings
+from logging import getLogger
 from uuid import uuid4
 from utilities import code_generator
 from media_utils import upload_to, Arvan_storage
@@ -88,9 +90,17 @@ class Product(models.Model):
     created_at = models.DateTimeField(auto_now_add=True, editable=False, verbose_name="Created At")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="Updated At")
     
+    @cached_property
+    def current_stock(self):
+        return Warehouse.total_stock(product=self)
+    
+    def get_cached_stock(self):
+        cache_key = f"product_{self.id}_stock"
+        return cache.get_or_set(cache_key, lambda: Warehouse.total_stock(product=self), settings.CACHE_TTL)
+    
     def __str__(self):
         return f"{self.name}"
-
+        
     def save(self, *args, **kwargs):
         if not self.slug:
             base_slug = slugify(self.name, allow_unicode=True)
@@ -136,13 +146,13 @@ class Wishlist(models.Model):
     """
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="Wishlist_user", verbose_name="User")
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name="Wishlist_product", verbose_name="Product")
-   
-    def __str__(self):
-        return f"Wishlist of {self.user.username}"
-
+    
     def get_product_price(self):
         return self.product.price
     
+    def __str__(self):
+        return f"Wishlist of {self.user.username}"
+
     class Meta:
         verbose_name = "Wishlist"
         verbose_name_plural = "Wishlists"
@@ -178,9 +188,6 @@ class Warehouse(models.Model):
     created_at = models.DateTimeField(auto_now_add=True, editable=False, verbose_name="Created At")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="Updated At")
     
-    def __str__(self):
-        return f"{self.product} - {self.total_stock(product=self.product)}"
-        
     @staticmethod
     def total_stock(product):
         input_stock = Warehouse.objects.filter(product=product, warehouse_type="input").aggregate(total=Sum("stock"))["total"] or 0
@@ -189,6 +196,9 @@ class Warehouse(models.Model):
         total = input_stock - (output_stock + defective_stock)
         return total
     
+    def __str__(self):
+        return f"{self.product} - {self.total_stock(product=self.product)}"
+        
     class Meta:
         verbose_name = "Warehouse"
         verbose_name_plural = "Warehouses"
@@ -225,15 +235,15 @@ class Coupon(models.Model):
     valid_to = models.DateTimeField(verbose_name="Valid To")
     is_active = models.BooleanField(default=True, verbose_name="Is Active")
     
-    def __str__(self):
-        return f"{self.code}"
-        
     def is_expired(self):
         return self.valid_to < localtime(now())
     
     def is_valid(self): 
         return self.is_active and not self.is_expired() and self.usage_count <= self.max_usage
     
+    def __str__(self):
+        return f"{self.code}"
+        
     def save(self, *args, **kwargs):
         if not self.code:
             self.code = code_generator(5)
@@ -274,24 +284,12 @@ class ShoppingCart(models.Model):
     total_price = models.PositiveIntegerField(default=0, verbose_name="Total Price")
     status = models.CharField(max_length=10, choices=STATUS_TYPES, default="active", verbose_name="Cart Status")
     
+    def calculate_total_price(self):
+        return sum(item.grand_total for item in CartItem.objects.filter(cart=self))
+    
     def customer(self):
         return self.online_customer if self.online_customer else self.in_person_customer
     
-    def __str__(self):
-        return f"{self.id} - {self.online_customer.username if self.online_customer else self.in_person_customer.first_name+' '+self.in_person_customer.last_name}"
-
-    def clean(self):
-        self.validate_customer()
-        
-    def validate_customer(self):
-        if not self.online_customer and not self.in_person_customer:
-            raise ValidationError("سبد خرید حتما باید دارای کابر آنلاین یا کاربر حضوری باشد.")
-        if self.online_customer and self.in_person_customer:
-            raise ValidationError("سبد خرید نمیتواند هم کاربر آنلاین داشته باشد و هم کاربر حضوری.")
-
-    def calculate_total_price(self):
-        return sum(item.grand_total for item in CartItem.objects.filter(cart=self))
-     
     def place_order(self):
         with transaction.atomic():
             for item in CartItem.objects.filter(cart=self):
@@ -314,6 +312,18 @@ class ShoppingCart(models.Model):
             with transaction.atomic():
                 self.mark_as_processed()
                 cart_items.update(status="processed")
+                
+    def __str__(self):
+        return f"{self.id} - {self.online_customer.username if self.online_customer else self.in_person_customer.first_name+' '+self.in_person_customer.last_name}"
+
+    def clean(self):
+        self.validate_customer()
+        
+    def validate_customer(self):
+        if not self.online_customer and not self.in_person_customer:
+            raise ValidationError("سبد خرید حتما باید دارای کابر آنلاین یا کاربر حضوری باشد.")
+        if self.online_customer and self.in_person_customer:
+            raise ValidationError("سبد خرید نمیتواند هم کاربر آنلاین داشته باشد و هم کاربر حضوری.")
 
     def save(self, *args, **kwargs):
         self.full_clean()
@@ -351,7 +361,7 @@ class CartItem(models.Model):
         validate_grand_total(): Updates the `grand_total` field based on the product price and quantity.
         save(): Ensures data integrity before storing the item in the cart.
     """
-    STATUS_TYPES = [("active", "فعال"), ("processed", "در-حال-پردازش")]
+    STATUS_TYPES = [("active", "فعال"), ("processed", "پردازش-شده"), ("abandoned", "لغو-شده")]
     
     cart = models.ForeignKey(ShoppingCart, on_delete=models.CASCADE, related_name="CartItem_cart", verbose_name="Cart")
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name="CartItem_product", verbose_name="Product")
@@ -375,7 +385,6 @@ class CartItem(models.Model):
             raise ValidationError("تعداد باید بیشتر از صفر باشد.")
     
     def validate_stock(self):
-        self.refresh_from_db()
         total_stock = Warehouse.total_stock(product=self.product)
         if self.quantity > total_stock:
             raise ValidationError(f"موجودی ناکافی برای {self.product.name}. تعداد درخواستی: {self.quantity}, موجودی: {total_stock}")
@@ -538,15 +547,16 @@ class Order(models.Model):
     """
     ORDER_TYPE = [("in_person", "حضوری"), ("online", "آنلاین")]
     PAYMENT_METHOD = [("cash", "نقد"), ("credit_card", "کارت-بانکی"), ("online", "درگاه")]
-    STATUS_TYPES = [("on_hold", "On Hold"), ("waiting", "در-انتظار-پرداخت"), ("successful", "پرداخت-موفق"), ("failed", "پرداخت-ناموفق"), ("shipped", "ارسال-شده"), ("completed", "سفارش-تکمیل-شده"), ("canceled", "سفارش-لغو-شده"), ("refunded", "بازپرداخت-شده")]
+    STATUS_TYPES = [("on_hold", "در-انتظار"), ("waiting", "در-انتظار-پرداخت"), ("successful", "پرداخت-موفق"), ("failed", "پرداخت-ناموفق"), ("shipped", "ارسال-شده"), ("completed", "سفارش-تکمیل-شده"), ("canceled", "سفارش-لغو-شده"), ("refunded", "بازپرداخت-شده")]
     
+    order_number = models.CharField(max_length=20, unique=True, editable=False, verbose_name="Order Number")
     online_customer = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, blank=True, null=True, related_name="Order_online_customers", verbose_name="Online Customer")
     in_person_customer = models.ForeignKey(InPersonCustomer, on_delete=models.CASCADE, blank=True, null=True, related_name="Order_in_person_customers", verbose_name="In-Person Customer")
     order_type = models.CharField(max_length=10, choices=ORDER_TYPE, verbose_name="Order Type")
     shopping_cart = models.OneToOneField(ShoppingCart, on_delete=models.CASCADE, related_name="Order_shopping_cart", verbose_name="Shopping Cart")
-    delivery_schedule = models.ForeignKey(DeliverySchedule, on_delete=models.CASCADE, blank=True, verbose_name="Delivery Schedule")
+    delivery_schedule = models.ForeignKey(DeliverySchedule, on_delete=models.CASCADE, blank=True, null=True, verbose_name="Delivery Schedule")
     coupon = models.ForeignKey(Coupon, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Coupon")
-    discount_applied = models.IntegerField(default=0, verbose_name="Discount Applied")
+    discount_applied = models.IntegerField(default=0, verbose_name="Discount")
     payment_method = models.CharField(max_length=15, choices=PAYMENT_METHOD, verbose_name="Payment Method")
     total_amount = models.PositiveIntegerField(default=0, verbose_name="Total Amount")
     amount_payable = models.PositiveIntegerField(default=0, verbose_name="Amount Payable")
@@ -558,6 +568,20 @@ class Order(models.Model):
     def customer(self):
         return self.online_customer if self.online_customer else self.in_person_customer
     
+    def generate_order_number(self):
+        return f"ORD-{localtime(now()).strftime('%Y%m%d')}-{self.id:06d}"
+    
+    def restore_stock(self):
+        if self.status == "canceled":
+            with transaction.atomic():
+                for item in CartItem.objects.filter(cart=self.shopping_cart):
+                    Warehouse.objects.create(
+                        product=item.product,
+                        warehouse_type="input",
+                        stock=item.quantity,
+                        price=item.product.price
+                    )
+                    
     def __str__(self):
         return f"Order {self.id} by {self.customer()} ({self.get_order_type_display()})" if self.customer() else f"Order {self.id} ({self.get_order_type_display()})"
 
@@ -600,17 +624,6 @@ class Order(models.Model):
             raise ValidationError("سبد خرید انتخابی موجود نیست.")
         except Exception as error:
             raise ValidationError(f"An error occurred while validating the price: {str(error)}")
-
-    def restore_stock(self):
-        if self.status == "canceled":
-            with transaction.atomic():
-                for item in CartItem.objects.filter(cart=self.shopping_cart):
-                    Warehouse.objects.create(
-                        product=item.product,
-                        warehouse_type="input",
-                        stock=item.quantity,
-                        price=item.product.price
-                    )
 
     def save(self, *args, **kwargs):
         if not self.order_type:

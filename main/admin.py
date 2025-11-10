@@ -27,6 +27,7 @@ class CategoryFilter(SimpleListFilter):
     def lookups(self, request, model_admin):
         parent_categories = Category.objects.filter(~Q(parent=None))
         parents = set([category.parent for category in parent_categories])
+        parents = Category.objects.filter(Category_parent__isnull=False).distinct()
         return [(obj.id, obj.name) for obj in parents]
     
     def queryset(self, request, queryset):
@@ -47,13 +48,15 @@ class CategoryAdmin(admin.ModelAdmin):
 
 @admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):
-    list_display = ["id", "slug", "total_stock", "category", "price", "created_at", "updated_at"]
+    list_display = ["id", "slug", "current_stock", "category", "price", "created_at", "updated_at"]
+    list_filter = ["category"]
     search_fields = ["slug"]
     ordering = ["slug"]
     
-    def total_stock(self, obj):
-        return Warehouse.total_stock(product=obj)
-    total_stock.short_description = "Total Stock"  
+    def current_stock(self, obj):
+        # return Warehouse.total_stock(product=obj)
+        return obj.current_stock
+    current_stock.short_description = "Current Stock" 
 
     
 #====================================== Gallery Admin =================================================
@@ -82,14 +85,15 @@ class WishlistAdmin(admin.ModelAdmin):
 
 @admin.register(Warehouse)
 class WarehouseAdmin(admin.ModelAdmin):
-    list_display = ["id", "product", "total_stock", "is_available", "price", "warehouse_type", "stock", "created_at", "updated_at"]
+    list_display = ["id", "product", "current_stock", "is_available", "price", "warehouse_type", "stock", "created_at", "updated_at"]
     list_filter = ["warehouse_type"]
     search_fields = ["product", "warehouse_type"]
     ordering = ["id"]
-    
-    def total_stock(self, obj):
-        return Warehouse.total_stock(product=obj.product)
-    total_stock.short_description = "Total Stock"
+        
+    def current_stock(self, obj):
+        # return Warehouse.total_stock(product=obj.product)
+        return obj.product.current_stock
+    current_stock.short_description = "Current Stock"
     
 
 #====================================== Coupon Admin ==================================================
@@ -132,7 +136,6 @@ class ShoppingCartAdmin(admin.ModelAdmin):
         ]
      
     # def save_related(self, request, form, formsets, change):
-    #     # Save inline items first
     #     super().save_related(request, form, formsets, change)
     #     # Recalculate total_price after all related items (CartItems) are saved
     #     obj = form.instance
@@ -188,11 +191,11 @@ class DeliveryScheduleAdmin(admin.ModelAdmin):
 
 @admin.register(Order)
 class OrderAdmin(admin.ModelAdmin):
-    list_display = ["id", "customer", "order_type", "payment_method", "total_amount", "amount_payable", "discount_applied", "delivery_schedule", "status", "created_at", "updated_at"]
+    list_display = ["order_number", "customer", "order_type", "delivery_schedule", "payment_method", "total_amount", "amount_payable", "discount_applied", "status", "created_at", "updated_at"]
     list_filter = ["order_type", "status", "payment_method"]
-    search_fields = ["online_customer", "in_person_customer", "payment_method"]
+    search_fields = ["order_number", "online_customer", "in_person_customer", "payment_method"]
     ordering = ["created_at"]
-    exclude = ["status", "description", "order_type"]
+    exclude = ["description", "order_type"]
     readonly_fields = ["total_amount"]
     
     def customer(self, obj):
@@ -200,7 +203,7 @@ class OrderAdmin(admin.ModelAdmin):
     
     def get_fieldsets(self, request, obj = None):
         return [
-            ("Order Info", {"fields": ("in_person_customer", "online_customer", "shopping_cart", "delivery_schedule")}),
+            ("Order Info", {"fields": ("in_person_customer", "online_customer", "shopping_cart", "status", "delivery_schedule")}),
             ("Order Payment", {"fields": ("payment_method", "total_amount")}),
         ]
     
