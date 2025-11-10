@@ -154,6 +154,50 @@ class InPersonCustomer(models.Model):
         verbose_name_plural = "In-Person Customers"
 
 
+#====================================== Wallet Model ====================================================
+
+class Wallet(models.Model):
+    """
+    Represents a user's wallet for storing and managing funds.
+    """
+    STATUS_TYPES = [("active", "فعال"), ("frozen", "مسدود"), ("closed", "بسته‌-شده")]
+
+    owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="wallets", verbose_name="Wallet Owner")
+    balance = models.PositiveIntegerField(default=0, verbose_name="Balance")
+    currency = models.CharField(max_length=10, default="IRR", verbose_name="Currency")
+    status = models.CharField(max_length=10, choices=STATUS_TYPES, default="active", verbose_name="Status")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Created At")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="Updated At")
+
+    def __str__(self):
+        return f"Wallet {self.id} - {self.owner.username} ({self.balance} {self.currency})"
+
+    def deposit(self, amount):
+        if amount <= 0:
+            raise ValueError("مبلغ واریزی باید بیشتر از صفر باشد.")
+        self.balance += amount
+        self.save(update_fields=["balance"])
+
+    def withdraw(self, amount):
+        if amount > self.balance:
+            raise ValueError("موجودی ناکافی است.")
+        self.balance -= amount
+        self.save(update_fields=["balance"])
+
+    def freeze(self):
+        self.status = "frozen"
+        self.save(update_fields=["status"])
+
+    def activate(self):
+        self.status = "active"
+        self.save(update_fields=["status"])
+
+    class Meta:
+        verbose_name = "Wallet"
+        verbose_name_plural = "Wallets"
+        indexes = [models.Index(fields=["owner"]), models.Index(fields=["status"])]
+
+
 #====================================== PremiumSubscription Model =====================================
 
 class PremiumSubscription(models.Model):

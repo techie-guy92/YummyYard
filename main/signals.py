@@ -59,47 +59,79 @@ def handle_order_workflow(sender, instance, created, **kwargs):
             with transaction.atomic():
                 if not instance.order_number:
                     instance.order_number = instance.generate_order_number()
-                    instance.save(update_fields=['order_number'])
+                    instance.save(update_fields=["order_number"])
                 shopping_cart = instance.shopping_cart
                 shopping_cart.place_order()
                 shopping_cart.clear_cart()
                 if instance.status == "on_hold":
                     Order.objects.filter(pk=instance.pk).update(status="waiting")
                 logger.info(f"Order {instance.id} processed - Cart {shopping_cart.id}")
+
         if not created:
             if instance.status == "canceled" and instance.shopping_cart.status != "abandoned":
-                with transaction.atomic():
-                    instance.restore_stock()
-                    instance.shopping_cart.status = "abandoned"
-                    instance.shopping_cart.save(update_fields=["status"])                        
-                    cart_items = CartItem.objects.filter(cart=instance.shopping_cart, status__in=["processed"])
-                    if cart_items.exists():
-                        cart_items.update(status="abandoned")
-                    logger.info(f"Order {instance.id} canceled - stock restored")
+                transaction_obj = Transaction.objects.filter(order=instance.pk).first()
+                if not transaction_obj or not transaction_obj.is_paid:
+                    with transaction.atomic():
+                        instance.restore_stock()
+                        instance.shopping_cart.status = "abandoned"
+                        instance.shopping_cart.save(update_fields=["status"])
+                        CartItem.objects.filter(cart=instance.shopping_cart, status__in=["processed"]).update(status="abandoned")
+                        logger.info(f"Order {instance.id} canceled - stock restored and cart abandoned")
+                else:
+                    with transaction.atomic():
+                        Order.objects.filter(pk=instance.pk).update(status="refunded")
+                        refund, created = Refund.objects.get_or_create(order=instance, defaults={
+                            "user": instance.online_customer,
+                            "amount": instance.amount_payable,
+                            "method": "wallet",
+                            "status": "requested",
+                        })
+                        if created:
+                            logger.info(f"Refund created for Order {instance.id} - Amount: {refund.amount}")
+                        else:
+                            logger.debug(f"Refund already exists for Order {instance.id}")
             elif instance.status == "canceled" and instance.shopping_cart.status == "abandoned":
                 logger.debug(f"Order {instance.id} already processed as canceled")
     except Exception as error:
         logger.error(f"Order signal error {instance.id}: {error}", exc_info=True)
 
 
+@receiver(post_save, sender=Transaction)
+def handle_successful_payment(sender, instance, **kwargs):
+    if instance.is_paid and instance.order.status == "waiting":
+        with transaction.atomic():
+            Order.objects.filter(pk=instance.order.pk).update(status="successful")
+            instance.order.refresh_from_db()
+            delivery, created = Delivery.objects.get_or_create(
+                order=instance.order,
+                defaults={
+                    "tracking_id": f"TRK-{instance.order.id}-{uuid4().hex[:5].upper()}",
+                    "status": "pending"
+                }
+            )
+            if created:
+                logger.info(f"Auto-created delivery {delivery.id} for paid order {instance.order.id}")
+
+
 @receiver(post_save, sender=Delivery)
-def send_tracking_id(sender, instance, **kwargs):
-    tracking_id = instance.tracking_id
-    customer = instance.order.online_customer
-    delivery_schedule = instance.order.delivery_schedule
-    if not customer:
-        logger.error(f"Delivery {instance.id} has no assigned customer. Email cannot be sent.")
-        return
-    if instance.order.status == "successful":
-        delivery_date = delivery_schedule.date.strftime("%Y-%m-%d") if delivery_schedule else "Not Scheduled"
-        subject = "Tracking id"
-        html_content = f"""Hello dear {customer.first_name} {customer.last_name},<br><br>
-        Your payment was successfully completed, and your order will be delivered on <b>{delivery_date} at {delivery_schedule.time}</b>.
-        <br>Your tracking ID is: <b>{tracking_id}</b>. Please provide this code to the postman."""
-        try:
-            email_sender(subject, "", html_content, [customer.email])
-        except Exception as error:
-            logger.error(f"Failed to send tracking email to {customer.email}: {error}")
+def send_tracking_id(sender, instance, created, **kwargs):
+    if created:
+        tracking_id = instance.tracking_id
+        customer = instance.order.online_customer
+        delivery_schedule = instance.order.delivery_schedule
+        if not customer:
+            logger.error(f"Delivery {instance.id} has no assigned customer. Email cannot be sent.")
+            return
+        if instance.order.status == "successful":
+            delivery_date = delivery_schedule.date.strftime("%Y-%m-%d") if delivery_schedule else "Not Scheduled"
+            subject = "Tracking id"
+            html_content = f"""Hello dear {customer.first_name} {customer.last_name},<br><br>
+            Your payment was successfully completed, and your order will be delivered on <b>{delivery_date} at {delivery_schedule.time}</b>.
+            <br>Your tracking ID is: <b>{tracking_id}</b>. Please provide this code to the postman."""
+            try:
+                email_sender(subject, "", html_content, [customer.email])
+            except Exception as error:
+                logger.error(f"Failed to send tracking email to {customer.email}: {error}")
 
 
 @receiver(post_save, sender=Delivery)
@@ -121,5 +153,17 @@ def handle_delivery_status_shipped(sender, instance, **kwargs):
     except Exception as error:
         logger.error(f"Error in handle_delivery_status_shipped signal for Delivery ID {instance.id}: {error}", exc_info=True)
 
+
+@receiver(post_save, sender=Refund)
+def handle_refund_completion(sender, instance, **kwargs):
+    if instance.status == "completed" and instance.method == "wallet":
+        wallet, created = Wallet.objects.get_or_create(
+            user=instance.user,
+            defaults={'balance': 0}
+        )
+        wallet.balance += instance.amount
+        wallet.save()
+        logger.info(f"Credited {instance.amount} to wallet for refund {instance.id}")
+            
 
 #========================================================================================================

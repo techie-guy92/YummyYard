@@ -13,7 +13,7 @@ from logging import getLogger
 from uuid import uuid4
 from utilities import code_generator
 from media_utils import upload_to, Arvan_storage
-from users.models import InPersonCustomer
+from users.models import InPersonCustomer, Wallet
 
 
 logger = getLogger(__name__)
@@ -547,7 +547,7 @@ class Order(models.Model):
     """
     ORDER_TYPE = [("in_person", "حضوری"), ("online", "آنلاین")]
     PAYMENT_METHOD = [("cash", "نقد"), ("credit_card", "کارت-بانکی"), ("online", "درگاه")]
-    STATUS_TYPES = [("on_hold", "در-انتظار"), ("waiting", "در-انتظار-پرداخت"), ("successful", "پرداخت-موفق"), ("failed", "پرداخت-ناموفق"), ("shipped", "ارسال-شده"), ("completed", "سفارش-تکمیل-شده"), ("canceled", "سفارش-لغو-شده"), ("refunded", "بازپرداخت-شده")]
+    STATUS_TYPES = [("on_hold", "در-انتظار-ثبت"), ("waiting", "در-انتظار-پرداخت"), ("successful", "پرداخت-موفق"), ("failed", "پرداخت-ناموفق"), ("shipped", "ارسال-شده"), ("completed", "سفارش-تکمیل-شده"), ("canceled", "سفارش-لغو-شده"), ("refunded", "بازپرداخت-شده")]
     
     order_number = models.CharField(max_length=20, unique=True, editable=False, verbose_name="Order Number")
     online_customer = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, blank=True, null=True, related_name="Order_online_customers", verbose_name="Online Customer")
@@ -649,56 +649,106 @@ class Transaction(models.Model):
     Attributes:
         user: The user who initiated the transaction.
         order: The order linked to this payment transaction.
-        amount: The amount charged for the transaction, provide for the payment gateway.
-        payment_id: A unique identifier for the transaction assigned by the gateway (gateway web service).
-        is_successful: Indicates whether the transaction was completed successfully.
+        amount: The amount charged for the transaction, provide for the gateway.
+        gateway: Optional gateway identifier.
+        reference_id: A unique identifier for the transaction assigned by the gateway (gateway web service).
+        is_paid: Indicates whether the transaction was completed successfully.
         created_at: The timestamp when the transaction record was created.
 
     Methods:
         validate_amount(): Ensures the transaction amount matches the expected order payable amount.
         validate_payment(): Updates the order status and creates a delivery entry upon successful payment.
     """
+    TRANSACTION_TYPES = [("deposit", "واریز"), ("payment", "پرداخت"), ("refund", "بازپرداخت")]
+    
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="Transaction_user", verbose_name="User")
+    wallet = models.ForeignKey(Wallet, on_delete=models.CASCADE, blank=True, null=True, related_name="Transaction_wallet", verbose_name="Wallet")
     order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name="Transaction_order", verbose_name="Order")
     amount = models.PositiveIntegerField(verbose_name="Amount") 
-    payment_id = models.CharField(max_length=50, unique=True, verbose_name="Payment ID")  
-    is_successful = models.BooleanField(default=False, verbose_name="Is Successful")
+    type = models.CharField(max_length=20, choices=TRANSACTION_TYPES, default="deposit", verbose_name="Type")
+    gateway = models.CharField(max_length=30, blank=True, null=True, verbose_name="Gateway")
+    reference_id = models.CharField(max_length=50, unique=True, verbose_name="Reference ID")  
+    is_paid = models.BooleanField(default=False, verbose_name="Is Paid")
     created_at = models.DateTimeField(auto_now_add=True, editable=False, verbose_name="Created At")
+    # content_type = models.ForeignKey(ContentType, on_delete=models.SET_NULL, null=True)
+    # object_id = models.PositiveIntegerField(null=True)
+    # related_object = GenericForeignKey("content_type", "object_id")
 
     def __str__(self):
-        return f"{self.payment_id}"
+        wallet_info = f"Wallet {self.wallet.id}" if self.wallet else "No Wallet"
+        return f"{self.type} of {self.amount} for {wallet_info}"
     
     def clean(self):
         self.validate_amount()
-        self.validate_payment()
         
     def validate_amount(self):
-        self.amount = self.order.amount_payable
         if self.amount != self.order.amount_payable:
                 raise ValidationError(f"مبلغ قابل پرداخت ({self.amount}) با سفارش {self.order.id} و مبلغ ({self.order.amount_payable}) یکسان نمی باشد.")
-        
-    def validate_payment(self):
-        if self.is_successful and self.order.status not in ["shipped", "successful", "completed", "canceled", "refunded"]:
-            self.order.status = "successful"
-            self.order.save(update_fields=["status"])
-            self.order.refresh_from_db()
-            with transaction.atomic():
-                delivery, created = Delivery.objects.get_or_create(order=self.order, defaults={
-                    "tracking_id": f"{self.order.id}-{uuid4().hex[:5].upper()}", 
-                    "status": "pending"
-                    })
-                if created:
-                    logger.info(f"Created delivery {delivery.id} for order {self.order.id}")
-                delivery.save() 
-                    
+                   
     def save(self, *args, **kwargs):
+        if not self.amount:
+            self.amount = self.order.amount_payable
+        self.full_clean()
+        super().save(*args, **kwargs)
+
+    class Meta:
+        verbose_name = "Transaction"
+        verbose_name_plural = "Transactions"
+        indexes = [models.Index(fields=["user"]), models.Index(fields=["order"]), models.Index(fields=["reference_id"]), models.Index(fields=["created_at"])]
+    
+    
+#====================================== Refund Model ===================================================
+
+class Refund(models.Model):
+    """
+    Represents a refund request and its processing lifecycle for a previously paid order.
+
+    Attributes:
+        user: The user who initiated the refund request.
+        order: The order associated with the refund.
+        amount: The amount to be refunded, typically equal to the order's payable amount.
+        method: The refund method used (e.g., wallet credit or bank transfer).
+        status: The current status of the refund (requested, approved, or completed).
+        reason: Optional explanation for why the refund was requested (e.g., cancellation, product issue).
+        created_at: Timestamp when the refund was requested.
+        processed_at: Timestamp when the refund was completed.
+
+    Methods:
+        validate_amount(): Ensures the refund amount matches the original order's payable amount.
+        clean(): Validates refund data before saving.
+    """
+    METHOD = [("wallet", "کیف-پول"), ("bank", "انتقال-بانکی")]
+    STATUS = [("requested", "درخواست-شده"), ("approved", "تایید-شده"), ("completed", "تکمیل-شده")]
+    
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="Refund_user", verbose_name="User")
+    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name="Refund_order", verbose_name="Order")
+    amount = models.PositiveIntegerField(verbose_name="Amount")
+    method = models.CharField(max_length=20, choices=METHOD, default="wallet", verbose_name="Method")
+    status = models.CharField(max_length=20, choices=STATUS, default="requested", verbose_name="Status")
+    reason = models.TextField(blank=True, null=True, verbose_name="Reason")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Created At")
+    processed_at = models.DateTimeField(blank=True, null=True, verbose_name="Processed At")
+
+    def __str__(self):
+        return f"Refund for Order {self.order.id} - {self.amount} ({self.status})"
+
+    def clean(self):
+        self.validate_amount()
+        
+    def validate_amount(self):
+        if self.amount != self.order.amount_payable:
+                raise ValidationError(f"مبلغ قابل پرداخت ({self.amount}) با سفارش {self.order.id} و مبلغ ({self.order.amount_payable}) یکسان نمی باشد.")
+    
+    def save(self, *args, **kwargs):
+        if not self.amount:
+            self.amount = self.order.amount_payable
         self.full_clean()
         super().save(*args, **kwargs)
             
     class Meta:
-        verbose_name = "Transaction"
-        verbose_name_plural = "Transactions"
-        indexes = [models.Index(fields=["user"]), models.Index(fields=["order"]), models.Index(fields=["payment_id"]), models.Index(fields=["created_at"])]
+        verbose_name = "Refund"
+        verbose_name_plural = "Refunds"
+        indexes = [models.Index(fields=["user"]), models.Index(fields=["order"]), models.Index(fields=["method"]), models.Index(fields=["status"])]
     
     
 #====================================== Delivery Model ================================================

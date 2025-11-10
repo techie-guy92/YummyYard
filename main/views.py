@@ -322,8 +322,8 @@ class TransactionModelViewSet(viewsets.ModelViewSet):
         serializer.save(
             user=user, 
             amount=gateway_response["amount"],
-            payment_id=gateway_response["payment_id"],
-            is_successful=True
+            reference_id=gateway_response["reference_id"],
+            is_paid=True
         )
 
 

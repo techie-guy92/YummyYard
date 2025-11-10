@@ -218,15 +218,15 @@ class OrderAdmin(admin.ModelAdmin):
 
 @admin.register(Transaction)
 class TransactionAdmin(admin.ModelAdmin):
-    list_display = ["id", "user", "order", "amount", "is_successful", "payment_id", "created_at"]
+    list_display = ["id", "user", "order", "amount", "type", "is_paid", "reference_id", "created_at"]
     search_fields = ["user", "order"]
     ordering = ["order"]
-    exclude = ["payment_id"]
+    exclude = ["is_paid"]
     readonly_fields = ["amount"]
     
     def save_model(self, request, obj, form, change):
         try:
-            obj.payment_id = uuid4().hex[:10].lower()
+            obj.reference_id = uuid4().hex[:10].lower()
             super().save_model(request, obj, form, change)
         except ValidationError as error:
             self.message_user(request, f"Error: {error}", level="error")
@@ -246,6 +246,15 @@ class DeliveryAdmin(admin.ModelAdmin):
     search_fields = ["tracking_id"]
     ordering = ["order"]
     exclude = ["status"]
+    
+    
+#====================================== Refund Admin ==================================================
+
+@admin.register(Refund)
+class RefundAddmin(admin.ModelAdmin):
+    list_display = ["user", "order", "amount", "method", "status", "created_at", "processed_at"]
+    search_fields = ["order"]
+    ordering = ["order"]
 
 
 #====================================== UserView Admin ================================================

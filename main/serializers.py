@@ -243,7 +243,7 @@ class OrderCancellationSerializer(serializers.ModelSerializer):
 class TransactionSerializer(serializers.ModelSerializer):
     class Meta:
         model = Transaction
-        fields = ["user", "amount", "payment_id", "is_successful"]
+        fields = ["user", "amount", "reference_id", "is_paid"]
         
         
 #====================================== Delivery Serializer ================================================
