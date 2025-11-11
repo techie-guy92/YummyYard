@@ -12,20 +12,27 @@ logger = getLogger(__name__)
 
 
 @receiver(post_save, sender=Payment)
-def update_subscription(sender, instance, **kwargs):
-    """
-    Signal receiver to update the user's subscription status upon successful payment.
-    """
-    if instance.is_sucessful:
-        instance.process_payment()
-        logger.info(f"Processed payment for user: {instance.user.username}")
+def process_payment(sender, instance, created, **kwargs):
+    current_date = localtime(now())
+    extended_date = current_date + timedelta(days=90)
+    if created and instance.is_paid:
+        with transaction.atomic():
+            instance.user.is_premium = True
+            premium_sub, created = PremiumSubscription.objects.get_or_create(user=instance.user, defaults={
+                "start_date": current_date,
+                "expiry_date": extended_date,
+                "is_active": True
+            })
+            
+            if not created:
+                premium_sub.start_date = current_date
+                premium_sub.expiry_date = extended_date
+                premium_sub.is_active = True
+            instance.user.save()
+            premium_sub.save()
+            logger.info(f"Processed payment for user: {instance.user.username}")
+    else:
+        logger.info(f"User has already activated: {instance.user.username}")
 
 
-# @receiver(post_delete, sender=PremiumSubscription)
-# def inform_subscription(sender, instance, **kwargs):
-#     user = instance.user
-#     if not user.is_premium:
-#         print(f"{user} is deleted")  
-
-    
 #========================================================================================================

@@ -164,7 +164,7 @@ class Wallet(models.Model):
 
     owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="wallets", verbose_name="Wallet Owner")
     balance = models.PositiveIntegerField(default=0, verbose_name="Balance")
-    currency = models.CharField(max_length=10, default="IRR", verbose_name="Currency")
+    currency = models.CharField(max_length=10, default="IRT", verbose_name="Currency")
     status = models.CharField(max_length=10, choices=STATUS_TYPES, default="active", verbose_name="Status")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Created At")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="Updated At")
@@ -198,35 +198,6 @@ class Wallet(models.Model):
         indexes = [models.Index(fields=["owner"]), models.Index(fields=["status"])]
 
 
-#====================================== PremiumSubscription Model =====================================
-
-class PremiumSubscription(models.Model):
-    """
-    Model for storing premium subscription details of a user.
-    
-    Methods: 
-        is_expired(): Checks if the subscription has expired. Returns True if the subscription has expired, False otherwise.
-    """
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="PremiumSubscription_user", verbose_name="User")
-    start_date = models.DateTimeField(verbose_name="Start Date")
-    expiry_date = models.DateTimeField(verbose_name="Expiry Date")
-    
-    def __str__(self):
-        return f"{self.user.username}"
-
-    def is_expired(self):
-        return self.expiry_date < localtime(now())
-     
-    class Meta:
-        verbose_name = "PremiumSubscription"
-        verbose_name_plural = "PremiumSubscriptions"
-        indexes = [
-            models.Index(fields=["user"]),
-            models.Index(fields=["start_date"]),
-            models.Index(fields=["expiry_date"]),
-        ]
-
-
 #====================================== Payment Model =================================================
 
 class Payment(models.Model):
@@ -239,30 +210,12 @@ class Payment(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="Payment_user", verbose_name="User")
     amount = models.DecimalField(max_digits=10, decimal_places=2, default=70.00, verbose_name="Amount Payable")
     payment_id = models.CharField(max_length=100, null=True, blank=True, verbose_name="Payment ID")
-    is_sucessful = models.BooleanField(default=False, verbose_name="Is Successful")
+    is_paid = models.BooleanField(default=False, verbose_name="Is Paid")
     payment_date = models.DateTimeField(auto_now_add=True, verbose_name="Payment Date")
     
     def __str__(self):
         return f"Payment {self.payment_id} for {self.user.username}"
     
-    def process_payment(self):
-        current_date = localtime(now())
-        extended_date = current_date + timedelta(days=90)
-        
-        if self.is_sucessful:
-            with transaction.atomic():
-                self.user.is_premium = True
-                premium_sub, created = PremiumSubscription.objects.get_or_create(user=self.user, defaults={
-                    "start_date": current_date,
-                    "expiry_date": extended_date
-                })
-                
-                if not created:
-                    premium_sub.start_date = current_date
-                    premium_sub.expiry_date = extended_date
-                self.user.save()
-                premium_sub.save()
-
     class Meta:
         verbose_name = "Payment"
         verbose_name_plural = "Payments"
@@ -270,6 +223,36 @@ class Payment(models.Model):
             models.Index(fields=["user"]),
             models.Index(fields=["payment_id"]),
             models.Index(fields=["payment_date"]),
+        ]
+        
+
+#====================================== PremiumSubscription Model =====================================
+
+class PremiumSubscription(models.Model):
+    """
+    Model for storing premium subscription details of a user.
+    
+    Methods: 
+        is_expired(): Checks if the subscription has expired. Returns True if the subscription has expired, False otherwise.
+    """
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="PremiumSubscription_user", verbose_name="User")
+    start_date = models.DateTimeField(verbose_name="Start Date")
+    expiry_date = models.DateTimeField(verbose_name="Expiry Date")
+    is_active = models.BooleanField(default=False, verbose_name="Is Active")
+    
+    def __str__(self):
+        return f"{self.user.username}"
+
+    def is_expired(self):
+        return self.expiry_date < localtime(now())
+             
+    class Meta:
+        verbose_name = "PremiumSubscription"
+        verbose_name_plural = "PremiumSubscriptions"
+        indexes = [
+            models.Index(fields=["user"]),
+            models.Index(fields=["start_date"]),
+            models.Index(fields=["expiry_date"]),
         ]
 
 

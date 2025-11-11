@@ -57,13 +57,13 @@ def check_premium_subscriptions():
         logger.info(f"Expired subscriptions: {expired_subscriptions}")
         for sub in expired_subscriptions:
             user = sub.user
+            sub.is_active = False
             user.is_premium = False
+            sub.save()
             user.save()
             logger.info(f"Updated user: {user.username} is_premium: {user.is_premium}")
             send_extend_premium_account_email(user)
             logger.info(f"Sent premium extension email to {user.email}")
-            sub.delete()
-            logger.info(f"Deleted subscription for user: {user.username}")
         duration = time.time() - start_time
         logger.info(f"Premium subscription check completed in {duration:.2f} seconds")
     except Exception as error:

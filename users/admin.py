@@ -99,7 +99,7 @@ class UserProfileAdmin(admin.ModelAdmin):
     ordering = ("user",)
     
     
-#====================================== InPersonCustomer Model ========================================
+#====================================== InPersonCustomer Model ==================================
 
 @admin.register(InPersonCustomer)
 class InPersonCustomerAdmin(admin.ModelAdmin):
@@ -107,23 +107,32 @@ class InPersonCustomerAdmin(admin.ModelAdmin):
     ordering = ("last_name", "first_name",)
     search_fields = ("phone",)
 
+#==================================== Wallet Admin ==============================================
 
-#==================================== Premium Subscription Admin ================================
+@admin.register(Wallet)
+class WalletAdmin(admin.ModelAdmin):
+    list_display = ("owner", "balance", "status", "created_at", "updated_at",)
+    ordering = ("id",)
+    search_fields = ("owner",)
 
-@admin.register(PremiumSubscription)
-class PremiumSubscriptionAdmin(admin.ModelAdmin):
-    list_display = ("user", "start_date", "expiry_date",)
-    list_search = ("user",)
-    ordering = ("user",)
-    
     
 #==================================== Payment Admin =============================================
 
 @admin.register(Payment)
 class PaymentAdmin(admin.ModelAdmin):
-    list_display = ("payment_id", "user", "is_sucessful", "payment_date",)
+    list_display = ("payment_id", "user", "is_paid", "payment_date",)
     list_search = ("payment_id",)
     ordering = ("payment_id",)
+    
+    
+#==================================== Premium Subscription Admin ================================
+
+@admin.register(PremiumSubscription)
+class PremiumSubscriptionAdmin(admin.ModelAdmin):
+    list_display = ("user", "start_date", "expiry_date", "is_active",)
+    list_search = ("user",)
+    ordering = ("user",)
+    list_editable = ("is_active",)
     
     
 #================================================================================================
