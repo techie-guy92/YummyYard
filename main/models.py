@@ -659,13 +659,12 @@ class Transaction(models.Model):
         validate_amount(): Ensures the transaction amount matches the expected order payable amount.
         validate_payment(): Updates the order status and creates a delivery entry upon successful payment.
     """
-    TRANSACTION_TYPES = [("deposit", "واریز"), ("payment", "پرداخت"), ("refund", "بازپرداخت")]
+    TRANSACTION_TYPES = [("payment", "پرداخت"), ("deposit", "واریز"), ("refund", "بازپرداخت")]
     
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="Transaction_user", verbose_name="User")
     wallet = models.ForeignKey(Wallet, on_delete=models.CASCADE, blank=True, null=True, related_name="Transaction_wallet", verbose_name="Wallet")
     order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name="Transaction_order", verbose_name="Order")
     amount = models.PositiveIntegerField(verbose_name="Amount") 
-    type = models.CharField(max_length=20, choices=TRANSACTION_TYPES, default="deposit", verbose_name="Type")
+    type = models.CharField(max_length=20, choices=TRANSACTION_TYPES, default="payment", verbose_name="Type")
     gateway = models.CharField(max_length=30, blank=True, null=True, verbose_name="Gateway")
     reference_id = models.CharField(max_length=50, unique=True, verbose_name="Reference ID")  
     is_paid = models.BooleanField(default=False, verbose_name="Is Paid")
@@ -682,19 +681,18 @@ class Transaction(models.Model):
         self.validate_amount()
         
     def validate_amount(self):
+        self.amount = self.order.amount_payable
         if self.amount != self.order.amount_payable:
                 raise ValidationError(f"مبلغ قابل پرداخت ({self.amount}) با سفارش {self.order.id} و مبلغ ({self.order.amount_payable}) یکسان نمی باشد.")
                    
     def save(self, *args, **kwargs):
-        if not self.amount:
-            self.amount = self.order.amount_payable
         self.full_clean()
         super().save(*args, **kwargs)
-
+            
     class Meta:
         verbose_name = "Transaction"
         verbose_name_plural = "Transactions"
-        indexes = [models.Index(fields=["user"]), models.Index(fields=["order"]), models.Index(fields=["reference_id"]), models.Index(fields=["created_at"])]
+        indexes = [models.Index(fields=["order"]), models.Index(fields=["reference_id"]), models.Index(fields=["created_at"])]
     
     
 #====================================== Refund Model ===================================================
@@ -720,7 +718,7 @@ class Refund(models.Model):
     METHOD = [("wallet", "کیف-پول"), ("bank", "انتقال-بانکی")]
     STATUS = [("requested", "درخواست-شده"), ("approved", "تایید-شده"), ("completed", "تکمیل-شده")]
     
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="Refund_user", verbose_name="User")
+    wallet = models.ForeignKey(Wallet, on_delete=models.CASCADE, blank=True, null=True, related_name="Refund_wallet", verbose_name="Wallet")
     order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name="Refund_order", verbose_name="Order")
     amount = models.PositiveIntegerField(verbose_name="Amount")
     method = models.CharField(max_length=20, choices=METHOD, default="wallet", verbose_name="Method")
@@ -736,19 +734,18 @@ class Refund(models.Model):
         self.validate_amount()
         
     def validate_amount(self):
+        self.amount = self.order.amount_payable
         if self.amount != self.order.amount_payable:
                 raise ValidationError(f"مبلغ قابل پرداخت ({self.amount}) با سفارش {self.order.id} و مبلغ ({self.order.amount_payable}) یکسان نمی باشد.")
     
     def save(self, *args, **kwargs):
-        if not self.amount:
-            self.amount = self.order.amount_payable
         self.full_clean()
         super().save(*args, **kwargs)
             
     class Meta:
         verbose_name = "Refund"
         verbose_name_plural = "Refunds"
-        indexes = [models.Index(fields=["user"]), models.Index(fields=["order"]), models.Index(fields=["method"]), models.Index(fields=["status"])]
+        indexes = [models.Index(fields=["order"]), models.Index(fields=["method"]), models.Index(fields=["status"])]
     
     
 #====================================== Delivery Model ================================================

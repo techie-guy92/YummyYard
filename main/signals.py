@@ -52,6 +52,15 @@ def update_cart_total_price(sender, instance, created, **kwargs):
         cart.save(update_fields=["total_price"])
 
 
+def cancel_cart(order):
+    with transaction.atomic():
+        order.restore_stock()
+        order.shopping_cart.status = "abandoned"
+        order.shopping_cart.save(update_fields=["status"])
+        CartItem.objects.filter(cart=order.shopping_cart, status__in=["processed"]).update(status="abandoned")
+        logger.info(f"Order {order.id} canceled — stock restored and cart abandoned")
+
+
 @receiver(post_save, sender=Order)
 def handle_order_workflow(sender, instance, created, **kwargs):
     try:
@@ -65,29 +74,25 @@ def handle_order_workflow(sender, instance, created, **kwargs):
                 shopping_cart.clear_cart()
                 if instance.status == "on_hold":
                     Order.objects.filter(pk=instance.pk).update(status="waiting")
-                logger.info(f"Order {instance.id} processed - Cart {shopping_cart.id}")
+                logger.info(f"Order {instance.id} processed — Cart {shopping_cart.id}")
 
         if not created:
             if instance.status == "canceled" and instance.shopping_cart.status != "abandoned":
                 transaction_obj = Transaction.objects.filter(order=instance.pk).first()
                 if not transaction_obj or not transaction_obj.is_paid:
-                    with transaction.atomic():
-                        instance.restore_stock()
-                        instance.shopping_cart.status = "abandoned"
-                        instance.shopping_cart.save(update_fields=["status"])
-                        CartItem.objects.filter(cart=instance.shopping_cart, status__in=["processed"]).update(status="abandoned")
-                        logger.info(f"Order {instance.id} canceled - stock restored and cart abandoned")
+                    cancel_cart(instance)
                 else:
+                    cancel_cart(instance)
                     with transaction.atomic():
                         Order.objects.filter(pk=instance.pk).update(status="refunded")
                         refund, created = Refund.objects.get_or_create(order=instance, defaults={
-                            "user": instance.online_customer,
+                            "wallet": instance.wallet.balance,
                             "amount": instance.amount_payable,
                             "method": "wallet",
                             "status": "requested",
                         })
                         if created:
-                            logger.info(f"Refund created for Order {instance.id} - Amount: {refund.amount}")
+                            logger.info(f"Refund created for Order {instance.id} — Amount: {refund.amount}")
                         else:
                             logger.debug(f"Refund already exists for Order {instance.id}")
             elif instance.status == "canceled" and instance.shopping_cart.status == "abandoned":
@@ -96,22 +101,30 @@ def handle_order_workflow(sender, instance, created, **kwargs):
         logger.error(f"Order signal error {instance.id}: {error}", exc_info=True)
 
 
-@receiver(post_save, sender=Transaction)
-def handle_successful_payment(sender, instance, **kwargs):
-    if instance.is_paid and instance.order.status == "waiting":
-        with transaction.atomic():
-            Order.objects.filter(pk=instance.order.pk).update(status="successful")
-            instance.order.refresh_from_db()
-            delivery, created = Delivery.objects.get_or_create(
-                order=instance.order,
-                defaults={
-                    "tracking_id": f"TRK-{instance.order.id}-{uuid4().hex[:5].upper()}",
-                    "status": "pending"
-                }
-            )
-            if created:
-                logger.info(f"Auto-created delivery {delivery.id} for paid order {instance.order.id}")
+def create_delivery_for_order(order):
+    delivery, created = Delivery.objects.get_or_create(
+        order=order,
+        defaults={
+            "tracking_id": f"TRK-{order.id}-{uuid4().hex[:5].upper()}",
+            "status": "pending"
+        }
+    )
+    if created:
+        logger.info(f"Auto-created delivery {delivery.id} for paid order {order.id}")
 
+
+@receiver(post_save, sender=Transaction)
+def handle_successful_payment(sender, instance, created, **kwargs):
+    if created:
+        if instance.is_paid and instance.order.status == "waiting" and instance.order.order_type == "online":
+            with transaction.atomic():
+                Order.objects.filter(pk=instance.order.pk).update(status="successful")
+                create_delivery_for_order(instance.order)
+        elif instance.is_paid and instance.order.status == "waiting" and instance.order.order_type == "in_person":
+            with transaction.atomic():
+                Order.objects.filter(pk=instance.order.pk).update(status="completed")
+            logger.info(f"Order {instance.order.id} which is in-person order is successfully paid and completed.")
+        
 
 @receiver(post_save, sender=Delivery)
 def send_tracking_id(sender, instance, created, **kwargs):
@@ -158,7 +171,7 @@ def handle_delivery_status_shipped(sender, instance, **kwargs):
 # def handle_refund_completion(sender, instance, **kwargs):
 #     if instance.status == "completed" and instance.method == "wallet":
 #         wallet, created = Wallet.objects.get_or_create(
-#             user=instance.user,
+#             wallet=instance.wallet,
 #             defaults={'balance': 0}
 #         )
 #         wallet.balance += instance.amount

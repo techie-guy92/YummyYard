@@ -218,10 +218,9 @@ class OrderAdmin(admin.ModelAdmin):
 
 @admin.register(Transaction)
 class TransactionAdmin(admin.ModelAdmin):
-    list_display = ["id", "user", "order", "amount", "type", "is_paid", "reference_id", "created_at"]
-    search_fields = ["user", "order"]
+    list_display = ["reference_id", "order", "amount", "type", "is_paid", "created_at"]
+    search_fields = ["order", "reference_id"]
     ordering = ["order"]
-    exclude = ["is_paid"]
     readonly_fields = ["amount"]
     
     def save_model(self, request, obj, form, change):
@@ -252,7 +251,7 @@ class DeliveryAdmin(admin.ModelAdmin):
 
 @admin.register(Refund)
 class RefundAddmin(admin.ModelAdmin):
-    list_display = ["user", "order", "amount", "method", "status", "created_at", "processed_at"]
+    list_display = ["wallet", "order", "amount", "method", "status", "created_at", "processed_at"]
     search_fields = ["order"]
     ordering = ["order"]
 
