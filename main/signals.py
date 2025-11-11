@@ -154,16 +154,16 @@ def handle_delivery_status_shipped(sender, instance, **kwargs):
         logger.error(f"Error in handle_delivery_status_shipped signal for Delivery ID {instance.id}: {error}", exc_info=True)
 
 
-@receiver(post_save, sender=Refund)
-def handle_refund_completion(sender, instance, **kwargs):
-    if instance.status == "completed" and instance.method == "wallet":
-        wallet, created = Wallet.objects.get_or_create(
-            user=instance.user,
-            defaults={'balance': 0}
-        )
-        wallet.balance += instance.amount
-        wallet.save()
-        logger.info(f"Credited {instance.amount} to wallet for refund {instance.id}")
+# @receiver(post_save, sender=Refund)
+# def handle_refund_completion(sender, instance, **kwargs):
+#     if instance.status == "completed" and instance.method == "wallet":
+#         wallet, created = Wallet.objects.get_or_create(
+#             user=instance.user,
+#             defaults={'balance': 0}
+#         )
+#         wallet.balance += instance.amount
+#         wallet.save()
+#         logger.info(f"Credited {instance.amount} to wallet for refund {instance.id}")
             
 
 #========================================================================================================
