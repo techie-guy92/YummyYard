@@ -14,7 +14,7 @@ from .views import *
 from .urls import *
 from utilities.users_constant import *
 from utilities.products_constant import *
-from utilities import create_test_users, create_test_categories, create_test_products
+from utilities.utilities import create_test_users, create_test_categories, create_test_products
 
 
 #====================================== Gategory Test ===================================================
