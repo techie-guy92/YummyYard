@@ -9,6 +9,7 @@
 __pycache__/
 *.so
 .Python
+storage_utils.py
 
 # Logs
 *.log
@@ -28,10 +29,11 @@ logs/
 *.csv
 *.xlsx
 
-# Media and healthchecks files since they are defined in docker-compose
+# Ignore dirs
+templates/
+tutorial/
 /media/
 /images/
-/healthchecks/
 
 # Development and runtime files
 .cache
@@ -40,11 +42,6 @@ venv/
 .pytest_cache/
 .coverage
 htmlcov/
-
-# Project files that shouldn't be in container
-storage_utils.py
-webhook.py
-definition_*.txt
 
 # Documentation
 README.md

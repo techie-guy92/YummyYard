@@ -2,15 +2,13 @@
 __pycache__/
 *.py[cod]
 settings.json
-templates/
 storage_utils.py
-definition_*.txt
-webhook.py
 
 # Ignore dirs
+templates/
+tutorial/
 /media/
 /images/
-/healthchecks/
 
 # Ignore sql files
 backup.sql
