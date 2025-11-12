@@ -17,8 +17,8 @@ from .models import *
 from .serializers import *
 from .views import *
 from .urls import *
-from users_constant import primary_user_1, primary_user_2, primary_user_3, primary_user_4, new_user_1, invalid_user_1
-from utilities import create_test_users
+from utilities.users_constant import primary_user_1, primary_user_2, primary_user_3, primary_user_4, new_user_1, invalid_user_1
+from utilities.utilities import create_test_users
 
 
 #======================================== Sign Up Test =============================================

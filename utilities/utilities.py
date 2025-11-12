@@ -10,8 +10,8 @@ from re import compile
 from random import choice
 from string import ascii_letters, digits
 from django.contrib.auth import get_user_model
-from users_constant import *
-from products_constant import *
+from .users_constant import *
+from .products_constant import *
 
 
 logging.basicConfig(level=logging.INFO)

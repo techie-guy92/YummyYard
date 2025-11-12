@@ -3,7 +3,7 @@ from django.db.models.signals import pre_save, post_save, post_delete
 from logging import getLogger
 from django.db import transaction
 from .models import *
-from utilities import *
+from utilities.utilities import *
 
 #==================================== UpdateCoupon Signal ===============================================
 

@@ -1,6 +1,6 @@
 from django.forms import ModelForm, ValidationError, CharField, PasswordInput, EmailField, EmailInput
 from .models import CustomUser
-from utilities import *
+from utilities.utilities import *
 
 
 #======================================= Custom User Form ====================================

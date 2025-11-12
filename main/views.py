@@ -15,7 +15,7 @@ from django.utils.timezone import localtime, now, make_aware
 from datetime import timedelta, datetime
 from .models import *
 from .serializers import *
-from custom_permission import CheckOwnershipPermission 
+from utilities.custom_permission import CheckOwnershipPermission
 
 
 #====================================== admin View ===================================================

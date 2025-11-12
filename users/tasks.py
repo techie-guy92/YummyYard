@@ -4,9 +4,9 @@ from django.core.cache import cache
 import logging
 import time
 from .models import *
-from utilities import *
-from custome_exception import CustomEmailException
-from config.storages import Bucket
+from config.storages import Bucket 
+from utilities.utilities import *
+from utilities.custome_exception import CustomEmailException
 
 
 # Start the Celery worker

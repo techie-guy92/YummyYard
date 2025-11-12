@@ -4,7 +4,7 @@ from django.utils.timezone import now, localtime
 from datetime import timedelta
 from django.conf import settings
 from logging import getLogger
-from media_utils import upload_to, Arvan_storage
+from utilities.media_utils import upload_to, Arvan_storage
 
 
 logger = getLogger(__name__)

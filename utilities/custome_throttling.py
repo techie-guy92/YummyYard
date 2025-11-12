@@ -3,7 +3,7 @@ from rest_framework.throttling import BaseThrottle
 from rest_framework.exceptions import Throttled
 from django.core.cache import cache
 from logging import getLogger
-from utilities import get_client_ip
+from .utilities import get_client_ip
 
 
 #======================================== Custom Throttle ===========================================

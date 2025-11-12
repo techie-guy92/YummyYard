@@ -11,8 +11,8 @@ from django.utils.text import slugify
 from django.conf import settings
 from logging import getLogger
 from uuid import uuid4
-from utilities import code_generator
-from media_utils import upload_to, Arvan_storage
+from utilities.utilities import code_generator
+from utilities.media_utils import upload_to, Arvan_storage
 from users.models import InPersonCustomer, Wallet
 
 

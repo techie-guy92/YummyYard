@@ -2,7 +2,7 @@ from rest_framework import serializers
 from rest_framework.validators import UniqueValidator
 from uuid import UUID
 from .models import *
-from utilities import *
+from utilities.utilities import *
 
 
 #======================================= Custom User Serializer ====================================

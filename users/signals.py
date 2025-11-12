@@ -3,7 +3,7 @@ from django.db.models.signals import post_save, post_delete
 from django.utils.timezone import now, localtime
 from logging import getLogger
 from .models import *
-from utilities import *
+from utilities.utilities import *
 
 
 #==================================== Update Subscription Signal ========================================

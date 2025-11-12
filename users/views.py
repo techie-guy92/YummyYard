@@ -22,10 +22,10 @@ import uuid
 from .models import *
 from .serializers import *
 from .tasks import fetch_all_files, remove_file, download_obj
-from utilities import email_sender, generate_access_token, generate_auth_tokens
-from custom_permission import CheckOwnershipPermission
-from custome_throttling import CustomThrottle
-from custome_exception import CustomEmailException, CustomRedisException
+from utilities.utilities import email_sender, generate_access_token, generate_auth_tokens
+from utilities.custom_permission import CheckOwnershipPermission
+from utilities.custome_throttling import CustomThrottle
+from utilities.custome_exception import CustomEmailException, CustomRedisException
 
 
 #======================================== Utilities ==============================================
