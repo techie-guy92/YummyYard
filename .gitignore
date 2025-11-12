@@ -7,9 +7,10 @@ storage_utils.py
 definition_*.txt
 webhook.py
 
-# Ignore media
+# Ignore dirs
 /media/
 /images/
+/healthchecks/
 
 # Ignore sql files
 backup.sql

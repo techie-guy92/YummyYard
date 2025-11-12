@@ -1,26 +1,71 @@
+# Version control
 .git
-.env
+.gitignore
+
+# Python compiled files
 *.pyc
 *.pyo
 *.pyd
+__pycache__/
+*.so
+.Python
+
+# Logs
 *.log
+logs/
+
+# Database files
 *.sqlite3
 *.db
+
+# SSL certificates
 *.pem
 *.crt
 *.key
+
+# Data files
 *.ipynb
 *.csv
 *.xlsx
-__pycache__/
-node_modules/
-__tests__/
-logs/
+
+# Media and healthchecks files since they are defined in docker-compose
 /media/
 /images/
+/healthchecks/
+
+# Development and runtime files
+.cache
+.venv
+venv/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Project files that shouldn't be in container
 storage_utils.py
-definition_*.txt
 webhook.py
+definition_*.txt
+
+# Documentation
+README.md
+*.md
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Ignore certs and runtime files
 nginx/certbot/conf/*.key
 nginx/certbot/conf/*.crt
 nginx/certbot/www/
