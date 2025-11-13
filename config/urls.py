@@ -19,10 +19,14 @@ from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
 
+
+def health_check(request):
+    return JsonResponse({"status": "healthy"})
 
 urlpatterns = [
+    path('health/', health_check, name='health-check'),
     path('admin/', admin.site.urls),
     path('users/', include('users.urls')),
     path('products/', include('main.urls')),

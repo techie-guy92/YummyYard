@@ -12,7 +12,7 @@ services:
       - db
       - rabbitmq
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     restart: always
     networks:
       - main
@@ -21,7 +21,7 @@ services:
       - shared_downloads:/app/shared_downloads 
     command: ["sh", "-c", "python manage.py migrate && python manage.py collectstatic --noinput && gunicorn config.wsgi:application --bind 0.0.0.0:8000 --timeout 120 --workers 4 --worker-class sync"]
     healthcheck:
-      test: ["CMD-SHELL", "curl --silent --fail http://127.0.0.1:8000/ || exit 1"]
+      test: ["CMD-SHELL", "curl --silent --fail http://localhost:8000/health/ || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -35,7 +35,7 @@ services:
       POSTGRES_USER: ${USERNAME}
       POSTGRES_PASSWORD: ${PASSWORD}
     ports:
-      - "5433:5432"
+      - "127.0.0.1:5433:5432"
     restart: always
     networks:
       - main
@@ -62,8 +62,8 @@ services:
       RABBITMQ_DEFAULT_USER: ${USERNAME}
       RABBITMQ_DEFAULT_PASS: ${PASSWORD}
     ports:
-      - "5672:5672"
-      - "15672:15672"
+      - "127.0.0.1:5672:5672"
+      - "127.0.0.1:15672:15672"
     restart: always
     networks:
       - main
@@ -141,7 +141,7 @@ services:
     entrypoint: ["celery"]
     command: ["-A", "config", "flower", "--port=5555"]
     ports:
-      - "5555:5555"
+      - "127.0.0.1:5555:5555"
     env_file:
       - .env
     environment:
@@ -169,17 +169,19 @@ services:
         condition: service_healthy
     volumes:
       - ./nginx/conf:/etc/nginx/conf.d
-      - ./nginx/certbot/www:/var/www/certbot
       - ./nginx/certbot/conf:/etc/letsencrypt
+      - ./nginx/certbot/www:/var/www/certbot
+      - ./logs/nginx:/var/log/nginx  
+      - static_volume:/app/staticfiles
     networks:
       - main
     restart: always
     healthcheck:
-      test: ["CMD", "curl", "-k", "https://localhost:8443"]
+      test: ["CMD-SHELL", "curl -k -f https://localhost:8443/health/ || exit 1"]
       interval: 30s
-      timeout: 10s
+      timeout: 15s
       retries: 5
-      start_period: 30s
+      start_period: 60s
 
 
 networks:
@@ -190,3 +192,4 @@ volumes:
   rabbitmq_data:
   celerybeat_data:
   shared_downloads:
+  static_volume:

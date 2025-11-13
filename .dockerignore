@@ -1,6 +1,8 @@
 # Version control
 .git
 .gitignore
+.gitlab-ci.yml
+.github/
 
 # Python compiled files
 *.pyc
@@ -38,9 +40,11 @@ tutorial/
 # Development and runtime files
 .cache
 .venv
+.env
 venv/
 .pytest_cache/
 .coverage
+.circleci/
 htmlcov/
 
 # Documentation
@@ -66,3 +70,8 @@ Thumbs.db
 nginx/certbot/conf/*.key
 nginx/certbot/conf/*.crt
 nginx/certbot/www/
+
+# Docker
+Dockerfile
+docker-compose.yml
+.dockerignore

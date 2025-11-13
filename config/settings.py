@@ -131,6 +131,10 @@ DATABASES = {
         'PORT':  env.str('DB_PORT'),
         'USER':  env.str('USERNAME'),
         'PASSWORD': env.str('PASSWORD'),
+        'CONN_MAX_AGE': 600,  
+        'OPTIONS': {
+            'connect_timeout': 10,
+        }
     }
 }
 
