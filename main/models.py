@@ -547,7 +547,7 @@ class Order(models.Model):
     """
     ORDER_TYPE = [("in_person", "حضوری"), ("online", "آنلاین")]
     PAYMENT_METHOD = [("cash", "نقد"), ("credit_card", "کارت-بانکی"), ("online", "درگاه")]
-    STATUS_TYPES = [("on_hold", "در-انتظار-ثبت"), ("waiting", "در-انتظار-پرداخت"), ("successful", "پرداخت-موفق"), ("failed", "پرداخت-ناموفق"), ("shipped", "ارسال-شده"), ("completed", "سفارش-تکمیل-شده"), ("canceled", "سفارش-لغو-شده"), ("refunded", "بازپرداخت-شده")]
+    STATUS_TYPES = [("on_hold", "در-انتظار-ثبت"), ("waiting", "در-انتظار-پرداخت"), ("successful", "پرداخت-موفق"), ("shipped", "ارسال-شده"), ("completed", "سفارش-تکمیل-شده"), ("canceled", "سفارش-لغو-شده"), ("refunded", "بازپرداخت-شده")]
     
     order_number = models.CharField(max_length=20, unique=True, editable=False, verbose_name="Order Number")
     online_customer = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, blank=True, null=True, related_name="Order_online_customers", verbose_name="Online Customer")
@@ -694,36 +694,102 @@ class Transaction(models.Model):
         verbose_name_plural = "Transactions"
         indexes = [models.Index(fields=["order"]), models.Index(fields=["reference_id"]), models.Index(fields=["created_at"])]
     
+
+#====================================== ReturnRequest Model ============================================
+
+class ReturnRequest(models.Model):
+    """
+    Represents a reverse logistics workflow for handling product return and refund eligibility.
+
+    Lifecycle:
+        - scheduled: Customer has requested a return and scheduled pickup.
+        - picked_up: Courier has collected the product from the customer.
+        - inspected: Refund section has received and inspected the product.
+        - approved: Product passed inspection; refund process can proceed.
+        - rejected: Product failed inspection; refund denied, customer must reclaim in person.
+
+    Attributes:
+        order: The order associated with this return request.
+        scheduled_date: Date chosen by the customer for product pickup.
+        scheduled_time: Time chosen by the customer for product pickup.
+        status: Current status of the return request lifecycle.
+        initial_check_passed: Result of the initial photo-based condition check at request time.
+        inspection_passed: Result of the refund section’s inspection after courier delivery.
+        reason: Customer-provided explanation for the return (e.g., cancellation, product issue).
+        request_image: Photo uploaded by the customer to initiate the return request.
+        picked_up_at: Timestamp when the courier collected the product.
+        inspected_at: Timestamp when the refund section inspected the product.
+
+    Notes:
+        - Courier always collects the product regardless of condition.
+        - Refund section determines final eligibility based on inspection outcome.
+        - Refund approval is only possible if inspection_passed is True.
+    """
+
+    STATUS = [
+        ("scheduled", "مشخص-شده"), ("picked_up", "تحویل-داده-شده"), ("inspected", "بررسی-شده"), ("approved", "تایید-شده"), ("rejected", "رد-شده"),]
+
+    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name="ReturnRequest_orders", verbose_name="Order")
+    scheduled_date = models.DateField(verbose_name="Scheduled Date")
+    scheduled_time = models.TimeField(verbose_name="Scheduled Time")
+    status = models.CharField(max_length=20, choices=STATUS, default="scheduled", verbose_name="Status")
+    initial_check_passed = models.BooleanField(default=False, verbose_name="Initial Photo Check")
+    inspection_passed = models.BooleanField(default=False, verbose_name="Inspection Passed")
+    reason = models.TextField(verbose_name="Reason")
+    notes = models.TextField(blank=True, null=True, verbose_name="Notes")
+    request_image = models.ImageField(upload_to=upload_to, storage=Arvan_storage, verbose_name="Request Image")
+    picked_up_at = models.DateTimeField(blank=True, null=True, verbose_name="Pickedup At")
+    inspected_at = models.DateTimeField(blank=True, null=True, verbose_name="Inspected At")
     
+    def __str__(self):
+        return f"ReturnRequest for Order {self.order.id} - {self.status}"
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["order"]),
+            models.Index(fields=["status"]),
+            models.Index(fields=["inspection_passed"]),
+        ]
+
+
 #====================================== Refund Model ===================================================
 
 class Refund(models.Model):
     """
-    Represents a refund request and its processing lifecycle for a previously paid order.
+    Represents the financial lifecycle of a refund for a previously paid order.
+
+    Lifecycle:
+        - requested: Customer has submitted a refund request (either before delivery or after delivery).
+        - approved: Refund section has validated product condition and authorized the refund.
+        - rejected: Refund section has denied the refund (e.g., product failed inspection).
+        - completed: Refund amount has been transferred to the customer via the chosen method.
 
     Attributes:
-        user: The user who initiated the refund request.
-        order: The order associated with the refund.
-        amount: The amount to be refunded, typically equal to the order's payable amount.
-        method: The refund method used (e.g., wallet credit or bank transfer).
-        status: The current status of the refund (requested, approved, or completed).
-        reason: Optional explanation for why the refund was requested (e.g., cancellation, product issue).
-        created_at: Timestamp when the refund was requested.
-        processed_at: Timestamp when the refund was completed.
+        order: The order associated with this refund.
+        wallet: Optional wallet account used for refund crediting.
+        amount: The amount to be refunded, usually equal to the order's payable amount.
+        method: The refund method (wallet credit or bank transfer).
+        status: Current status in the refund lifecycle (requested, approved, rejected, completed).
+        created_at: Timestamp when the refund request was created.
+        processed_at: Timestamp when the refund was finalized (money transferred).
 
     Methods:
-        validate_amount(): Ensures the refund amount matches the original order's payable amount.
         clean(): Validates refund data before saving.
+        validate_amount(): Ensures the refund amount does not exceed the order's payable amount.
+
+    Notes:
+        - If the order has not yet been delivered, refund approval can occur immediately after payment validation.
+        - If the order has been delivered, refund approval should only occur after a ReturnRequest has been inspected and accepted.
+        - Status transitions should be managed consistently with ReturnRequest outcomes and business rules.
     """
     METHOD = [("wallet", "کیف-پول"), ("bank", "انتقال-بانکی")]
-    STATUS = [("requested", "درخواست-شده"), ("approved", "تایید-شده"), ("completed", "تکمیل-شده")]
-    
-    wallet = models.ForeignKey(Wallet, on_delete=models.CASCADE, blank=True, null=True, related_name="Refund_wallet", verbose_name="Wallet")
-    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name="Refund_order", verbose_name="Order")
+    STATUS = [("requested", "درخواست-شده"), ("approved", "تایید-شده"), ("rejected", "رد-شده"), ("completed", "تکمیل-شده")]
+
+    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name="refunds", verbose_name="Order")
+    wallet = models.ForeignKey(Wallet, on_delete=models.CASCADE, blank=True, null=True, related_name="refunds", verbose_name="Wallet")
     amount = models.PositiveIntegerField(verbose_name="Amount")
     method = models.CharField(max_length=20, choices=METHOD, default="wallet", verbose_name="Method")
     status = models.CharField(max_length=20, choices=STATUS, default="requested", verbose_name="Status")
-    reason = models.TextField(blank=True, null=True, verbose_name="Reason")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Created At")
     processed_at = models.DateTimeField(blank=True, null=True, verbose_name="Processed At")
 
@@ -731,23 +797,17 @@ class Refund(models.Model):
         return f"Refund for Order {self.order.id} - {self.amount} ({self.status})"
 
     def clean(self):
-        self.validate_amount()
-        
-    def validate_amount(self):
-        self.amount = self.order.amount_payable
-        if self.amount != self.order.amount_payable:
-                raise ValidationError(f"مبلغ قابل پرداخت ({self.amount}) با سفارش {self.order.id} و مبلغ ({self.order.amount_payable}) یکسان نمی باشد.")
-    
-    def save(self, *args, **kwargs):
-        self.full_clean()
-        super().save(*args, **kwargs)
-            
+        if self.amount > self.order.amount_payable:
+            raise ValidationError(f"مبلغ قابل پرداخت ({self.amount}) با سفارش {self.order.id} و مبلغ ({self.order.amount_payable}) یکسان نمی باشد.")
+
     class Meta:
-        verbose_name = "Refund"
-        verbose_name_plural = "Refunds"
-        indexes = [models.Index(fields=["order"]), models.Index(fields=["method"]), models.Index(fields=["status"])]
-    
-    
+        indexes = [
+            models.Index(fields=["order"]),
+            models.Index(fields=["method"]),
+            models.Index(fields=["status"]),
+        ]
+
+
 #====================================== Delivery Model ================================================
 
 class Delivery(models.Model):

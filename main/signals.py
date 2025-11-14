@@ -1,5 +1,6 @@
 from django.dispatch import receiver
 from django.db.models.signals import pre_save, post_save, post_delete
+from datetime import timedelta
 from logging import getLogger
 from django.db import transaction
 from .models import *
@@ -60,7 +61,7 @@ def cancel_cart(order):
         CartItem.objects.filter(cart=order.shopping_cart, status__in=["processed"]).update(status="abandoned")
         logger.info(f"Order {order.id} canceled — stock restored and cart abandoned")
 
-
+        
 @receiver(post_save, sender=Order)
 def handle_order_workflow(sender, instance, created, **kwargs):
     try:
@@ -75,28 +76,43 @@ def handle_order_workflow(sender, instance, created, **kwargs):
                 if instance.status == "on_hold":
                     Order.objects.filter(pk=instance.pk).update(status="waiting")
                 logger.info(f"Order {instance.id} processed — Cart {shopping_cart.id}")
-
         if not created:
-            if instance.status == "canceled" and instance.shopping_cart.status != "abandoned":
-                transaction_obj = Transaction.objects.filter(order=instance.pk).first()
-                if not transaction_obj or not transaction_obj.is_paid:
-                    cancel_cart(instance)
-                else:
-                    cancel_cart(instance)
-                    with transaction.atomic():
-                        Order.objects.filter(pk=instance.pk).update(status="refunded")
-                        refund, created = Refund.objects.get_or_create(order=instance, defaults={
-                            "wallet": instance.wallet.balance,
-                            "amount": instance.amount_payable,
-                            "method": "wallet",
-                            "status": "requested",
-                        })
-                        if created:
-                            logger.info(f"Refund created for Order {instance.id} — Amount: {refund.amount}")
+            crr_date = localtime(now()).date()
+            transaction_obj = Transaction.objects.filter(order=instance.pk).first()
+            delivery_obj = Delivery.objects.filter(order=instance.pk).first()
+            if delivery_obj and delivery_obj.delivered_at and (delivery_obj.delivered_at.date() + timedelta(days=7)) > crr_date:
+                if instance.status == "canceled" and instance.shopping_cart.status != "abandoned":
+                    # Cancel after payment and shipping (customer must submit ReturnRequest)
+                    if transaction_obj and transaction_obj.is_paid and delivery_obj.status in ["shipped", "delivered"]:
+                        if not ReturnRequest.objects.filter(order=instance).exists():
+                            logger.warning(
+                                f"Order {instance.id} canceled after delivery — awaiting customer ReturnRequest submission."
+                            )
                         else:
-                            logger.debug(f"Refund already exists for Order {instance.id}")
-            elif instance.status == "canceled" and instance.shopping_cart.status == "abandoned":
-                logger.debug(f"Order {instance.id} already processed as canceled")
+                            # customer fills fields via API
+                            logger.info(f"ReturnRequest already submitted for Order {instance.id}")
+                    # Cancel after payment but before shipping
+                    elif transaction_obj and transaction_obj.is_paid and delivery_obj.status not in ["shipped", "delivered"]:
+                        cancel_cart(instance)
+                        with transaction.atomic():
+                            refund, created = Refund.objects.get_or_create(
+                                order=instance,
+                                defaults={
+                                    "wallet": instance.wallet,
+                                    "amount": instance.amount_payable,
+                                    "method": "wallet",
+                                    "status": "requested",
+                                }
+                            )
+                            if not created:
+                                logger.info(f"Refund already exists for Order {instance.id}")
+                    # Cancel before payment and shipping
+                    else:
+                        cancel_cart(instance)
+                elif instance.status == "canceled" and instance.shopping_cart.status == "abandoned":
+                    logger.info(f"Order {instance.id} already processed as canceled")
+            else:
+                logger.info("Eligible time for cancelling is 7 days since delivery — window has passed.")
     except Exception as error:
         logger.error(f"Order signal error {instance.id}: {error}", exc_info=True)
 
@@ -180,3 +196,6 @@ def handle_delivery_status_shipped(sender, instance, **kwargs):
             
 
 #========================================================================================================
+
+
+

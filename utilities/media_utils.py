@@ -30,6 +30,11 @@ def upload_to(instance, filename):
         product_name = getattr(instance.product, "name", "unknown") if instance.product else "unknown"
         new_filename = f"{slugify(product_name, allow_unicode=True).lower()}_{uuid4()}{ext}"
         return f"{app_name}/{model_name}/{new_filename}"
+    
+    elif model_name == "returnrequest":
+        order_name = getattr(instance.order, "order_number", "unknown") if instance.order else "unknown"
+        new_filename = f"{slugify(order_name, allow_unicode=True).lower()}_{uuid4()}{ext}"
+        return f"{app_name}/{model_name}/{new_filename}"
 
     else:
         return f"others/{fallback_filename}"
