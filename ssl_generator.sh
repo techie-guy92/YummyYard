@@ -11,6 +11,7 @@
 set -e
 
 DIR="nginx/certbot/conf"
+mkdir -p "nginx/certbot/www"
 mkdir -p "$DIR"
 
 echo -e "Generating SSL certificates for localhost...\n"
