@@ -33,7 +33,12 @@ celerybeat-schedule
 celerybeat-schedule-shm
 celerybeat-schedule-wal
 
+# Ignore TLS
+*.key
+*.crt
+
 # Ignore certs and runtime files
-nginx/certbot/conf/*.key
+# nginx/certbot/conf/*.key
 nginx/certbot/conf/*.crt
-nginx/certbot/www/
+
+# nginx/certbot/www/
