@@ -176,6 +176,7 @@ services:
       - ./nginx/certbot/www:/var/www/certbot
       - ./logs/nginx:/var/log/nginx  
       - ./staticfiles:/static_volume
+      - ./nginx/errors:/var/www/html/errors 
     networks:
       - main
     restart: always
