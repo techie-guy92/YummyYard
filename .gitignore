@@ -37,8 +37,5 @@ celerybeat-schedule-wal
 *.key
 *.crt
 
-# Ignore certs and runtime files
-# nginx/certbot/conf/*.key
-nginx/certbot/conf/*.crt
-
-# nginx/certbot/www/
+# Ignore SSH Key
+*.pub
