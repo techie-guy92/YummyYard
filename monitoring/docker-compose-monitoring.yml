@@ -43,13 +43,12 @@ services:
     image: danihodovic/celery-exporter:latest
     container_name: YummyYard-celery-exporter
     command:
-      - "--broker-url=amqp://${USERNAME}:${PASSWORD}@rabbitmq:5672//" 
+      - "--broker-url=amqp://${USERNAME}:${PASSWORD}@rabbitmq:5672//"
     ports:
       - "9808:9808"
-    network_mode: host
     restart: unless-stopped
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+    networks:
+      - yummyyard_main  
 
   nginx-exporter:
     image: nginx/nginx-prometheus-exporter:latest
@@ -149,3 +148,7 @@ volumes:
   prometheus_data:
   alertmanager_data:
   grafana_data:
+
+networks:
+  yummyyard_main:
+    external: true

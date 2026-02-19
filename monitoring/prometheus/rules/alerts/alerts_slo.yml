@@ -81,7 +81,7 @@ groups:
       description: |
         Current availability is {{ $value }}%,
         below the 99.9% availability SLO.
-        {{ sum(up{job=~"yummyyard-.*"} == 0) }} services are down.
+        The number of down services is {{ $value }}.
 
   # Celery Task Success SLO
   - alert: YummyYardCelerySuccessRateLow
