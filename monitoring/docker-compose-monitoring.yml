@@ -16,19 +16,17 @@ services:
     image: oliver006/redis_exporter:latest
     container_name: YummyYard-redis-exporter
     environment:
-      REDIS_ADDR: "redis://host.docker.internal:6379"
+      REDIS_ADDR: "redis://localhost:6379"  
     ports:
       - "9121:9121"
     network_mode: host
     restart: unless-stopped
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
 
   rabbitmq-exporter:
     image: kbudde/rabbitmq-exporter:latest
     container_name: YummyYard-rabbitmq-exporter
     environment:
-      RABBIT_URL: "http://host.docker.internal:15672"
+      RABBIT_URL: "http://localhost:15672"  
       RABBIT_USER: "${USERNAME}"
       RABBIT_PASSWORD: "${PASSWORD}"
       PUBLISH_PORT: "9419"
@@ -36,8 +34,6 @@ services:
       - "9419:9419"
     network_mode: host
     restart: unless-stopped
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
 
   celery-exporter:
     image: danihodovic/celery-exporter:latest
