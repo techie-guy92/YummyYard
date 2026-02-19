@@ -26,5 +26,5 @@ modules:
   icmp:
     prober: icmp
     timeout: 5s
-    icam:
+    icmp:
       preferred_ip_protocol: "ip4"

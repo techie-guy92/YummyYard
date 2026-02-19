@@ -11,11 +11,8 @@ groups:
       team: backend
       service: "{{ $labels.job }}"
     annotations:
-      summary: "{{ $labels.job | replace 'yummyyard-' '' | title }} service is down"
-      description: |
-        The {{ $labels.job | replace 'yummyyard-' '' }} service has been down for more than 1 minute.
-        Instance: {{ $labels.instance }}
-        Project: YummyYard
+      summary: "Service {{ $labels.job }} is down"
+      description: "The {{ $labels.job }} service has been down for more than 1 minute. Instance: {{ $labels.instance }}"
       runbook: "https://wiki.yummyyard.local/runbooks/service-down"
 
   # Container Health Alerts
@@ -39,10 +36,8 @@ groups:
       severity: warning
       team: backend
     annotations:
-      summary: "High number of PostgreSQL connections"
-      description: |
-        PostgreSQL has {{ $value }} active connections on database {{ $labels.datname }}.
-        This is above the threshold of 80 connections.
+      summary: "High PostgreSQL connections"
+      description: "PostgreSQL has {{ $value }} active connections (threshold: 80)"
 
   - alert: PostgresDeadlocks
     expr: rate(pg_stat_database_deadlocks{datname=~"yummy_yard"}[5m]) > 0
@@ -62,12 +57,9 @@ groups:
     for: 5m
     labels:
       severity: warning
-      team: platform
     annotations:
       summary: "Redis memory usage is high"
-      description: |
-        Redis is using {{ $value | printf "%.1f" }}% of max memory.
-        Consider increasing memory or optimizing cache usage.
+      description: "Redis is using {{ $value }}% of max memory (threshold: 85%)"
 
   - alert: RedisMissingKeys
     expr: redis_keyspace_hits_total / (redis_keyspace_hits_total + redis_keyspace_misses_total) * 100 < 90
@@ -78,8 +70,7 @@ groups:
     annotations:
       summary: "Low Redis cache hit rate"
       description: |
-        Redis cache hit rate is {{ $value | printf "%.1f" }}% (below 90%).
-        Review caching strategy.
+        Redis cache hit rate is {{ $value }}% (below 90%).
 
   # RabbitMQ Alerts
   - alert: RabbitMQHighQueueLength
@@ -127,8 +118,7 @@ groups:
     annotations:
       summary: "High Celery task failure rate"
       description: |
-        Task failure rate is {{ $value | printf "%.1f" }}% (above 5%).
-        Check celery logs for errors.
+        Task failure rate is {{ $value }}% (above 5%).
 
   # Nginx Alerts
   - alert: NginxHigh5xxRate
@@ -140,8 +130,7 @@ groups:
     annotations:
       summary: "High 5xx error rate from nginx"
       description: |
-        Nginx is returning 5xx errors for {{ $value | printf "%.1f" }}% of requests.
-        Backend services may be unhealthy.
+        Nginx is returning 5xx errors for {{ $value }}% of requests.
 
   # Django Alerts
   - alert: DjangoHighRequestLatency
@@ -153,7 +142,7 @@ groups:
     annotations:
       summary: "High request latency in Django"
       description: |
-        P95 latency for view {{ $labels.view }} is {{ $value | printf "%.2f" }}s (above 0.5s).
+        P95 latency for view {{ $labels.view }} is {{ $value }}s (above 0.5s).
 
   - alert: DjangoDatabaseSlowQueries
     expr: rate(django_db_execute_total{type!="connection"}[5m]) > 100
@@ -164,8 +153,7 @@ groups:
     annotations:
       summary: "High database query rate"
       description: |
-        Database is executing {{ $value | printf "%.0f" }} queries per second.
-        May indicate N+1 query problems.
+        Database is executing {{ $value }} queries per second.
 
   - alert: DjangoCacheMissRate
     expr: rate(django_cache_get_miss_total[5m]) / (rate(django_cache_get_total[5m]) + rate(django_cache_get_miss_total[5m])) * 100 > 30
@@ -176,8 +164,7 @@ groups:
     annotations:
       summary: "High cache miss rate"
       description: |
-        Cache miss rate is {{ $value | printf "%.1f" }}% (above 30%).
-        Review caching strategy.
+        Cache miss rate is {{ $value }}% (above 30%).
 
   # System Alerts
   - alert: DiskSpaceLow
@@ -189,8 +176,7 @@ groups:
     annotations:
       summary: "Low disk space on {{ $labels.mountpoint }}"
       description: |
-        Disk usage is at {{ $value | printf "%.1f" }}% on {{ $labels.mountpoint }}.
-        Consider cleaning up old logs or Docker images.
+        Disk usage is at {{ $value }}% on {{ $labels.mountpoint }}.
 
   - alert: HighMemoryUsage
     expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 90
@@ -201,5 +187,4 @@ groups:
     annotations:
       summary: "High memory usage on host"
       description: |
-        Host memory usage is at {{ $value | printf "%.1f" }}%.
-        Check for memory leaks or scale up resources.
+        Host memory usage is at {{ $value }}%.
