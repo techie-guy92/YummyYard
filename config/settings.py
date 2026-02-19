@@ -51,6 +51,7 @@ if not LOG_DIR.exists():
     
 
 INSTALLED_APPS = [
+    'django_prometheus',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -86,6 +87,7 @@ INSTALLED_APPS = [
 
 
 MIDDLEWARE = [
+    'django_prometheus.middleware.PrometheusBeforeMiddleware', 
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -96,7 +98,11 @@ MIDDLEWARE = [
     'config.middleware.RequestMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
     # 'allauth.account.middleware.AccountMiddleware',
+    'django_prometheus.middleware.PrometheusAfterMiddleware',
 ]
+
+
+PROMETHEUS_EXPORT_MIGRATIONS = True
 
 
 ROOT_URLCONF = 'config.urls'
@@ -338,6 +344,10 @@ CELERY_BROKER_URL = env.str('URL_BROKER')
 CELERY_RESULT_BACKEND = env.str('REDIS_CELERY_RESULTS')
 # CELERY_RESULT_BACKEND = 'django-db'
 CELERY_RESULT_EXPIRES = 3600  
+
+# Celery Events for Monitoring
+CELERY_WORKER_SEND_TASK_EVENTS = True
+CELERY_TASK_SEND_SENT_EVENT = True
 
 # Serialization
 CELERY_TASK_SERIALIZER = 'json'

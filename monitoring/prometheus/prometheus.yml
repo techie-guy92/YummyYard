@@ -1,0 +1,93 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    monitor: 'yummyyard-monitor'
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ['localhost:9093']
+
+rule_files:
+  - "rules/alerts/*.yml"
+  # - "rules/recording_rules/*.yml"
+
+scrape_configs:
+  # Django metrics
+  - job_name: 'yummyyard-django'
+    scrape_interval: 10s
+    metrics_path: /metrics
+    static_configs:
+      - targets: ['host.docker.internal:8000']
+        labels:
+          service: 'django'
+          project: 'yummyyard'
+
+  # PostgreSQL
+  - job_name: 'yummyyard-postgres'
+    static_configs:
+      - targets: ['host.docker.internal:9187']
+        labels:
+          service: 'postgres'
+          project: 'yummyyard'
+
+  # Redis
+  - job_name: 'yummyyard-redis'
+    static_configs:
+      - targets: ['host.docker.internal:9121']
+        labels:
+          service: 'redis'
+          project: 'yummyyard'
+
+  # RabbitMQ
+  - job_name: 'yummyyard-rabbitmq'
+    static_configs:
+      - targets: ['host.docker.internal:9419']
+        labels:
+          service: 'rabbitmq'
+          project: 'yummyyard'
+
+  # Celery
+  - job_name: 'yummyyard-celery'
+    static_configs:
+      - targets: ['host.docker.internal:9808']
+        labels:
+          service: 'celery'
+          project: 'yummyyard'
+
+  # Nginx
+  - job_name: 'yummyyard-nginx'
+    static_configs:
+      - targets: ['host.docker.internal:9113']
+        labels:
+          service: 'nginx'
+          project: 'yummyyard'
+
+  # Blackbox - endpoint monitoring
+  - job_name: 'yummyyard-blackbox'
+    metrics_path: /probe
+    params:
+      module: [http_2xx]
+    static_configs:
+      - targets:
+        - https://YummyYard.local:8443
+        - http://YummyYard.local:8080
+        - http://host.docker.internal:8000/health/
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: localhost:9115
+
+  # Prometheus itself
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+  
+  # Alertmanager
+  - job_name: 'alertmanager'
+    static_configs:
+      - targets: ['localhost:9093'] 

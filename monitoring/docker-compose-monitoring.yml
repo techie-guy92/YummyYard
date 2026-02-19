@@ -1,0 +1,151 @@
+services:
+  # Exporters
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:latest
+    container_name: YummyYard-postgres-exporter
+    environment:
+      DATA_SOURCE_NAME: "postgresql://${USERNAME}:${PASSWORD}@host.docker.internal:5433/${DB_NAME}?sslmode=disable"
+    ports:
+      - "9187:9187"
+    network_mode: host  
+    restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  redis-exporter:
+    image: oliver006/redis_exporter:latest
+    container_name: YummyYard-redis-exporter
+    environment:
+      REDIS_ADDR: "redis://host.docker.internal:6379"
+    ports:
+      - "9121:9121"
+    network_mode: host
+    restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  rabbitmq-exporter:
+    image: kbudde/rabbitmq-exporter:latest
+    container_name: YummyYard-rabbitmq-exporter
+    environment:
+      RABBIT_URL: "http://host.docker.internal:15672"
+      RABBIT_USER: "${USERNAME}"
+      RABBIT_PASSWORD: "${PASSWORD}"
+      PUBLISH_PORT: "9419"
+    ports:
+      - "9419:9419"
+    network_mode: host
+    restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  celery-exporter:
+    image: danihodovic/celery-exporter:latest
+    container_name: YummyYard-celery-exporter
+    command:
+      - "--broker-url=amqp://${USERNAME}:${PASSWORD}@host.docker.internal:5672//"
+    ports:
+      - "9808:9808"
+    network_mode: host
+    restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  nginx-exporter:
+    image: nginx/nginx-prometheus-exporter:latest
+    container_name: YummyYard-nginx-exporter
+    command:
+      - "-nginx.scrape-uri=http://host.docker.internal:8080/nginx_status"
+    ports:
+      - "9113:9113"
+    network_mode: host
+    restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  # Monitoring Core
+  prometheus:
+    image: prom/prometheus:v3.7.1
+    container_name: YummyYard-prometheus
+    env_file:
+      - ../.env
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus/rules:/etc/prometheus/rules:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+      - '--web.enable-lifecycle'
+    ports:
+      - "9090:9090"
+    network_mode: host
+    restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  alertmanager:
+    image: prom/alertmanager:latest
+    container_name: YummyYard-alertmanager
+    env_file:
+      - ../.env
+    environment:
+      - SMTP_AUTH_USERNAME=${EMAIL_HOST_USER}
+      - SMTP_AUTH_PASSWORD=${EMAIL_HOST_PASSWORD}
+    volumes:
+      - ./alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - alertmanager_data:/alertmanager
+    command:
+      - '--config.file=/etc/alertmanager/alertmanager.yml'
+      - '--storage.path=/alertmanager'
+    ports:
+      - "9093:9093"
+    network_mode: host
+    restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  blackbox-exporter:
+    image: prom/blackbox-exporter:v0.24.0
+    container_name: YummyYard-blackbox
+    volumes:
+      - ./blackbox/blackbox.yml:/etc/blackbox_exporter/config.yml:ro
+    command:
+      - '--config.file=/etc/blackbox_exporter/config.yml'
+    ports:
+      - "9115:9115"
+    network_mode: host
+    restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: YummyYard-grafana
+    volumes:
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - grafana_data:/var/lib/grafana
+    env_file:
+      - ../.env
+    environment:
+      - GF_SECURITY_ADMIN_USER=${USERNAME:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${PASSWORD:-admin}
+      - GF_SECURITY_ADMIN_EMAIL=${EMAIL:-admin}
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_INSTALL_PLUGINS=grafana-piechart-panel
+    ports:
+      - "3000:3000"
+    network_mode: host
+    restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      - prometheus
+
+volumes:
+  prometheus_data:
+  alertmanager_data:
+  grafana_data:

@@ -1,0 +1,205 @@
+groups:
+- name: basic_alerts
+  interval: 30s
+  rules:
+  # Service Down Alerts
+  - alert: YummyYardServiceDown
+    expr: up{job=~"yummyyard-.*"} == 0
+    for: 1m
+    labels:
+      severity: critical
+      team: backend
+      service: "{{ $labels.job }}"
+    annotations:
+      summary: "{{ $labels.job | replace 'yummyyard-' '' | title }} service is down"
+      description: |
+        The {{ $labels.job | replace 'yummyyard-' '' }} service has been down for more than 1 minute.
+        Instance: {{ $labels.instance }}
+        Project: YummyYard
+      runbook: "https://wiki.yummyyard.local/runbooks/service-down"
+
+  # Container Health Alerts
+  - alert: ContainerRestartingFrequently
+    expr: rate(container_last_seen{container_label_com_docker_compose_project="yummyyard"}[15m]) > 0
+    for: 5m
+    labels:
+      severity: warning
+      team: platform
+    annotations:
+      summary: "Container {{ $labels.name }} is restarting frequently"
+      description: |
+        Container {{ $labels.name }} has restarted multiple times in the last 15 minutes.
+        This may indicate instability.
+
+  # Database Connection Alerts
+  - alert: PostgresHighConnections
+    expr: pg_stat_database_numbackends{datname=~"yummy_yard"} > 80
+    for: 5m
+    labels:
+      severity: warning
+      team: backend
+    annotations:
+      summary: "High number of PostgreSQL connections"
+      description: |
+        PostgreSQL has {{ $value }} active connections on database {{ $labels.datname }}.
+        This is above the threshold of 80 connections.
+
+  - alert: PostgresDeadlocks
+    expr: rate(pg_stat_database_deadlocks{datname=~"yummy_yard"}[5m]) > 0
+    for: 1m
+    labels:
+      severity: critical
+      team: backend
+    annotations:
+      summary: "PostgreSQL deadlocks detected"
+      description: |
+        Deadlocks are occurring in the database at a rate of {{ $value }} per second.
+        This requires immediate investigation.
+
+  # Redis Alerts
+  - alert: RedisHighMemory
+    expr: (redis_memory_used_bytes / redis_memory_max_bytes) * 100 > 85
+    for: 5m
+    labels:
+      severity: warning
+      team: platform
+    annotations:
+      summary: "Redis memory usage is high"
+      description: |
+        Redis is using {{ $value | printf "%.1f" }}% of max memory.
+        Consider increasing memory or optimizing cache usage.
+
+  - alert: RedisMissingKeys
+    expr: redis_keyspace_hits_total / (redis_keyspace_hits_total + redis_keyspace_misses_total) * 100 < 90
+    for: 10m
+    labels:
+      severity: warning
+      team: backend
+    annotations:
+      summary: "Low Redis cache hit rate"
+      description: |
+        Redis cache hit rate is {{ $value | printf "%.1f" }}% (below 90%).
+        Review caching strategy.
+
+  # RabbitMQ Alerts
+  - alert: RabbitMQHighQueueLength
+    expr: rabbitmq_queue_messages_ready{queue=~"celery|default"} > 1000
+    for: 5m
+    labels:
+      severity: warning
+      team: backend
+    annotations:
+      summary: "High queue length in RabbitMQ"
+      description: |
+        Queue {{ $labels.queue }} has {{ $value }} messages ready.
+        Celery workers may be falling behind.
+
+  - alert: RabbitMQConsumerDown
+    expr: rabbitmq_queue_consumers{queue=~"celery|default"} == 0
+    for: 2m
+    labels:
+      severity: critical
+      team: backend
+    annotations:
+      summary: "No consumers for queue {{ $labels.queue }}"
+      description: |
+        Queue {{ $labels.queue }} has no active consumers.
+        Celery workers may be down.
+
+  # Celery Alerts
+  - alert: CeleryWorkerDown
+    expr: celery_workers_alive == 0
+    for: 2m
+    labels:
+      severity: critical
+      team: backend
+    annotations:
+      summary: "No Celery workers are alive"
+      description: |
+        All Celery workers are down. No background tasks are being processed.
+
+  - alert: CeleryHighTaskFailureRate
+    expr: rate(celery_tasks_failed_total[10m]) / rate(celery_tasks_received_total[10m]) * 100 > 5
+    for: 5m
+    labels:
+      severity: warning
+      team: backend
+    annotations:
+      summary: "High Celery task failure rate"
+      description: |
+        Task failure rate is {{ $value | printf "%.1f" }}% (above 5%).
+        Check celery logs for errors.
+
+  # Nginx Alerts
+  - alert: NginxHigh5xxRate
+    expr: sum(rate(nginx_http_requests_total{status=~"5\\d\\d"}[5m])) / sum(rate(nginx_http_requests_total[5m])) * 100 > 2
+    for: 5m
+    labels:
+      severity: warning
+      team: backend
+    annotations:
+      summary: "High 5xx error rate from nginx"
+      description: |
+        Nginx is returning 5xx errors for {{ $value | printf "%.1f" }}% of requests.
+        Backend services may be unhealthy.
+
+  # Django Alerts
+  - alert: DjangoHighRequestLatency
+    expr: histogram_quantile(0.95, sum(rate(django_http_requests_latency_seconds_bucket[5m])) by (le, view)) > 0.5
+    for: 5m
+    labels:
+      severity: warning
+      team: backend
+    annotations:
+      summary: "High request latency in Django"
+      description: |
+        P95 latency for view {{ $labels.view }} is {{ $value | printf "%.2f" }}s (above 0.5s).
+
+  - alert: DjangoDatabaseSlowQueries
+    expr: rate(django_db_execute_total{type!="connection"}[5m]) > 100
+    for: 5m
+    labels:
+      severity: warning
+      team: backend
+    annotations:
+      summary: "High database query rate"
+      description: |
+        Database is executing {{ $value | printf "%.0f" }} queries per second.
+        May indicate N+1 query problems.
+
+  - alert: DjangoCacheMissRate
+    expr: rate(django_cache_get_miss_total[5m]) / (rate(django_cache_get_total[5m]) + rate(django_cache_get_miss_total[5m])) * 100 > 30
+    for: 10m
+    labels:
+      severity: warning
+      team: backend
+    annotations:
+      summary: "High cache miss rate"
+      description: |
+        Cache miss rate is {{ $value | printf "%.1f" }}% (above 30%).
+        Review caching strategy.
+
+  # System Alerts
+  - alert: DiskSpaceLow
+    expr: (1 - (node_filesystem_avail_bytes{fstype=~"ext4|xfs"} / node_filesystem_size_bytes{fstype=~"ext4|xfs"})) * 100 > 85
+    for: 5m
+    labels:
+      severity: warning
+      team: platform
+    annotations:
+      summary: "Low disk space on {{ $labels.mountpoint }}"
+      description: |
+        Disk usage is at {{ $value | printf "%.1f" }}% on {{ $labels.mountpoint }}.
+        Consider cleaning up old logs or Docker images.
+
+  - alert: HighMemoryUsage
+    expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 90
+    for: 5m
+    labels:
+      severity: warning
+      team: platform
+    annotations:
+      summary: "High memory usage on host"
+      description: |
+        Host memory usage is at {{ $value | printf "%.1f" }}%.
+        Check for memory leaks or scale up resources.

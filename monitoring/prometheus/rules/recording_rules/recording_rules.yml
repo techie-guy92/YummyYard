@@ -1,0 +1,24 @@
+groups:
+  - name: recording_rules
+    interval: 1m
+    rules:
+      - record: job:http_errors:rate5m
+        expr: sum(rate(http_requests_total{status=~"5.."}[5m])) by (job)
+
+      - record: instance:celery_tasks:success_rate
+        expr: |
+          sum(rate(celery_tasks_succeeded_total[5m])) by (instance) 
+          /
+          (sum(rate(celery_tasks_succeeded_total[5m])) by (instance) 
+           + sum(rate(celery_tasks_failed_total[5m])) by (instance))
+        labels:
+          metric_type: "slo"
+
+      - record: job:request_latency:p95
+        expr: |
+          histogram_quantile(0.95, 
+            sum(rate(django_http_requests_latency_seconds_bucket[5m])) by (le, job)
+          )
+
+      - record: job:celery_queue_depth:avg
+        expr: avg(rabbitmq_queue_messages_ready{queue=~"celery.*"}) by (job)

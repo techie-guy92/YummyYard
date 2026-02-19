@@ -1,0 +1,108 @@
+groups:
+- name: slo_alerts
+  interval: 1m
+  rules:
+  # Error Budget Alerts
+  - alert: YummyYardErrorBudgetBurning
+    expr: |
+      (
+        sum(rate(django_http_responses_total_by_status{status=~"5.."}[1h]))
+        /
+        sum(rate(django_http_responses_total[1h]))
+      ) * 100 > 0.5
+    for: 15m
+    labels:
+      severity: critical
+      slo: "99.5"
+      error_budget: "burning"
+    annotations:
+      summary: "Error budget is burning too fast"
+      description: |
+        Error rate is {{ $value | printf "%.2f" }}% in the last hour.
+        This exceeds the 0.5% error budget allowance for 99.5% SLO.
+        Current error budget remaining: {{ printf "%.2f" (sub 0.5 $value) }}%
+
+  - alert: YummyYardErrorBudgetExhausted
+    expr: |
+      (
+        sum(rate(django_http_responses_total_by_status{status=~"5.."}[30d]))
+        /
+        sum(rate(django_http_responses_total[30d]))
+      ) * 100 > 0.5
+    labels:
+      severity: critical
+      slo: "99.5"
+      error_budget: "exhausted"
+    annotations:
+      summary: "Error budget exhausted for the month"
+      description: |
+        Rolling 30-day error rate is {{ $value | printf "%.2f" }}%,
+        exceeding the 99.5% SLO (0.5% error allowance).
+        This SLO has been breached for the month.
+
+  # Latency SLOs
+  - alert: YummyYardHighLatencyAPI
+    expr: |
+      histogram_quantile(0.95, 
+        sum(rate(django_http_requests_latency_seconds_bucket{view=~"api.*"}[5m])) by (le)
+      ) > 0.3
+    for: 10m
+    labels:
+      severity: warning
+      slo: "latency_p95"
+    annotations:
+      summary: "API latency exceeds SLO"
+      description: |
+        P95 latency for API endpoints is {{ $value | printf "%.2f" }}s.
+        This exceeds the 300ms SLO.
+
+  - alert: YummyYardHighLatencyAdmin
+    expr: |
+      histogram_quantile(0.95, 
+        sum(rate(django_http_requests_latency_seconds_bucket{view=~"admin.*"}[5m])) by (le)
+      ) > 1.0
+    for: 10m
+    labels:
+      severity: warning
+      slo: "latency_p95_admin"
+    annotations:
+      summary: "Admin latency exceeds SLO"
+      description: |
+        P95 latency for admin endpoints is {{ $value | printf "%.2f" }}s.
+        This exceeds the 1s SLO.
+
+  # Availability SLO
+  - alert: YummyYardAvailabilityLow
+    expr: |
+      (
+        sum(up{job=~"yummyyard-.*"})
+        /
+        count(up{job=~"yummyyard-.*"})
+      ) * 100 < 99.9
+    for: 5m
+    labels:
+      severity: critical
+      slo: "availability_99.9"
+    annotations:
+      summary: "Service availability below SLO"
+      description: |
+        Current availability is {{ $value | printf "%.2f" }}%,
+        below the 99.9% availability SLO.
+        {{ sum(up{job=~"yummyyard-.*"} == 0) }} services are down.
+
+  # Celery Task Success SLO
+  - alert: YummyYardCelerySuccessRateLow
+    expr: |
+      sum(rate(celery_tasks_succeeded_total[1h]))
+      /
+      (sum(rate(celery_tasks_succeeded_total[1h])) + sum(rate(celery_tasks_failed_total[1h])))
+      * 100 < 99
+    for: 15m
+    labels:
+      severity: warning
+      slo: "celery_99"
+    annotations:
+      summary: "Celery task success rate below SLO"
+      description: |
+        Task success rate is {{ $value | printf "%.2f" }}% in the last hour.
+        This is below the 99% SLO.
