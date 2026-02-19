@@ -407,3 +407,4 @@ CACHE_TTL = 60 * 15
 #         'OAUTH_PKCE_ENABLED': True,
 #     }
 # }
+MIDDLEWARE.insert(0, "config.metrics_middleware.MetricsHostBypassMiddleware")

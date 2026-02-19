@@ -16,7 +16,7 @@ services:
     image: oliver006/redis_exporter:latest
     container_name: YummyYard-redis-exporter
     environment:
-      REDIS_ADDR: "redis://localhost:6379"  
+      REDIS_ADDR: "redis://172.18.0.3:6379"  
     ports:
       - "9121:9121"
     network_mode: host
