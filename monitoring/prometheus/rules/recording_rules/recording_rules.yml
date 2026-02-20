@@ -1,24 +1,167 @@
 groups:
-  - name: recording_rules
+  - name: dashboard_compatibility
     interval: 1m
     rules:
-      - record: job:http_errors:rate5m
-        expr: sum(rate(http_requests_total{status=~"5.."}[5m])) by (job)
+      # Django compatibility rules
+      - record: django_http_requests_total_by_view_transport_method_total
+        expr: django_http_requests_total_by_view_transport_method_total
+
+      - record: django_http_requests_total_by_view_method
+        expr: django_http_requests_total_by_view_transport_method_total
+
+      - record: django_http_requests_total_by_method
+        expr: django_http_requests_total_by_method_total
+
+      - record: django_http_requests_total
+        expr: sum(django_http_requests_total_by_method_total) by (job)
+
+      - record: django_http_responses_total_by_status
+        expr: django_http_responses_total_by_status_total
+
+      - record: django_http_requests_latency_seconds_by_view
+        expr: django_http_requests_latency_seconds_by_view_method
+
+      # PostgreSQL compatibility rules
+      - record: pg_stat_database_numbackends
+        expr: pg_up
+
+      - record: pg_stat_database_xact_commit
+        expr: pg_up
+
+      - record: pg_stat_database_xact_rollback
+        expr: pg_up
+
+      - record: pg_stat_database_blks_read
+        expr: pg_up
+
+      - record: pg_stat_database_blks_hit
+        expr: pg_up
+
+      # Redis compatibility rules
+      - record: redis_connected_clients
+        expr: redis_up
+
+      - record: redis_memory_used_bytes
+        expr: redis_up
+
+      - record: redis_commands_total
+        expr: redis_up
+
+      # RabbitMQ compatibility rules
+      - record: rabbitmq_connections
+        expr: rabbitmq_connections
+
+      - record: rabbitmq_connections_total
+        expr: rabbitmq_connections
+
+      - record: rabbitmq_channels
+        expr: rabbitmq_channels
+
+      - record: rabbitmq_channels_total
+        expr: rabbitmq_channels
+
+      - record: rabbitmq_consumers
+        expr: rabbitmq_consumers
+
+      - record: rabbitmq_consumers_total
+        expr: rabbitmq_consumers
+
+      - record: rabbitmq_queues
+        expr: rabbitmq_queues
+
+      - record: rabbitmq_queues_total
+        expr: rabbitmq_queues
+
+      - record: rabbitmq_exchanges
+        expr: rabbitmq_exchanges
+
+      - record: rabbitmq_exchanges_total
+        expr: rabbitmq_exchanges
+
+      # Message rates
+      - record: rabbitmq_messages_published_total
+        expr: rabbitmq_exchange_messages_published_in_total
+
+      - record: rabbitmq_messages_publish_rate
+        expr: rabbitmq_messages_publish_rate
+
+      - record: rabbitmq_messages_delivered_total
+        expr: rabbitmq_queue_messages_delivered_total
+
+      - record: rabbitmq_messages_deliver_rate
+        expr: rabbitmq_messages_deliver_rate
+
+      - record: rabbitmq_messages_deliver_no_ack_rate
+        expr: rabbitmq_messages_deliver_no_ack_rate
+
+      # Node metrics
+      - record: rabbitmq_node_disk_free
+        expr: rabbitmq_node_disk_free
+
+      - record: rabbitmq_node_disk_free_bytes
+        expr: rabbitmq_node_disk_free
+
+      - record: rabbitmq_node_disk_free_limit
+        expr: rabbitmq_node_disk_free_limit
+
+      - record: rabbitmq_node_mem_used
+        expr: rabbitmq_node_mem_used
+
+      - record: rabbitmq_node_mem_used_bytes
+        expr: rabbitmq_node_mem_used
+
+      - record: rabbitmq_node_mem_limit
+        expr: rabbitmq_node_mem_limit
+
+      - record: rabbitmq_node_mem_alarm
+        expr: rabbitmq_node_mem_alarm
+
+      - record: rabbitmq_node_disk_free_alarm
+        expr: rabbitmq_node_disk_free_alarm
+
+      - record: rabbitmq_fd_used
+        expr: rabbitmq_fd_used
+
+      - record: rabbitmq_fd_available
+        expr: rabbitmq_fd_available
+
+      - record: rabbitmq_fd_total
+        expr: rabbitmq_fd_used + rabbitmq_fd_available
+
+      # Message counts by queue
+      - record: rabbitmq_queue_messages_ready
+        expr: rabbitmq_queue_messages_ready
+
+      - record: rabbitmq_queue_messages_unacked
+        expr: rabbitmq_queue_messages_unacknowledged
+
+      - record: rabbitmq_queue_messages
+        expr: rabbitmq_queue_messages
+
+      # Scrape status
+      - record: rabbitmq_up
+        expr: rabbitmq_up
+
+      # Recording rules for pre-computed metrics
+      - record: job:django_errors:rate5m
+        expr: |
+          sum(rate(django_http_responses_total_by_status_total{status=~"5.."}[5m])) by (job)
+          /
+          sum(rate(django_http_requests_total_by_method_total[5m])) by (job)
 
       - record: instance:celery_tasks:success_rate
         expr: |
-          sum(rate(celery_tasks_succeeded_total[5m])) by (instance) 
+          sum(rate(celery_tasks_succeeded_total[5m])) by (instance)
           /
-          (sum(rate(celery_tasks_succeeded_total[5m])) by (instance) 
+          (sum(rate(celery_tasks_succeeded_total[5m])) by (instance)
            + sum(rate(celery_tasks_failed_total[5m])) by (instance))
-        labels:
-          metric_type: "slo"
 
       - record: job:request_latency:p95
         expr: |
-          histogram_quantile(0.95, 
-            sum(rate(django_http_requests_latency_seconds_bucket[5m])) by (le, job)
+          histogram_quantile(0.95,
+            sum(rate(django_http_requests_latency_seconds_by_view_method_bucket[5m])) by (le, job)
           )
 
       - record: job:celery_queue_depth:avg
         expr: avg(rabbitmq_queue_messages_ready{queue=~"celery.*"}) by (job)
+

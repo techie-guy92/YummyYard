@@ -13,7 +13,7 @@ groups:
     annotations:
       summary: "Service {{ $labels.job }} is down"
       description: "The {{ $labels.job }} service has been down for more than 1 minute. Instance: {{ $labels.instance }}"
-      runbook: "https://wiki.yummyyard.local/runbooks/service-down"
+      runbook: "https://wiki.yummyyard.local/runbooks/DjangoApplication.md#yummyyardservicedown"
 
   # Container Health Alerts
   - alert: ContainerRestartingFrequently
