@@ -46,7 +46,7 @@ services:
       - "9808:9808"
     restart: unless-stopped
     networks:
-      - yummyyard_main  
+      - yummyyard_main
 
   nginx-exporter:
     image: nginx/nginx-prometheus-exporter:latest

@@ -1,10 +1,10 @@
 global:
   smtp_from: 'alertmanager@yourdomain.com'
   smtp_smarthost: 'smtp.gmail.com:587'
-  # smtp_auth_username: 'tesla.upload.manager@gmail.com'
-  # smtp_auth_password: 'wlkh cxlm jrsj eiel' 
-  smtp_auth_username: '{{ .Env.SMTP_AUTH_USERNAME }}' 
-  smtp_auth_password: '{{ .Env.SMTP_AUTH_PASSWORD }}'
+  smtp_auth_username: 'tesla.upload.manager@gmail.com'
+  smtp_auth_password: 'wlkh cxlm jrsj eiel'
+  #smtp_auth_username: '${SMTP_AUTH_USERNAME}'
+  #smtp_auth_password: '${SMTP_AUTH_PASSWORD}'
   smtp_require_tls: true
 
 route:
