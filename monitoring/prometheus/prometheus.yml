@@ -11,7 +11,7 @@ alerting:
 
 rule_files:
   - "rules/alerts/*.yml"
-  # - "rules/recording_rules/*.yml"
+  - "rules/recording_rules/*.yml"
 
 scrape_configs:
   # Django metrics
