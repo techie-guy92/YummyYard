@@ -75,3 +75,4 @@ nginx/certbot/www/
 Dockerfile
 docker-compose.yml
 .dockerignore
+NOTE.txt

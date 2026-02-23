@@ -1,0 +1,185 @@
+- name: Deploy YummyYard monitoring stack
+  hosts: vm-server
+  become: yes
+  vars_files:
+    - app_vars.yml
+
+  tasks:
+    - name: Ensure monitoring directory exists
+      file:
+        path: "{{ app_dir }}/monitoring"
+        state: directory
+        owner: "{{ server_owner }}"
+        group: "{{ server_owner }}"
+        mode: '0755'
+
+    - name: Copy monitoring files with proper permissions
+      synchronize:
+        src: "{{ local_project_path }}/monitoring/"
+        dest: "{{ app_dir }}/monitoring/"
+        rsync_opts:
+          - "--exclude=.git"
+          - "--exclude=__pycache__"
+          - "--exclude=*.pyc"
+          - "--exclude=venv"
+          - "--no-perms"  
+          - "--no-owner" 
+          - "--no-group"  
+        rsync_path: rsync
+      become: yes  
+
+    - name: Fix Prometheus rules permissions for container user
+      file:
+        path: "{{ app_dir }}/monitoring/prometheus/rules"
+        owner: "65534" 
+        group: "65534"
+        mode: '0755'
+        recurse: yes
+      become: yes
+
+    - name: Verify Prometheus rules permissions after fix
+      command: ls -la {{ app_dir }}/monitoring/prometheus/rules/alerts/
+      register: perm_check
+      changed_when: false
+
+    - name: Show permissions
+      debug:
+        msg: "{{ perm_check.stdout_lines }}"
+
+    - name: Update Prometheus config with correct rule paths
+      lineinfile:
+        path: "{{ app_dir }}/monitoring/prometheus/prometheus.yml"
+        regexp: '^  - "rules/alerts/\*\.yml"'
+        line: '  - "/etc/prometheus/rules/alerts/*.yml"'
+        backrefs: yes
+      become: yes
+
+    - name: Update Prometheus recording rules path
+      lineinfile:
+        path: "{{ app_dir }}/monitoring/prometheus/prometheus.yml"
+        regexp: '^  - "rules/recording_rules/\*\.yml"'
+        line: '  - "/etc/prometheus/rules/recording_rules/*.yml"'
+        backrefs: yes
+      become: yes
+
+    - name: Deploy alertmanager config with secrets 
+      template:
+        src: templates/alertmanager.yml.j2
+        dest: "{{ app_dir }}/monitoring/alertmanager/alertmanager.yml"
+        mode: '0644'
+        owner: "{{ server_owner }}"
+        group: "{{ server_owner }}"
+      become: yes
+
+    - name: Ensure monitoring config files have correct permissions
+      file:
+        path: "{{ app_dir }}/monitoring"
+        owner: "{{ server_owner }}"
+        group: "{{ server_owner }}"
+        recurse: yes
+        mode: '0744'
+
+    - name: Make alert_checker.sh executable
+      file:
+        path: "{{ app_dir }}/monitoring/alert_checker.sh"
+        mode: '0755'
+
+    - name: Remove existing .env file in monitoring directory
+      file:
+        path: "{{ app_dir }}/monitoring/.env"
+        state: absent
+      ignore_errors: yes
+
+    - name: Create soft link for .env file in monitoring directory
+      file:
+        src: "{{ app_dir }}/.env"
+        dest: "{{ app_dir }}/monitoring/.env"
+        state: link
+        owner: "{{ server_owner }}"
+        group: "{{ server_owner }}"
+        force: yes
+
+    - name: Fix permissions for Grafana dashboards
+      file:
+        path: "{{ app_dir }}/monitoring/grafana/dashboards"
+        owner: "472"
+        group: "472"
+        mode: '0755'
+        recurse: yes
+      become: yes
+
+    - name: Fix permissions for Grafana provisioning
+      file:
+        path: "{{ app_dir }}/monitoring/grafana/provisioning"
+        owner: "472"
+        group: "472"
+        mode: '0755'
+        recurse: yes
+      become: yes
+
+    - name: Remove existing docker-compose-monitoring.yml if it exists
+      file:
+        path: "{{ app_dir }}/monitoring/docker-compose-monitoring.yml"
+        state: absent
+      ignore_errors: yes
+
+    - name: Create soft link for docker-compose-monitoring.yml
+      file:
+        src: "{{ app_dir }}/docker-compose-monitoring.yml"
+        dest: "{{ app_dir }}/monitoring/docker-compose-monitoring.yml"
+        state: link
+        owner: "{{ server_owner }}"
+        group: "{{ server_owner }}"
+        force: yes
+
+    - name: Verify soft links were created
+      command: ls -la {{ app_dir }}/monitoring/
+      register: link_check
+      changed_when: false
+
+    - name: Show link info
+      debug:
+        msg: "{{ link_check.stdout_lines }}"
+
+    - name: Stop any old monitoring containers
+      community.docker.docker_compose_v2:
+        project_src: "{{ app_dir }}/monitoring"
+        files:
+          - docker-compose-monitoring.yml
+        state: absent
+        remove_orphans: true
+        remove_volumes: false
+
+    - name: Start monitoring containers
+      community.docker.docker_compose_v2:
+        project_src: "{{ app_dir }}/monitoring"
+        files:
+          - docker-compose-monitoring.yml
+        state: present
+        build: always
+        pull: always
+
+    - name: Wait for monitoring stack to be ready
+      wait_for:
+        port: "{{ item }}"
+        host: "{{ ansible_host }}"
+        delay: 5
+        timeout: 60
+      loop:
+        - 9090  
+        - 9093  
+        - 3000  
+        - 9115  
+
+    - name: Verify monitoring containers are running
+      community.docker.docker_compose_v2:
+        project_src: "{{ app_dir }}/monitoring"
+        files:
+          - docker-compose-monitoring.yml
+        state: present
+      register: monitoring_status
+
+    - name: Show monitoring container status
+      debug:
+        var: monitoring_status.containers | map(attribute='Names') | flatten
+        

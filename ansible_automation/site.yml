@@ -1,0 +1,14 @@
+- name: Deploy complete YummyYard stack
+  hosts: vm-server
+  become: yes
+  vars_files:
+    - app_vars.yml
+
+- ansible.builtin.import_playbook: deploy_app.yml
+  tags: app
+
+- ansible.builtin.import_playbook: deploy_nginx.yml
+  tags: nginx
+
+- ansible.builtin.import_playbook: deploy_monitoring.yml
+  tags: monitoring

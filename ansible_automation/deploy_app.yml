@@ -1,0 +1,102 @@
+- name: Deploy YummyYard application
+  hosts: vm-server
+  become: yes
+  vars_files:
+    - app_vars.yml
+
+  tasks:
+    - name: Ensure application directory exists on remote
+      file:
+        path: "{{ app_dir }}"
+        state: directory
+        owner: "{{ server_owner }}"
+        group: "{{ server_owner }}"
+        mode: '0755'
+
+    - name: Synchronize project files to remote (excluding ansible)
+      synchronize:
+        src: "{{ local_project_path }}/"
+        dest: "{{ app_dir }}/"
+        rsync_opts:
+          - "--exclude=.git"
+          - "--exclude=__pycache__"
+          - "--exclude=*.pyc"
+          - "--exclude=venv"
+          - "--exclude=logs"
+          - "--exclude=staticfiles"  
+          - "--exclude=tutorial"  
+          - "--exclude=ansible_automation"  
+          - "--exclude=monitoring" 
+        rsync_path: rsync
+
+    - name: Create necessary directories
+      file:
+        path: "{{ item }}"
+        state: directory
+        owner: "{{ server_owner }}"
+        group: "{{ server_owner }}"
+        mode: '0755'
+      loop:
+        - "{{ app_dir }}/app/staticfiles"
+        - "{{ app_dir }}/nginx/certbot/conf"
+        - "{{ app_dir }}/nginx/errors"
+        - "{{ app_dir }}/ansible_automation" 
+
+    - name: Create placeholder nginx.conf
+      copy:
+        content: |
+          # Placeholder nginx config - will be replaced by deploy_nginx.yml
+        dest: "{{ nginx_config_path }}"
+        force: no
+        mode: '0644'
+        backup: no
+
+    - name: Copy docker-compose-monitoring.yml to root (no symlink needed)
+      copy:
+        src: "{{ local_project_path }}/monitoring/docker-compose-monitoring.yml"
+        dest: "{{ app_dir }}/docker-compose-monitoring.yml"
+        mode: '0644'
+        owner: "{{ server_owner }}"
+        group: "{{ server_owner }}"
+
+    - name: Stop any old containers
+      community.docker.docker_compose_v2:
+        project_src: "{{ app_dir }}"
+        state: absent
+        remove_orphans: true
+        remove_volumes: false
+
+    - name: Build and start containers
+      community.docker.docker_compose_v2:
+        project_src: "{{ app_dir }}"
+        state: present
+        build: always
+
+    - name: Verify container status
+      community.docker.docker_compose_v2:
+        project_src: "{{ app_dir }}"
+        state: present
+      register: compose_status
+
+    - name: Show container status
+      debug:
+        var: compose_status.containers | map(attribute='Names') | flatten
+
+    - name: Remove redundant ansible files but keep nginx.conf
+      file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - "{{ app_dir }}/ansible_automation/deploy_app.yml"
+        - "{{ app_dir }}/ansible_automation/deploy_nginx.yml"
+        - "{{ app_dir }}/ansible_automation/deploy_monitoring.yml"
+        - "{{ app_dir }}/ansible_automation/site.yml"
+        - "{{ app_dir }}/ansible_automation/app_vars.yml"
+        - "{{ app_dir }}/ansible_automation/inventory"
+        - "{{ app_dir }}/ansible_automation/NOTE.txt"
+        - "{{ app_dir }}/ansible_automation/*.bak"
+        - "{{ app_dir }}/ansible_automation/*~"
+        - "{{ app_dir }}/ansible_automation/nginx.conf.*" 
+      ignore_errors: yes
+      become: yes
+        

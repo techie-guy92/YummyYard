@@ -1,8 +1,8 @@
 global:
   smtp_from: 'alertmanager@yourdomain.com'
   smtp_smarthost: 'smtp.gmail.com:587'
-  smtp_auth_username: ''
-  smtp_auth_password: ''
+  smtp_auth_username: '{{ email_host_user }}'
+  smtp_auth_password: '{{ email_host_password }}'
   smtp_require_tls: true
 
 route:
@@ -23,14 +23,14 @@ receivers:
   - to: 'soheil.dalirii@gmail.com'
     send_resolved: true
     headers:
-      subject: '[Alert] {{ .GroupLabels.alertname }} - {{ .GroupLabels.severity }}'
+      subject: '{% raw %}[Alert] {{ .GroupLabels.alertname }} - {{ .GroupLabels.severity }}{% endraw %}'
 
 - name: 'critical-email'
   email_configs:
   - to: 'soheil.dalirii@gmail.com'
     send_resolved: true
     headers:
-      subject: '[CRITICAL] {{ .GroupLabels.alertname }} - Immediate Action Required!'
+      subject: '{% raw %}[CRITICAL] {{ .GroupLabels.alertname }} - Immediate Action Required!{% endraw %}'
 
 inhibit_rules:
 - source_match:

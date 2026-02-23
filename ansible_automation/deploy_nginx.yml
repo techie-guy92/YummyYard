@@ -1,0 +1,68 @@
+- name: Configure Nginx TLS reverse proxy
+  hosts: vm-server
+  become: yes
+  vars_files:
+    - app_vars.yml
+
+  tasks:
+    - name: Ensure SSL directory exists
+      file:
+        path: "{{ ssl_cert_path }}"
+        state: directory
+        mode: '0755'
+
+    - name: Generate SSL certificate (self-signed for development)
+      command: >
+        openssl req -x509 -nodes -newkey rsa:2048
+        -keyout {{ app_dir }}/nginx/certbot/conf/{{ domain }}.key
+        -out {{ app_dir }}/nginx/certbot/conf/{{ domain }}.crt
+        -days 365
+        -subj "/C=IR/ST=Tehran/L=Tehran/O=YummyYard/CN={{ domain }}"
+      args:
+        creates: "{{ app_dir }}/nginx/certbot/conf/{{ domain }}.crt"
+
+    - name: Ensure error pages directory exists
+      file:
+        path: "{{ error_pages_path }}"
+        state: directory
+        mode: '0755'
+
+    - name: Deploy error pages
+      copy:
+        src: "../nginx/errors/{{ item }}"
+        dest: "{{ error_pages_path }}/{{ item }}"
+        mode: '0644'
+      loop:
+        - 404.html
+        - 50x.html
+
+    - name: Deploy nginx config to app directory for Docker volume mount
+      copy:
+        src: "{{ local_project_path }}/nginx/conf/default.conf"
+        dest: "{{ nginx_config_path }}"
+        mode: '0644'
+        backup: yes
+
+    - name: Wait for nginx container to be ready
+      wait_for:
+        timeout: 30
+      delegate_to: localhost
+
+    - name: Verify nginx config syntax
+      command: docker exec YummyYard-nginx nginx -t
+      register: nginx_test
+      changed_when: false
+      ignore_errors: yes
+      retries: 5
+      delay: 5
+      until: nginx_test.rc == 0
+
+    - name: Show nginx test result
+      debug:
+        var: nginx_test.stdout_lines
+
+    - name: Reload nginx if config changed
+      command: docker exec YummyYard-nginx nginx -s reload
+      when: nginx_test is changed
+      ignore_errors: yes
+      

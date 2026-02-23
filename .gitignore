@@ -5,7 +5,6 @@ settings.json
 storage_utils.py
 
 # Ignore dirs
-templates/
 tutorial/
 /media/
 /images/
@@ -41,4 +40,6 @@ celerybeat-schedule-wal
 # nginx/certbot/conf/*.key
 nginx/certbot/conf/*.crt
 
-# nginx/certbot/www/
+ansible_automation/app_vars.yml
+ansible_automation/inventory
+ansible_automation/NOTE.txt

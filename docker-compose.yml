@@ -4,6 +4,7 @@ services:
       context: ./app 
       dockerfile: Dockerfile
     container_name: ${PROJECT_NAME}-web
+    user: "1000:1000"
     env_file:
       - .env
     environment:
@@ -171,7 +172,7 @@ services:
       web:
         condition: service_healthy
     volumes:
-      - ./nginx/conf:/etc/nginx/conf.d  
+      - ./nginx/conf:/etc/nginx/conf.d 
       - ./nginx/certbot/conf:/etc/letsencrypt 
       - ./nginx/certbot/www:/var/www/certbot 
       - ./nginx/errors:/var/www/html/errors
@@ -197,3 +198,4 @@ volumes:
   celerybeat_data:
   shared_downloads:
   static_volume:
+  
