@@ -2,12 +2,12 @@
 
 [![Django](https://img.shields.io/badge/Django-5.1.6-green.svg)](https://www.djangoproject.com/)
 [![Django REST Framework](https://img.shields.io/badge/DRF-3.15.2-red.svg)](https://www.django-rest-framework.org/)
-[![Docker](https://img.shields.io/badge/Docker-24.0+-blue.svg)](https://www.docker.com/)
-[![Ansible](https://img.shields.io/badge/Ansible-2.16+-black.svg)](https://www.ansible.com/)
-[![Celery](https://img.shields.io/badge/Celery-5.4+-green.svg)](https://docs.celeryq.dev/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15.4-blue.svg)](https://www.postgresql.org/)
+[![Celery](https://img.shields.io/badge/Celery-5.4+-green.svg)](https://docs.celeryq.dev/)
 [![Redis](https://img.shields.io/badge/Redis-7.2-red.svg)](https://redis.io/)
 [![RabbitMQ](https://img.shields.io/badge/RabbitMQ-3.12-orange.svg)](https://www.rabbitmq.com/)
+[![Docker](https://img.shields.io/badge/Docker-24.0+-blue.svg)](https://www.docker.com/)
+[![Ansible](https://img.shields.io/badge/Ansible-2.16+-black.svg)](https://www.ansible.com/)
 [![Prometheus](https://img.shields.io/badge/Prometheus-3.7+-orange.svg)](https://prometheus.io/)
 [![Grafana](https://img.shields.io/badge/Grafana-latest-orange.svg)](https://grafana.com/)
 
@@ -49,7 +49,7 @@ The platform provides seamless management of users, products, categories, and tr
 ├────────────────────────── MONITORING ───────────────────────────┤
 │                                                                 │
 │  ┌─────────────────────────────────────────────────────────┐    │
-│  │  Prometheus  │  Grafana  │  Alertmanager  │  Exporters  │    │
+│  │  Prometheus  │  Grafana   │  Alertmanager  │  Exporters │    │
 │  │  (Metrics)   │(Dashboards)│   (Alerts)     │(7 Services)│    │
 │  └─────────────────────────────────────────────────────────┘    │
 │                                                                 │
