@@ -20,6 +20,12 @@ The platform provides seamless management of users, products, categories, and tr
 For complete App explanations, see the [Application README](./app/README.md).
 And for detailed monitoring explanations, see the [Monitoring README](./monitoring/README.md).
 
+## Important Notes
+
+- **Backend Only**: Yummy Yard is a pure API service. No frontend framework or client-side JavaScript is included.
+- **Admin Panel JavaScript**: The only JavaScript code in this project is used within Django's Admin Panel to enhance the UI with AJAX functionality for dynamic data loading.
+- **API-First Design**: All client applications should interact with the backend through the provided REST API endpoints.
+
 ---
 
 ## Architecture
