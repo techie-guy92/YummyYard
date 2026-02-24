@@ -1,4 +1,4 @@
-# Yummy Yard - Full Stack E-Commerce Platform
+# Yummy Yard (Django-DRF) - Stack E-Commerce Platform
 
 [![Django](https://img.shields.io/badge/Django-5.1.6-green.svg)](https://www.djangoproject.com/)
 [![Django REST Framework](https://img.shields.io/badge/DRF-3.15.2-red.svg)](https://www.django-rest-framework.org/)
@@ -7,15 +7,18 @@
 [![Redis](https://img.shields.io/badge/Redis-7.2-red.svg)](https://redis.io/)
 [![RabbitMQ](https://img.shields.io/badge/RabbitMQ-3.12-orange.svg)](https://www.rabbitmq.com/)
 [![Docker](https://img.shields.io/badge/Docker-24.0+-blue.svg)](https://www.docker.com/)
-[![Ansible](https://img.shields.io/badge/Ansible-2.16+-black.svg)](https://www.ansible.com/)
 [![Prometheus](https://img.shields.io/badge/Prometheus-3.7+-orange.svg)](https://prometheus.io/)
 [![Grafana](https://img.shields.io/badge/Grafana-latest-orange.svg)](https://grafana.com/)
+[![Ansible](https://img.shields.io/badge/Ansible-2.16+-black.svg)](https://www.ansible.com/)
 
 ## Overview
 
 **Yummy Yard** is a production-ready e-commerce backend platform built with Django Rest Framework (DRF). This project demonstrates a complete DevOps pipeline with containerized microservices, comprehensive monitoring, and infrastructure-as-code deployment.
 
 The platform provides seamless management of users, products, categories, and transactional processes, enhanced with JWT authentication, Celery for background tasks, and full observability stack.
+
+For complete App explanations, see the [Application README](./app/README.md).
+And for detailed monitoring explanations, see the [Monitoring README](./monitoring/README.md).
 
 ---
 
@@ -269,8 +272,8 @@ For major changes, please open an issue first to discuss your ideas.
 ## Acknowledgments
 
 - Built with [Django Rest Framework](https://www.django-rest-framework.org/)
-- Monitoring stack powered by [Prometheus](https://prometheus.io/) & [Grafana](https://grafana.com/)
 - Container orchestration with [Docker](https://www.docker.com/)
+- Monitoring stack powered by [Prometheus](https://prometheus.io/) & [Grafana](https://grafana.com/)
 - Infrastructure automation with [Ansible](https://www.ansible.com/)
 
 ---
