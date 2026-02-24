@@ -92,4 +92,4 @@ scrape_configs:
   # Alertmanager
   - job_name: 'alertmanager'
     static_configs:
-      - targets: ['localhost:9093'] 
+      - targets: ['localhost:9093']

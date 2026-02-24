@@ -11,7 +11,7 @@
 [![Prometheus](https://img.shields.io/badge/Prometheus-3.7+-orange.svg)](https://prometheus.io/)
 [![Grafana](https://img.shields.io/badge/Grafana-latest-orange.svg)](https://grafana.com/)
 
-## 📋 Overview
+## Overview
 
 **Yummy Yard** is a production-ready e-commerce backend platform built with Django Rest Framework (DRF). This project demonstrates a complete DevOps pipeline with containerized microservices, comprehensive monitoring, and infrastructure-as-code deployment.
 
@@ -19,7 +19,7 @@ The platform provides seamless management of users, products, categories, and tr
 
 ---
 
-## 🏗️ Architecture
+## Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -75,7 +75,7 @@ The platform provides seamless management of users, products, categories, and tr
 
 ---
 
-## 🚀 Features
+## Features
 
 ### **E-Commerce Functionality**
 - **User Management**: Registration, email verification, password reset, JWT authentication
@@ -101,7 +101,7 @@ The platform provides seamless management of users, products, categories, and tr
 
 ---
 
-## 📚 Documentation Structure
+## Documentation Structure
 
 This project contains detailed documentation for each component:
 
@@ -114,7 +114,7 @@ This project contains detailed documentation for each component:
 
 ---
 
-## 🛠️ Quick Start
+## Quick Start
 
 ### **Prerequisites**
 - Docker and Docker Compose (v2.0+)
@@ -157,7 +157,7 @@ This project contains detailed documentation for each component:
 
 ---
 
-## 📦 Production Deployment
+## Production Deployment
 
 ### **Ansible Automation**
 
@@ -176,16 +176,16 @@ ansible-playbook -i inventory site.yml --tags monitoring # Monitoring stack only
 ```
 
 ### **Deployment Features**
-- ✅ Idempotent deployments
-- ✅ Zero-downtime updates
-- ✅ SSL certificate generation
-- ✅ Persistent volumes for data
-- ✅ Automated monitoring setup
-- ✅ Grafana dashboards auto-provisioning
+- Idempotent deployments
+- Zero-downtime updates
+- SSL certificate generation
+- Persistent volumes for data
+- Automated monitoring setup
+- Grafana dashboards auto-provisioning
 
 ---
 
-## 🔍 API Endpoints
+## API Endpoints
 
 ### **Users API**
 | Endpoint | Method | Description |
@@ -211,7 +211,7 @@ For complete API documentation, see the [Application README](./app/README.md).
 
 ---
 
-## 📊 Monitoring Stack
+## Monitoring Stack
 
 ### **Pre-configured Dashboards**
 
@@ -231,7 +231,7 @@ For detailed monitoring setup, see the [Monitoring README](./monitoring/README.m
 
 ---
 
-## 🧪 Testing
+## Testing
 
 The application includes comprehensive tests using Django's `APITestCase`:
 
@@ -252,7 +252,7 @@ Test utilities and constants are organized in:
 
 ---
 
-## 🤝 Contributing
+## Contributing
 
 Contributions are welcome! Please follow these steps:
 
@@ -266,7 +266,7 @@ For major changes, please open an issue first to discuss your ideas.
 
 ---
 
-## 🙏 Acknowledgments
+## Acknowledgments
 
 - Built with [Django Rest Framework](https://www.django-rest-framework.org/)
 - Monitoring stack powered by [Prometheus](https://prometheus.io/) & [Grafana](https://grafana.com/)
@@ -275,7 +275,7 @@ For major changes, please open an issue first to discuss your ideas.
 
 ---
 
-## 📞 Contact
+## Contact
 
 **Project Maintainer**: [techie-guy92](https://github.com/techie-guy92)
 
