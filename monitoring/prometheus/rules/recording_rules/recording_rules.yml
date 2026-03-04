@@ -164,4 +164,3 @@ groups:
 
       - record: job:celery_queue_depth:avg
         expr: avg(rabbitmq_queue_messages_ready{queue=~"celery.*"}) by (job)
-
