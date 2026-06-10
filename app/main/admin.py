@@ -38,7 +38,7 @@ class CategoryFilter(SimpleListFilter):
 
 @admin.register(Category)
 class CategoryAdmin(admin.ModelAdmin):
-    list_display = ["id", "parent", "slug", "created_at", "updated_at"]
+    list_display = ["id", "name", "parent", "slug", "created_at", "updated_at"]
     list_filter = [CategoryFilter]
     search_fields = ["slug", "parent"]
     ordering = ["id"]
@@ -48,7 +48,7 @@ class CategoryAdmin(admin.ModelAdmin):
 
 @admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):
-    list_display = ["id", "slug", "current_stock", "category", "price", "created_at", "updated_at"]
+    list_display = ["id", "name", "slug", "current_stock", "category", "price", "created_at", "updated_at"]
     list_filter = ["category"]
     search_fields = ["slug"]
     ordering = ["slug"]
